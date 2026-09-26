@@ -1,0 +1,29 @@
+MORGAN LEE
+Product Manager
+morgan.lee@example.com | linkedin profile on request
+
+SUMMARY
+Product Manager with 5 years of experience owning product strategy and roadmap
+for B2B SaaS. Strong communication skills and a track record of shipping
+data-informed features with cross-functional teams.
+
+EXPERIENCE
+
+Product Manager — Summit Software (2021 - Present)
+- Own the product roadmap for the analytics suite; prioritize with a
+  value-versus-effort framework (RICE).
+- Translate customer problems into clear user stories with acceptance criteria.
+- Define success metrics for launches and run A/B tests to validate impact.
+- Align engineering, design, and stakeholders through regular communication and
+  written product specs.
+
+Associate Product Manager — Trailhead Apps (2019 - 2021)
+- Ran discovery interviews and synthesized user needs.
+- Managed the backlog and coordinated releases.
+
+SKILLS
+Product strategy, roadmap planning, prioritization, user stories, metrics,
+A/B testing, stakeholder management, communication, Agile
+
+EDUCATION
+B.B.A. Business Administration — Metro University (2019)

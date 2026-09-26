@@ -1,0 +1,31 @@
+JORDAN AVERY
+Senior Backend Engineer
+jordan.avery@example.com | github.com/javery-dev | Remote
+
+SUMMARY
+Senior Backend Engineer with 8 years building high-throughput services and
+distributed systems. Deep experience in Python and SQL, containerized
+deployments with Docker, and large-scale system design.
+
+EXPERIENCE
+
+Senior Backend Engineer — Northwind Payments (2020 - Present)
+- Designed and owned the core payments API (Python, PostgreSQL) handling
+  ~4,000 requests/second with idempotent transaction guarantees.
+- Led the migration from a monolith to services communicating over a message
+  queue, improving deploy independence and fault isolation.
+- Introduced database indexing and query tuning that cut p99 latency by 40%.
+- Built rate limiting and API authentication (JWT) for public partner APIs.
+
+Backend Engineer — Cedar Analytics (2016 - 2020)
+- Built REST APIs and background workers in Python.
+- Owned schema design, normalization, and replication/sharding strategy for a
+  multi-tenant SQL database.
+- Containerized services with Docker and set up CI pipelines.
+
+SKILLS
+Python, SQL, PostgreSQL, Docker, REST APIs, System Design, distributed systems,
+message queues, caching, Redis, Git, Linux
+
+EDUCATION
+B.S. Computer Science — State University (2016)

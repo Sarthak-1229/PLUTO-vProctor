@@ -1,0 +1,31 @@
+DEVON WRIGHT
+Principal Full-Stack Engineer
+devon.wright@example.com | github.com/devonwright
+
+SUMMARY
+Principal Full-Stack Engineer with 11 years of experience leading teams and
+architecting systems across the entire stack. Works as a full-stack developer
+fluent from React front ends to Python and Java backend services, SQL and
+NoSQL data stores, and large-scale system design.
+
+EXPERIENCE
+
+Principal Engineer — Atlas Cloud (2018 - Present)
+- Architect end-to-end systems: React/TypeScript front ends, backend services
+  in Python and Java, and event-driven pipelines.
+- Own system design reviews: scaling, caching, replication vs sharding, and
+  load balancing strategy across regions.
+- Design REST APIs and data models spanning both SQL and NoSQL databases.
+- Mentor engineers and set technical direction across multiple teams.
+
+Senior Software Engineer — Ironclad Systems (2013 - 2018)
+- Built full-stack features and core platform services.
+- Containerized services with Docker and improved deployment reliability.
+
+SKILLS
+JavaScript, React, Python, Java, SQL, NoSQL, REST APIs, system design,
+distributed systems, caching, Docker, data structures, algorithms, Git, Linux
+
+EDUCATION
+M.S. Computer Science — Granite University (2013)
+B.S. Computer Science — Granite University (2011)

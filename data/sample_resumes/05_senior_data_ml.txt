@@ -1,0 +1,30 @@
+DR. ALEX KIM
+Senior Machine Learning Engineer
+alex.kim@example.com | github.com/alexkim-ml | scholar profile on request
+
+SUMMARY
+Senior Machine Learning Engineer with 9 years spanning research and production
+ML. Owns models end to end: framing, training deep learning architectures, and
+deploying with robust MLOps and drift monitoring.
+
+EXPERIENCE
+
+Senior ML Engineer — Vertex AI Labs (2019 - Present)
+- Lead the recommendation modeling team; design and train deep learning models.
+- Built the production ML pipeline: feature stores, training orchestration, and
+  model serving with automated retraining.
+- Instrumented data-drift and concept-drift monitoring; set up alerting and
+  rollback for degraded models in production.
+- Championed rigorous evaluation: guarded against data leakage, used proper
+  train/validation/test discipline and offline/online metric parity.
+
+Machine Learning Scientist — Beacon Research (2015 - 2019)
+- Published work on representation learning; trained models in PyTorch.
+- Ran large-scale experiments and hyperparameter search.
+
+SKILLS
+Python, machine learning, deep learning, PyTorch, TensorFlow, statistics,
+MLOps, model deployment, data pipelines, SQL, Docker
+
+EDUCATION
+Ph.D. Computer Science (Machine Learning) — Institute of Technology (2015)

@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <meta name="color-scheme" content="dark"/>
+  <title>PLUTO vProctor — Interview Practice</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    :root{
+      --bg:#000000; --bg-input:#0A0A0A;
+      --text:#FFFFFF; --text-muted:#B4B4B4; --text-subtle:#7A7A7A; --dim:#555555;
+      --border:#191919; --border-strong:#2E2E2E; --border-focus:#4A4A4A;
+      /* monochrome: former accent/amber/danger tokens all collapse to white/gray */
+      --green:#FFFFFF; --amber:#9A9A9A; --danger:#FFFFFF;
+      --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+      --col:760px;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    html{-webkit-text-size-adjust:100%;}
+    body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15px;
+      line-height:1.65;-webkit-font-smoothing:antialiased;min-height:100vh;letter-spacing:.01em;}
+    ::selection{background:rgba(255,255,255,.22);color:#000;}
+    ::-webkit-scrollbar{width:10px;height:10px;}
+    ::-webkit-scrollbar-track{background:transparent;}
+    ::-webkit-scrollbar-thumb{background:#1F1F1F;border:2px solid var(--bg);}
+    ::-webkit-scrollbar-thumb:hover{background:#2A2A2A;}
+    a{color:var(--text-muted);text-decoration:none;}
+    a:hover{color:var(--text);}
+    .col{max-width:var(--col);margin:0 auto;padding:0 24px;}
+    .topbar{position:sticky;top:0;z-index:30;background:var(--bg);border-bottom:1px solid var(--border);}
+    .topbar .col{display:flex;align-items:center;justify-content:space-between;height:52px;}
+    .brand{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--text);
+      letter-spacing:.02em;display:flex;align-items:center;}
+    .brand .slash{color:var(--dim);}
+    .brand .cursor{display:inline-block;width:7px;height:14px;background:var(--green);
+      margin-left:7px;animation:blink 1.1s steps(1) infinite;}
+    @keyframes blink{0%,50%{opacity:1;}50.01%,100%{opacity:0;}}
+    .topbar a{font-family:var(--mono);font-size:12px;color:var(--text-subtle);padding:6px 10px;border:1px solid transparent;}
+    .topbar a:hover{color:var(--text);border-color:var(--border-strong);}
+    main{padding:34px 0 120px;}
+    .disclaimer{font-family:var(--mono);font-size:12px;line-height:1.75;color:var(--text-subtle);
+      border-left:2px solid var(--border-strong);padding:2px 0 2px 16px;margin-bottom:42px;}
+    .disclaimer b{color:var(--text-muted);font-weight:600;}
+    .screen{display:none;} .screen.active{display:block;animation:fade .2s ease;}
+    @keyframes fade{from{opacity:0;}to{opacity:1;}}
+    .sec{margin-bottom:38px;}
+    .sec-label{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.14em;
+      text-transform:uppercase;color:var(--text-subtle);margin-bottom:12px;display:flex;align-items:center;gap:9px;}
+    .sec-label .idx{color:var(--green);}
+    .sec-desc{color:var(--text-muted);font-size:13.5px;margin-bottom:16px;line-height:1.6;}
+    label.fld{display:block;font-family:var(--mono);font-size:11px;letter-spacing:.08em;
+      text-transform:uppercase;color:var(--text-subtle);margin:16px 0 7px;}
+    input[type=text],input[type=number],select,textarea{width:100%;padding:11px 13px;background:var(--bg-input);
+      color:var(--text);border:1px solid var(--border-strong);border-radius:3px;font-family:var(--sans);font-size:14px;
+      line-height:1.5;transition:border-color .15s;}
+    select{cursor:pointer;}
+    input[type=file]{width:100%;font-family:var(--mono);font-size:12.5px;color:var(--text-muted);padding:8px 0;}
+    input[type=file]::file-selector-button{font-family:var(--mono);font-size:12px;background:transparent;color:var(--text);
+      border:1px solid var(--border-strong);padding:7px 12px;border-radius:3px;margin-right:12px;cursor:pointer;}
+    input[type=file]::file-selector-button:hover{border-color:var(--border-focus);}
+    textarea{resize:vertical;min-height:88px;}
+    input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 1px rgba(255,255,255,.22);}
+    .row{display:flex;gap:14px;flex-wrap:wrap;} .row>*{flex:1;min-width:150px;}
+    .consent{display:flex;align-items:flex-start;gap:12px;padding:13px 0;border-bottom:1px solid var(--border);}
+    .consent:last-child{border-bottom:none;}
+    .consent input{margin-top:2px;width:15px;height:15px;accent-color:var(--green);flex:0 0 auto;cursor:pointer;}
+    .consent .txt{font-size:13.5px;} .consent .txt b{font-weight:600;color:var(--text);}
+    .consent .txt small{display:block;color:var(--text-subtle);font-size:12px;margin-top:3px;line-height:1.55;}
+    .btn{font-family:var(--mono);font-size:12.5px;font-weight:500;background:transparent;color:var(--text);
+      border:1px solid var(--border-strong);border-radius:3px;padding:9px 16px;cursor:pointer;
+      letter-spacing:.02em;transition:border-color .15s,color .15s,background .15s;}
+    .btn:hover{border-color:var(--border-focus);color:#fff;}
+    .btn-primary:hover{border-color:var(--green);color:var(--green);background:rgba(255,255,255,.08);}
+    .btn-danger{color:var(--text-subtle);}
+    .btn-danger:hover{border-color:var(--danger);color:var(--danger);background:rgba(255,255,255,.08);}
+    .btn:disabled{opacity:.4;cursor:not-allowed;border-color:var(--border-strong);color:var(--text-subtle);}
+    .btnrow{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:22px;}
+    .status{font-family:var(--mono);font-size:12px;color:var(--text-subtle);margin-top:10px;min-height:16px;line-height:1.5;}
+    .mic-status{font-family:var(--mono);font-size:12px;color:var(--text-subtle);margin-top:2px;min-height:16px;}
+    .progress{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+      color:var(--text-subtle);margin-bottom:8px;}
+    .bar{height:2px;background:var(--border-strong);margin-bottom:34px;overflow:hidden;}
+    .bar>div{height:100%;width:0;background:var(--green);transition:width .3s ease;}
+    .q-turn{border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:26px;}
+    .role{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+      margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+    .role.interviewer{color:var(--green);}
+    .role.you{color:var(--text-subtle);margin-top:30px;}
+    .qtext{font-size:21px;line-height:1.5;color:var(--text);font-weight:500;letter-spacing:-.01em;}
+    .qmeta{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px;}
+    .chip{font-family:var(--mono);font-size:11px;color:var(--text-muted);border:1px solid var(--border-strong);
+      padding:3px 8px;border-radius:3px;letter-spacing:.02em;}
+    .cam-wrap{margin:18px 0 4px;}
+    #cam{width:220px;max-width:100%;border:1px solid var(--border-strong);border-radius:3px;
+      transform:scaleX(-1);background:#000;display:block;}
+    .cam-metrics{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:7px;letter-spacing:.02em;}
+    .ans{margin-top:8px;}
+    #answer{min-height:150px;}
+    .rec-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);
+      animation:pulse 1.1s ease-in-out infinite;}
+    @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.25;}}
+    .rep-section{border-bottom:1px solid var(--border);padding:6px 0 26px;margin-bottom:26px;}
+    .rep-section:last-of-type{border-bottom:none;}
+    .rep-section h3{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.1em;
+      text-transform:uppercase;color:var(--green);margin-bottom:16px;}
+    .stat{display:inline-flex;flex-direction:column;gap:2px;margin:0 34px 8px 0;}
+    .stat .v{font-family:var(--mono);font-size:22px;color:var(--text);font-weight:600;}
+    .stat .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-subtle);}
+    .item{padding:14px 0;border-bottom:1px solid var(--border);}
+    .item:last-child{border-bottom:none;}
+    .item .top{display:flex;justify-content:space-between;align-items:baseline;gap:14px;
+      font-size:14px;color:var(--text);flex-wrap:wrap;}
+    .score{font-family:var(--mono);font-size:12px;color:var(--text-muted);white-space:nowrap;
+      display:inline-flex;align-items:center;gap:7px;}
+    .q{color:var(--text-muted);font-size:13.5px;margin-top:7px;line-height:1.55;}
+    .missing{color:var(--amber);font-family:var(--mono);font-size:12px;margin-top:7px;line-height:1.55;}
+    ul.recs{list-style:none;} ul.recs li{position:relative;padding-left:22px;margin:10px 0;
+      color:var(--text-muted);font-size:14px;line-height:1.55;}
+    ul.recs li:before{content:"\2192";position:absolute;left:0;color:var(--green);font-family:var(--mono);}
+    .muted{color:var(--text-muted);font-size:14px;line-height:1.6;margin:6px 0;}
+    .hint{font-family:var(--mono);font-size:11.5px;line-height:1.7;color:var(--text-subtle);
+      border-left:2px solid var(--border-strong);padding-left:14px;margin-top:26px;}
+    .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(20px);
+      background:#141414;border:1px solid var(--border-strong);color:var(--text);font-family:var(--mono);
+      font-size:12.5px;padding:11px 18px;border-radius:3px;opacity:0;pointer-events:none;
+      transition:opacity .2s,transform .2s;z-index:50;max-width:90vw;}
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+    .spinner{display:inline-block;width:12px;height:12px;border:2px solid var(--border-strong);
+      border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-1px;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    @media(max-width:600px){.qtext{font-size:19px;}.stat{margin-right:24px;}}
+  </style>
+</head>
+<body>
+<header class="topbar">
+  <div class="col">
+    <span class="brand">pluto<span class="slash">/</span>vproctor<span class="cursor"></span></span>
+    <span style="font-family:var(--mono);font-size:12px;color:var(--text-subtle)">local · practice diagnostic</span>
+  </div>
+</header>
+<main>
+  <div class="col">
+    <div class="disclaimer">
+      <b># practice diagnostic — not an evaluation of hireability.</b><br>
+      Makes no judgment of emotion, nervousness, confidence, honesty, or interview-readiness,
+      and produces no pass/fail result or 0–100 score. Speech &amp; camera metrics are descriptive
+      numbers and never affect how your answers are scored.
+    </div>
+    <section id="screen-setup" class="screen active">
+      <div class="sec">
+        <div class="sec-label"><span class="idx">01</span> background</div>
+        <div class="sec-desc">Drop a résumé (PDF / DOCX / TXT) or paste text — role, seniority and skills are inferred locally to pick questions. Nothing leaves this machine.</div>
+        <label class="fld" for="resumeFile">résumé file</label>
+        <input type="file" id="resumeFile" accept=".pdf,.docx,.txt">
+        <label class="fld" for="resumeText">…or paste résumé text</label>
+        <textarea id="resumeText" placeholder="paste résumé text here (optional)"></textarea>
+        <div class="btnrow">
+          <button class="btn btn-primary" id="parseBtn">parse résumé →</button>
+          <span class="status" id="parseStatus"></span>
+        </div>
+        <div class="row" style="margin-top:22px">
+          <div>
+            <label class="fld" for="role">target role</label>
+            <input type="text" id="role" placeholder="backend / frontend / data-ml / pm">
+          </div>
+          <div>
+            <label class="fld" for="seniority">seniority</label>
+            <select id="seniority">
+              <option value="junior">junior</option>
+              <option value="mid" selected>mid</option>
+              <option value="senior">senior</option>
+            </select>
+          </div>
+          <div>
+            <label class="fld" for="limit">questions</label>
+            <input type="number" id="limit" value="8" min="3" max="20">
+          </div>
+        </div>
+        <label class="fld" for="skills">skills (comma-separated)</label>
+        <input type="text" id="skills" placeholder="python, sql, react …">
+      </div>
+      <div class="sec">
+        <div class="sec-label"><span class="idx">02</span> consent</div>
+        <div class="sec-desc">You control what's captured. Speech &amp; camera signals stay descriptive and never affect scoring; revoke and delete everything from the report.</div>
+        <label class="consent">
+          <input type="checkbox" id="cAudio" checked>
+          <span class="txt"><b>Microphone</b> — speak answers via in-browser speech-to-text.
+            <small>Transcribed locally in your browser; no audio leaves this machine.</small></span>
+        </label>
+        <label class="consent">
+          <input type="checkbox" id="cVideo">
+          <span class="txt"><b>Camera</b> — descriptive on-camera metrics (face-present, centered, head-motion).
+            <small>Computed in-browser only. Never scored, never a verdict on you.</small></span>
+        </label>
+        <label class="consent">
+          <input type="checkbox" id="cStore" checked>
+          <span class="txt"><b>Store transcript</b> — keep answer text so the report can show per-question detail.
+            <small>Uncheck to keep transcripts empty server-side. Delete anytime.</small></span>
+        </label>
+        <div class="btnrow">
+          <button class="btn btn-primary" id="startBtn">start interview →</button>
+          <span class="status" id="startStatus"></span>
+        </div>
+      </div>
+    </section>
+    <section id="screen-interview" class="screen">
+      <div class="progress" id="progress">Question 1</div>
+      <div class="bar"><div id="progressBar"></div></div>
+      <div class="q-turn">
+        <div class="role interviewer">interviewer
+          <button class="btn" id="replayBtn" style="padding:3px 9px;font-size:11px;text-transform:none;letter-spacing:.02em">↻ replay audio</button>
+        </div>
+        <div class="qtext" id="qtext">…</div>
+        <div class="qmeta" id="qmeta"></div>
+      </div>
+      <div class="role you">you</div>
+      <div class="cam-wrap" id="camBox" style="display:none">
+        <video id="cam" autoplay muted playsinline></video>
+        <div class="cam-metrics" id="camMetrics">camera on — analyzing…</div>
+      </div>
+      <div class="ans">
+        <div class="btnrow" style="margin-top:0;margin-bottom:10px">
+          <button class="btn" id="micBtn">▶ speak</button>
+          <span class="mic-status" id="micStatus"></span>
+        </div>
+        <textarea id="answer" placeholder="type your answer, or click ▶ speak to dictate…"></textarea>
+      </div>
+      <div class="btnrow">
+        <button class="btn btn-primary" id="submitBtn">submit →</button>
+        <button class="btn" id="nextBtn" style="display:none">next question →</button>
+        <button class="btn btn-danger" id="finishBtn">finish · view report</button>
+        <span class="status" id="answerStatus"></span>
+      </div>
+    </section>
+    <section id="screen-report" class="screen">
+      <div class="sec-label" style="margin-bottom:22px">## practice report</div>
+      <div id="reportBody"><p class="muted"><span class="spinner"></span> building report…</p></div>
+      <div class="btnrow">
+        <button class="btn btn-primary" id="pdfBtn">↓ download pdf</button>
+        <button class="btn" id="againBtn">↻ practice again</button>
+        <button class="btn btn-danger" id="deleteBtn">✕ delete my session data</button>
+        <span class="status" id="reportStatus"></span>
+      </div>
+    </section>
+  </div>
+</main>
+<div class="toast" id="toast"></div>
+<script src="/interview.js"></script>
+</body>
+</html>

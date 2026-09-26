@@ -1,0 +1,27 @@
+{
+  "taxonomy_version": 1,
+  "description": "Controlled vocabulary that bridges resumes and the question bank. The resume parser AND the bank tag against these same slugs/aliases or selection silently under-matches.",
+  "roles": {
+    "swe-backend": { "label": "Backend Engineer", "aliases": ["backend developer", "backend engineer", "server-side developer", "api developer"] },
+    "swe-frontend": { "label": "Frontend Engineer", "aliases": ["frontend developer", "front-end engineer", "ui developer", "web developer"] },
+    "swe-fullstack": { "label": "Full-Stack Engineer", "aliases": ["full stack developer", "fullstack engineer", "full-stack developer"] },
+    "data-ml": { "label": "Data / ML Engineer", "aliases": ["data scientist", "machine learning engineer", "ml engineer", "data engineer", "ai engineer"] },
+    "pm": { "label": "Product Manager", "aliases": ["product manager", "product owner", "associate product manager", "apm"] }
+  },
+  "skills": {
+    "python": { "aliases": ["py", "python3"], "domains": ["swe-backend", "data-ml", "swe-fullstack"] },
+    "java": { "aliases": ["jdk", "spring", "spring boot"], "domains": ["swe-backend"] },
+    "javascript": { "aliases": ["js", "es6", "typescript", "ts"], "domains": ["swe-frontend", "swe-fullstack"] },
+    "react": { "aliases": ["reactjs", "react.js", "next.js", "nextjs"], "domains": ["swe-frontend", "swe-fullstack"] },
+    "sql": { "aliases": ["mysql", "postgres", "postgresql", "rdbms"], "domains": ["swe-backend", "data-ml"] },
+    "nosql": { "aliases": ["mongodb", "redis", "cassandra", "dynamodb"], "domains": ["swe-backend"] },
+    "rest-api": { "aliases": ["rest", "restful", "api design", "graphql"], "domains": ["swe-backend", "swe-fullstack"] },
+    "system-design": { "aliases": ["distributed systems", "scalability", "architecture"], "domains": ["swe-backend", "swe-fullstack"] },
+    "data-structures": { "aliases": ["dsa", "algorithms", "data structures and algorithms"], "domains": ["swe-backend", "swe-frontend", "data-ml"] },
+    "machine-learning": { "aliases": ["ml", "deep learning", "neural networks", "scikit-learn", "pytorch", "tensorflow"], "domains": ["data-ml"] },
+    "statistics": { "aliases": ["stats", "probability", "hypothesis testing"], "domains": ["data-ml"] },
+    "docker": { "aliases": ["containers", "kubernetes", "k8s", "devops"], "domains": ["swe-backend"] },
+    "product-strategy": { "aliases": ["roadmap", "prioritization", "product sense"], "domains": ["pm"] },
+    "communication": { "aliases": ["stakeholder management", "collaboration"], "domains": ["swe-backend", "swe-frontend", "data-ml", "pm", "swe-fullstack"] }
+  }
+}

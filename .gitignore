@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environment
+.venv/
+venv/
+ENV/
+
+# Environment variables
+.env
+.env.local
+
+# Ollama model storage - relocated to local models/ollama directory
+# Model weights are large binary files and should NEVER be committed
+models/ollama/
+ollama_home/
+ollama_home/models/
+# Ollama content-addressed store (blobs/ + manifests/) — GitHub rejects >100MB
+blobs/
+manifests/
+
+# IDE settings
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Reports (optional - can keep if you want to version them)
+# reports/
+
+# Knowledge base (contains user data)
+knowledge_db.json
+
+# Node (browser-verification tooling deps — reproduced from package-lock.json)
+node_modules/

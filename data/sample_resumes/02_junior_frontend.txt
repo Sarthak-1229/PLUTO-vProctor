@@ -1,0 +1,31 @@
+RILEY CHEN
+Frontend Developer
+riley.chen@example.com | Portfolio: rileychen.example.com
+
+SUMMARY
+Junior Frontend Developer (about 1.5 years of experience) focused on building
+accessible, responsive user interfaces with React, JavaScript, and CSS. Recent
+bootcamp graduate eager to grow on a product team.
+
+EXPERIENCE
+
+Frontend Developer — Bluebird Studio (2024 - Present)
+- Build and maintain UI components in React and modern JavaScript.
+- Style responsive layouts with CSS and Flexbox/Grid.
+- Improved page load performance by lazy-loading images and code-splitting.
+- Work with designers to implement accessible, keyboard-navigable components.
+
+Web Development Intern — Campus Media Lab (2023 - 2024)
+- Built small interactive pages with HTML, CSS, and vanilla JavaScript.
+- Learned the DOM, event handling, and React fundamentals.
+
+PROJECTS
+- Personal portfolio site (React) with a component library.
+- Weather dashboard consuming a public REST API.
+
+SKILLS
+JavaScript, React, HTML, CSS, responsive design, accessibility, Git
+
+EDUCATION
+Full-Stack Web Development Bootcamp (2023)
+B.A. Communications — City College (2022)

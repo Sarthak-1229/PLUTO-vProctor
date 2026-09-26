@@ -1,0 +1,27 @@
+SAM PATEL
+Full-Stack Software Engineer
+sam.patel@example.com | github.com/sampatel
+
+SUMMARY
+Full-Stack Engineer with 4 years of experience shipping features end to end
+across the Node.js/React stack. Comfortable owning REST APIs, SQL data models,
+and the React front end that consumes them.
+
+EXPERIENCE
+
+Software Engineer — Harbor Logistics (2021 - Present)
+- Build features across the stack: React front end, Node.js/Express REST APIs,
+  and a PostgreSQL (SQL) database.
+- Designed REST endpoints and the relational schema behind the shipment
+  tracking module.
+- Added caching for hot read paths and wrote integration tests.
+
+Software Engineer II — Maple Retail (2020 - 2021)
+- Implemented React components and Node service endpoints.
+- Wrote SQL queries and helped with basic schema changes.
+
+SKILLS
+JavaScript, Node.js, React, SQL, REST APIs, HTML, CSS, Git, Docker (basic)
+
+EDUCATION
+B.S. Software Engineering — Riverside University (2020)

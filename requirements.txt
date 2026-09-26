@@ -1,0 +1,35 @@
+# PLUTO vProctor — interview-practice app.
+# CPU-only / in-browser ML. The resident qwen2.5:7b (via Ollama) is the sole
+# GPU tenant; everything below runs on CPU or lazily/optionally. Version floors
+# (not hard pins) because the dev interpreter is Python 3.14 and some wheels lag
+# new interpreters — cut exact pins into a lockfile once the env stabilizes.
+
+# ---- API + server ----
+fastapi>=0.110
+uvicorn>=0.27
+pydantic>=2.6              # request models + judge_llm structured-output validation
+jsonschema>=4.21           # question-bank schema validation (tests/validate_bank.py)
+numpy>=1.26                # adaptive Elo / confidence-FSM engine
+
+# ---- LLM grading (Tier-2, local Ollama: qwen2.5:7b) ----
+ollama
+
+# ---- Résumé ingestion ----
+PyMuPDF>=1.24              # PDF résumé text extraction (import name: fitz)
+python-docx>=1.1           # DOCX résumé text extraction (import name: docx)
+rapidfuzz>=3.6             # Tier-1 fuzzy keyword matching (optional; difflib fallback)
+
+# ---- Server-side STT fallback ----
+# The browser's Web Speech API is primary; this CPU whisper path is lazy-imported
+# only when the client posts raw audio instead of a transcript.
+faster-whisper
+
+# ---- Report export ----
+fpdf2>=2.7                # end-of-session PDF practice report
+
+# ---- Question-replay TTS (optional; /speak degrades to silence if absent) ----
+edge-tts
+
+# ---- Optional / deferred ----
+# praat-parselmouth>=0.4.3   # richer prosody signals (descriptive only, never scored)
+# sentence-transformers>=2.6 # semantic selection booster (pulls torch; OFF in MVP)

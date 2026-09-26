@@ -1,0 +1,29 @@
+TAYLOR MORGAN
+Data Science Graduate
+taylor.morgan@example.com | github.com/tmorgan-ds
+
+SUMMARY
+Entry-level Data Scientist / ML enthusiast with a strong statistics foundation
+and hands-on projects in Python. Recent M.S. graduate seeking a first
+data/machine learning role.
+
+EXPERIENCE
+
+Data Science Intern — Quill Insights (Summer 2024)
+- Cleaned and analyzed datasets in Python with pandas and NumPy.
+- Built baseline classification models with scikit-learn and evaluated them
+  with precision, recall, and cross-validation.
+- Presented findings with clear visualizations.
+
+PROJECTS
+- Churn prediction model (scikit-learn): handled missing data, addressed
+  overfitting with regularization, evaluated with k-fold cross-validation.
+- Exploratory statistics report on a public housing dataset.
+
+SKILLS
+Python, pandas, NumPy, scikit-learn, statistics, machine learning, data
+visualization, SQL (basic)
+
+EDUCATION
+M.S. Data Science — Lakeside University (2024)
+B.S. Mathematics — Lakeside University (2022)
