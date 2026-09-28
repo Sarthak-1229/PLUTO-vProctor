@@ -22,6 +22,7 @@
     "statistics": { "aliases": ["stats", "probability", "hypothesis testing"], "domains": ["data-ml"] },
     "docker": { "aliases": ["containers", "kubernetes", "k8s", "devops"], "domains": ["swe-backend"] },
     "product-strategy": { "aliases": ["roadmap", "prioritization", "product sense"], "domains": ["pm"] },
-    "communication": { "aliases": ["stakeholder management", "collaboration"], "domains": ["swe-backend", "swe-frontend", "data-ml", "pm", "swe-fullstack"] }
+    "communication": { "aliases": ["stakeholder management", "collaboration"], "domains": ["swe-backend", "swe-frontend", "data-ml", "pm", "swe-fullstack"] },
+    "security": { "aliases": ["cybersecurity", "cyber security", "infosec", "information security", "appsec", "application security", "network security", "cloud security", "oauth", "iam", "penetration testing", "pentesting", "owasp", "encryption", "cryptography", "authentication", "authorization", "zero trust", "vulnerability", "threat modeling"], "domains": ["swe-backend", "swe-fullstack", "data-ml"] }
   }
 }

@@ -32,6 +32,10 @@ class QuestionBank:
         self._bank = self._load(self.bank_path, default={"questions": []})
         self._taxonomy = self._load(self.taxonomy_path, default={"roles": {}, "skills": {}})
         self._by_id: Dict[str, dict] = {q["id"]: q for q in self._bank.get("questions", [])}
+        # Merge the optional auto-generated bank (dataset-import). Kept in a
+        # SEPARATE file so the curated 106 stay pristine and reversible; the
+        # curated item always wins on any id collision.
+        self._merge_generated()
         # Build a surface-form -> canonical skill slug alias map for resume grounding.
         self._alias_map = self._build_alias_map()
         logger.info("QuestionBank loaded: %d questions", len(self._by_id))
@@ -55,6 +59,32 @@ class QuestionBank:
             for alias in meta.get("aliases", []):
                 amap[alias.lower()] = slug
         return amap
+
+    def _merge_generated(self) -> None:
+        """Fold data/question_bank_generated.json into the in-memory bank.
+
+        The generated file (source="dataset-import") is auto-enriched and kept
+        apart from the curated bank. Curated ids take precedence: a generated
+        item whose id already exists is skipped, so re-generating can never
+        clobber a hand-authored question.
+        """
+        gen_path = self.bank_path.parent / "question_bank_generated.json"
+        if not gen_path.exists():
+            return
+        gen = self._load(gen_path, default={"questions": []})
+        merged = skipped = 0
+        for q in gen.get("questions", []):
+            qid = q.get("id")
+            if not qid:
+                continue
+            if qid in self._by_id:
+                logger.warning("Generated id %s collides with curated bank; keeping curated", qid)
+                skipped += 1
+                continue
+            self._by_id[qid] = q
+            self._bank.setdefault("questions", []).append(q)
+            merged += 1
+        logger.info("Merged %d generated questions (%d skipped on collision)", merged, skipped)
 
     # ---- read access -------------------------------------------------------
     def all_questions(self) -> List[dict]:
@@ -96,6 +126,29 @@ class QuestionBank:
         """
         quotas = quotas if quotas is not None else DEFAULT_QUOTAS
         rtags = set(resume_tags or [])
+
+        # AIML hook (feature-flagged, graceful fallback): model pool assembly as a
+        # CSP (backtracking + forward-checking) over category quotas / difficulty
+        # spread / uniqueness, then optimize résumé coverage + diversity with Local
+        # Search + a Genetic Algorithm. get_csp_selector() is None when
+        # AIML_CSP_ENABLED is off, and select() returns None if the CSP is
+        # infeasible, so either way we drop to the greedy quota selector below.
+        try:
+            from core.aiml.selection_csp import get_csp_selector
+            sel = get_csp_selector()
+            if sel is not None:
+                res = sel.select(self.all_questions(), target_role=target_role,
+                                 resume_tags=list(rtags), limit=limit, quotas=quotas)
+                if res is not None:
+                    pool = [self._by_id[i] for i in res[0] if i in self._by_id]
+                    if pool:
+                        logger.info("CSP pool assembly: %d questions (%s)",
+                                    len(pool), res[1]["fitness"])
+                        return pool
+        except Exception:
+            logger.debug("AIML CSP selection unavailable; greedy fallback",
+                         exc_info=True)
+
         scored = sorted(
             self._by_id.values(),
             key=lambda q: self._score(q, rtags, target_role),

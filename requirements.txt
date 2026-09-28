@@ -30,6 +30,14 @@ fpdf2>=2.7                # end-of-session PDF practice report
 # ---- Question-replay TTS (optional; /speak degrades to silence if absent) ----
 edge-tts
 
+# ---- Classical AIML retrofit (MDM project; CPU-only, no GPU/DL) ----
+# The named-algorithm layer: grader classifiers/regressors/ensembles, question
+# clustering, PCA/LDA, CSP+GA selection. Trained offline by experiments/train_all.py;
+# every runtime hook falls back to the Elo/FSM/lexical baseline if artifacts are absent.
+scikit-learn>=1.6          # NB/LogReg/SVM/kNN/tree, regressions, ensembles, clustering, PCA/LDA
+joblib>=1.3                # model artifact (de)serialization under data/models/
+matplotlib>=3.8            # experiments/train_all.py metric + cluster/PCA plots
+
 # ---- Optional / deferred ----
 # praat-parselmouth>=0.4.3   # richer prosody signals (descriptive only, never scored)
 # sentence-transformers>=2.6 # semantic selection booster (pulls torch; OFF in MVP)

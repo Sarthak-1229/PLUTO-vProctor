@@ -58,7 +58,7 @@ class ReportBuilder:
 
         delivery = get_delivery_analyzer().summarize_session(session.answers)
 
-        return {
+        report: Dict[str, Any] = {
             "session_id": session.session_id,
             "status": session.status,
             "disclaimer": REPORT_DISCLAIMER,
@@ -75,6 +75,47 @@ class ReportBuilder:
             "recommendations": self._recommendations(session, content_items),
             "generated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
         }
+
+        # AIML calibration layer (feature-flagged, DESCRIPTIVE, non-breaking):
+        # adds an optional "calibration" block; the report is byte-identical when
+        # AIML_CALIBRATION_ENABLED is off or the layer errors.
+        cal = self._calibration_block(session, bank)
+        if cal is not None:
+            report["calibration"] = cal
+        return report
+
+    def _calibration_block(self, session, bank) -> Optional[Dict[str, Any]]:
+        """Optional DESCRIPTIVE calibration, never a verdict or a score:
+
+          * a probability ability BAND (1-PL / Rasch Fisher information) around
+            the Elo point-estimate — quantifies estimate uncertainty, and
+          * a regression 'difficulty check' comparing each answered item's
+            AUTHORED difficulty with the value the difficulty regressor predicts
+            from its content (a question-authoring signal, not the candidate).
+
+        The ability band is pure math (always present); the difficulty check
+        needs difficulty.joblib and is omitted when the model is absent. Returns
+        None — so the block is dropped entirely — when the flag is off or the
+        AIML layer is unavailable."""
+        try:
+            from core.aiml import flag
+            if not flag("AIML_CALIBRATION_ENABLED", True):
+                return None
+            from core.aiml.difficulty_reg import (ability_confidence, calibration,
+                                                   get_difficulty_model)
+            block: Dict[str, Any] = {
+                "ability_band": ability_confidence(session.ability, session.answers),
+                "disclaimer": ("Descriptive estimate-uncertainty and question-"
+                               "authoring calibration only; not a score or a "
+                               "performance judgment."),
+            }
+            diff = calibration(bank, session.answers, get_difficulty_model())
+            if diff is not None:
+                block["difficulty_check"] = diff
+            return block
+        except Exception:
+            logger.debug("AIML calibration unavailable; omitting block", exc_info=True)
+            return None
 
     def _recommendations(self, session, content_items) -> List[str]:
         """Content-only guidance. Delivery is never turned into a 'fix this'."""
@@ -174,6 +215,25 @@ class ReportBuilder:
         line("Recommendations (content practice)", h=7, size=13, style="B")
         for rec in report.get("recommendations", []):
             line(f"- {rec}", h=5, size=10)
+
+        cal = report.get("calibration")
+        if cal:
+            pdf.ln(2)
+            line("Calibration (descriptive, not a score)", h=7, size=13, style="B")
+            line(cal.get("disclaimer", ""), h=4, size=8, style="I", gray=True)
+            ab = cal.get("ability_band", {}) or {}
+            band = ab.get("band_80pct_elo")
+            if band:
+                line(f"Ability estimate: {ab.get('ability_elo')} Elo "
+                     f"(80% band {band[0]}-{band[1]}, SE {ab.get('standard_error_elo')}) "
+                     f"over {ab.get('n_items')} item(s).", h=5, size=10)
+            else:
+                line(ab.get("note", ""), h=5, size=10)
+            dc = cal.get("difficulty_check")
+            if dc:
+                line(f"Difficulty check: mean authored-vs-content-predicted gap "
+                     f"{dc.get('mean_abs_deviation_elo')} Elo over "
+                     f"{dc.get('n_items')} item(s).", h=5, size=10)
 
         return bytes(pdf.output())
 

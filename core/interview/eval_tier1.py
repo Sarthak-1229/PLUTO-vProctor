@@ -46,6 +46,9 @@ class Tier1Result:
     covered_points: List[str] = field(default_factory=list)
     word_count: int = 0
     source: str = "tier1"
+    ml_score: Optional[float] = None   # raw ML grader S (None if model absent/off)
+    ml_band: Optional[str] = None      # ML 3-band label: correct/partial/incorrect
+
 
 
 class Tier1Evaluator:
@@ -101,12 +104,33 @@ class Tier1Evaluator:
             text_low, tokens, question.get("keywords", []))
         ideal_cov, covered = self.ideal_coverage(
             text_low, question.get("ideal_answer_points", []))
-        s = max(0.0, min(1.0, 0.5 * kw_cov + 0.5 * ideal_cov))
+        lex = max(0.0, min(1.0, 0.5 * kw_cov + 0.5 * ideal_cov))
+
+        # AIML hook (feature-flagged, graceful fallback): blend the trained
+        # scikit-learn grader with the lexical proxy. get_ml_grader() returns None
+        # when AIML_GRADER_ENABLED is off or no artifact exists, so this reduces
+        # to the original lexical score with the model absent. eval_tier1 does not
+        # import grader_ml at module load (grader_ml never imports eval_tier1).
+        s, source, ml_s, ml_band = lex, "tier1", None, None
+        try:
+            from core.aiml.grader_ml import get_ml_grader
+            grader = get_ml_grader()
+            if grader is not None:
+                ml_s = grader.score(question, text)
+                ml_band = grader.band(question, text)
+                s = max(0.0, min(1.0, 0.5 * lex + 0.5 * ml_s))
+                source = "tier1_ml"
+        except Exception:
+            logger.debug("ML grader unavailable; using lexical Tier-1", exc_info=True)
+
         return Tier1Result(content_score=round(s, 4), is_non_answer=False,
                            keyword_coverage=round(kw_cov, 4),
                            ideal_coverage=round(ideal_cov, 4),
                            matched_keywords=matched, covered_points=covered,
-                           word_count=wc)
+                           word_count=wc, source=source,
+                           ml_score=round(ml_s, 4) if ml_s is not None else None,
+                           ml_band=ml_band)
+
 
 
 # Singleton, mirroring the other interview services.

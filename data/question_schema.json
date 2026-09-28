@@ -14,7 +14,7 @@
     "text": { "type": "string", "minLength": 8 },
     "category": {
       "type": "string",
-      "enum": ["behavioral", "hr_culture", "situational", "aptitude", "tech_cs_fundamentals", "tech_backend", "tech_frontend", "tech_data_ml", "tech_system_design", "tech_pm"]
+      "enum": ["behavioral", "hr_culture", "situational", "aptitude", "tech_cs_fundamentals", "tech_backend", "tech_frontend", "tech_data_ml", "tech_system_design", "tech_pm", "tech_security"]
     },
     "subcategory": { "type": "string" },
     "type": {

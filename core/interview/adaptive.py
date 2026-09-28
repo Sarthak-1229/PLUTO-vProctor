@@ -144,7 +144,31 @@ class AdaptiveEngine:
         else:
             chosen_topic = session.current_topic
 
-        q = bank.nearest_by_difficulty(b_tgt, buckets[chosen_topic], exclude_ids=set())
+        # Within the chosen bucket, pick the next item. AIML hook (feature-
+        # flagged, graceful fallback): a NAMED classical search from the last-
+        # asked (anchor) node over the session question graph — A* toward the
+        # target difficulty, BFS/DLS to an easier same-domain item on REBUILD,
+        # IDS to a harder item on ESCALATE. get_selection_search() is None when
+        # AIML_SEARCH_ENABLED is off, and select() always returns an in-bucket
+        # id (argmin fallback), so the full pool is still served either way.
+        bucket_ids = buckets[chosen_topic]
+        qid, search_trace = None, None
+        try:
+            from core.aiml.selection_search import get_selection_search
+            ss = get_selection_search()
+            if ss is not None:
+                anchor = session.asked_ids[-1] if session.asked_ids else None
+                qid, search_trace = ss.select(bank, bucket_ids, b_tgt,
+                                              phase=phase, anchor_id=anchor)
+        except Exception:
+            logger.debug("AIML search unavailable; nearest-by-difficulty",
+                         exc_info=True)
+            qid = None
+
+        if qid is not None:
+            q = bank.get(qid)
+        else:
+            q = bank.nearest_by_difficulty(b_tgt, bucket_ids, exclude_ids=set())
         if q is None:
             return None
 
@@ -154,7 +178,7 @@ class AdaptiveEngine:
         q["_selection"] = {
             "phase": phase, "p_star": p_star, "b_target": round(b_tgt, 1),
             "b_question": q.get("irt", {}).get("b"), "topic": chosen_topic,
-            "ability": round(session.ability, 1),
+            "ability": round(session.ability, 1), "search": search_trace,
         }
         return q
 

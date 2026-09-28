@@ -40,3 +40,19 @@ SHOW_HISTORY = True
 AUTO_PLAY_AUDIO = True
 ENABLE_VOICE_INPUT = True
 DARK_MODE_DEFAULT = True
+
+
+# ============================================================
+# Classical AIML retrofit (MDM project) — CPU-only scikit-learn.
+# ============================================================
+# The named-algorithm layer (see docs/AIML_ALGORITHMS.md). Each flag is a soft
+# switch: the runtime hook also checks that the relevant artifact exists under
+# MODELS_DIR and silently falls back to the Elo/FSM/lexical/LLM baseline when it
+# doesn't — so the app runs identically before and after experiments/train_all.py.
+# All models are tiny CPU scikit-learn estimators; nothing here touches the GPU.
+MODELS_DIR = "data/models"
+AIML_GRADER_ENABLED = True    # ML answer-correctness grader blended into Tier-1
+AIML_SEARCH_ENABLED = True    # A*/BFS/IDS question-graph selection in the adaptive engine
+AIML_CSP_ENABLED = True       # CSP + GA/local-search pool assembly at /start
+AIML_TOPICS_ENABLED = True    # TF-IDF/kNN + clustering topic structure
+AIML_CALIBRATION_ENABLED = True  # regression difficulty check + probability ability band in the report
