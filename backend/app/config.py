@@ -6,7 +6,7 @@ to prevent magic numbers in business logic.
 
 from pathlib import Path
 from typing import Dict, List
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -90,9 +90,7 @@ class Settings(BaseSettings):
     MINHASH_JACCARD_THRESHOLD: float = 0.80
     MMR_LAMBDA: float = 0.7                  # Relevance vs diversity trade-off
 
-    class Config:
-        env_file = ".env"
-        extra = "allow"
+    model_config = SettingsConfigDict(env_file=".env", extra="allow")
 
 
 settings = Settings()

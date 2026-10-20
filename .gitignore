@@ -1,0 +1,28 @@
+# Python virtual environments & bytecode
+.venv/
+backend/.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.pytest_cache/
+.coverage
+htmlcov/
+
+# Node & Frontend
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+.npm
+*.log
+
+# Project Storage & DB
+backend/app/pluto.db
+storage/
+*.sqlite3
+
+# OS & IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
