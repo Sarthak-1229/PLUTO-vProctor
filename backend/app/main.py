@@ -20,6 +20,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from backend.app.routers.jobs import router as jobs_router
+from backend.app.routers.resume import router as resume_router
+
+app.include_router(jobs_router)
+app.include_router(resume_router)
+
 
 @app.get("/health")
 def health_check():

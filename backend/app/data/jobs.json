@@ -1,0 +1,252 @@
+{
+  "companies": [
+    {
+      "id": "comp_cybernova",
+      "name": "CyberNova Sentinel",
+      "industry": "Cybersecurity & Threat Intelligence",
+      "description": "Enterprise security platforms delivering zero-trust architecture and automated threat mitigation."
+    },
+    {
+      "id": "comp_aetheria",
+      "name": "Aetheria Cloud Systems",
+      "industry": "Cloud Infrastructure & SRE",
+      "description": "Next-generation multi-cloud orchestrator providing ultra-reliable Kubernetes clusters and distributed telemetry."
+    },
+    {
+      "id": "comp_synapse",
+      "name": "Synapse Genomics AI",
+      "industry": "Biotech & Machine Intelligence",
+      "description": "Pioneering deep learning pipelines for genomic variant calling, molecular simulation, and drug discovery."
+    },
+    {
+      "id": "comp_vanguard",
+      "name": "Vanguard Distributed Labs",
+      "industry": "Decentralized Systems & Web3",
+      "description": "Engineering high-throughput consensus protocols and secure smart contract platforms."
+    },
+    {
+      "id": "comp_quantumbyte",
+      "name": "QuantumByte Financial",
+      "industry": "FinTech & Low-Latency Trading",
+      "description": "Mission-critical financial infrastructure built for nanosecond order routing and algorithmic execution."
+    },
+    {
+      "id": "comp_omnistack",
+      "name": "OmniStack Platforms",
+      "industry": "Enterprise Enterprise SaaS & Web Services",
+      "description": "Global enterprise applications delivering high-performance SaaS tools and cloud-native microservices."
+    }
+  ],
+  "jobs": [
+    {
+      "id": "job_sec_analyst",
+      "title": "Information Security Analyst",
+      "company": "CyberNova Sentinel",
+      "company_id": "comp_cybernova",
+      "required_skills": ["Network Security & Cryptography", "Application Security"],
+      "preferred_skills": ["Cloud Architecture", "Operating Systems & Networking"],
+      "min_experience_years": 2,
+      "education_levels": ["Bachelor", "Master"],
+      "skill_weights": {
+        "Network Security & Cryptography": 0.40,
+        "Application Security": 0.35,
+        "Cloud Architecture": 0.15,
+        "Operating Systems & Networking": 0.10
+      },
+      "question_domains": ["Security", "Operating Systems/Networks"],
+      "pass_threshold": 0.65
+    },
+    {
+      "id": "job_cloud_eng",
+      "title": "Cloud Infrastructure Engineer",
+      "company": "Aetheria Cloud Systems",
+      "company_id": "comp_aetheria",
+      "required_skills": ["AWS", "Cloud Architecture"],
+      "preferred_skills": ["Docker", "Kubernetes", "CI/CD"],
+      "min_experience_years": 3,
+      "education_levels": ["Bachelor", "Master"],
+      "skill_weights": {
+        "AWS": 0.40,
+        "Cloud Architecture": 0.30,
+        "Kubernetes": 0.15,
+        "Docker": 0.15
+      },
+      "question_domains": ["Cloud", "DevOps/SRE"],
+      "pass_threshold": 0.65
+    },
+    {
+      "id": "job_devops_sre",
+      "title": "DevOps & Site Reliability Engineer",
+      "company": "Aetheria Cloud Systems",
+      "company_id": "comp_aetheria",
+      "required_skills": ["Docker", "Kubernetes", "CI/CD", "Monitoring & Observability"],
+      "preferred_skills": ["AWS", "Operating Systems & Networking"],
+      "min_experience_years": 3,
+      "education_levels": ["Bachelor", "Master"],
+      "skill_weights": {
+        "Kubernetes": 0.30,
+        "Docker": 0.25,
+        "CI/CD": 0.25,
+        "Monitoring & Observability": 0.20
+      },
+      "question_domains": ["DevOps/SRE", "Cloud", "Operating Systems/Networks"],
+      "pass_threshold": 0.70
+    },
+    {
+      "id": "job_backend_java",
+      "title": "Senior Backend Developer (Java / Distributed Systems)",
+      "company": "OmniStack Platforms",
+      "company_id": "comp_omnistack",
+      "required_skills": ["Java", "OOP & Design Patterns", "SQL"],
+      "preferred_skills": ["REST API & Microservices", "NoSQL", "Docker"],
+      "min_experience_years": 4,
+      "education_levels": ["Bachelor", "Master"],
+      "skill_weights": {
+        "Java": 0.35,
+        "OOP & Design Patterns": 0.30,
+        "SQL": 0.20,
+        "REST API & Microservices": 0.15
+      },
+      "question_domains": ["OOP/Software Design", "Databases", "Web Development"],
+      "pass_threshold": 0.70
+    },
+    {
+      "id": "job_dba",
+      "title": "Database Administrator (RDBMS & Security)",
+      "company": "OmniStack Platforms",
+      "company_id": "comp_omnistack",
+      "required_skills": ["SQL", "Database Security"],
+      "preferred_skills": ["NoSQL", "Cloud Architecture"],
+      "min_experience_years": 3,
+      "education_levels": ["Bachelor", "Master"],
+      "skill_weights": {
+        "SQL": 0.50,
+        "Database Security": 0.30,
+        "NoSQL": 0.20
+      },
+      "question_domains": ["Databases", "Security"],
+      "pass_threshold": 0.65
+    },
+    {
+      "id": "job_ml_engineer",
+      "title": "Machine Learning Engineer",
+      "company": "Synapse Genomics AI",
+      "company_id": "comp_synapse",
+      "required_skills": ["Python", "Machine Learning"],
+      "preferred_skills": ["Natural Language Processing", "Computer Vision", "Data Structures & Algorithms"],
+      "min_experience_years": 2,
+      "education_levels": ["Bachelor", "Master", "PhD"],
+      "skill_weights": {
+        "Python": 0.35,
+        "Machine Learning": 0.40,
+        "Natural Language Processing": 0.15,
+        "Computer Vision": 0.10
+      },
+      "question_domains": ["Data Science/ML", "OOP/Software Design"],
+      "pass_threshold": 0.65
+    },
+    {
+      "id": "job_bioinformatics",
+      "title": "Bioinformatics Computational Analyst",
+      "company": "Synapse Genomics AI",
+      "company_id": "comp_synapse",
+      "required_skills": ["Bioinformatics & Genomics", "Python"],
+      "preferred_skills": ["Machine Learning", "SQL"],
+      "min_experience_years": 2,
+      "education_levels": ["Master", "PhD"],
+      "skill_weights": {
+        "Bioinformatics & Genomics": 0.55,
+        "Python": 0.25,
+        "Machine Learning": 0.20
+      },
+      "question_domains": ["Bioinformatics", "Data Science/ML"],
+      "pass_threshold": 0.65
+    },
+    {
+      "id": "job_blockchain_dev",
+      "title": "Blockchain Protocol Engineer",
+      "company": "Vanguard Distributed Labs",
+      "company_id": "comp_vanguard",
+      "required_skills": ["Blockchain & Distributed Ledger", "Network Security & Cryptography"],
+      "preferred_skills": ["Data Structures & Algorithms", "Operating Systems & Networking"],
+      "min_experience_years": 3,
+      "education_levels": ["Bachelor", "Master"],
+      "skill_weights": {
+        "Blockchain & Distributed Ledger": 0.50,
+        "Network Security & Cryptography": 0.30,
+        "Data Structures & Algorithms": 0.20
+      },
+      "question_domains": ["Blockchain", "Security", "Data Structures and Algorithms"],
+      "pass_threshold": 0.70
+    },
+    {
+      "id": "job_frontend_dev",
+      "title": "Senior Frontend Developer (React / TypeScript)",
+      "company": "OmniStack Platforms",
+      "company_id": "comp_omnistack",
+      "required_skills": ["React", "JavaScript", "CSS"],
+      "preferred_skills": ["TypeScript", "HTML", "REST API & Microservices"],
+      "min_experience_years": 3,
+      "education_levels": ["Bachelor"],
+      "skill_weights": {
+        "React": 0.40,
+        "JavaScript": 0.30,
+        "CSS": 0.20,
+        "HTML": 0.10
+      },
+      "question_domains": ["Web Development"],
+      "pass_threshold": 0.65
+    },
+    {
+      "id": "job_swe_dsa",
+      "title": "Systems Software Engineer (DSA & High Performance)",
+      "company": "QuantumByte Financial",
+      "company_id": "comp_quantumbyte",
+      "required_skills": ["Data Structures & Algorithms", "OOP & Design Patterns", "Operating Systems & Networking"],
+      "preferred_skills": ["Java", "Python"],
+      "min_experience_years": 3,
+      "education_levels": ["Bachelor", "Master"],
+      "skill_weights": {
+        "Data Structures & Algorithms": 0.45,
+        "OOP & Design Patterns": 0.30,
+        "Operating Systems & Networking": 0.25
+      },
+      "question_domains": ["Data Structures and Algorithms", "OOP/Software Design", "Operating Systems/Networks"],
+      "pass_threshold": 0.70
+    },
+    {
+      "id": "job_network_eng",
+      "title": "Network Systems & Security Engineer",
+      "company": "CyberNova Sentinel",
+      "company_id": "comp_cybernova",
+      "required_skills": ["Operating Systems & Networking", "Network Security & Cryptography"],
+      "preferred_skills": ["Cloud Architecture", "Monitoring & Observability"],
+      "min_experience_years": 3,
+      "education_levels": ["Bachelor", "Master"],
+      "skill_weights": {
+        "Operating Systems & Networking": 0.50,
+        "Network Security & Cryptography": 0.35,
+        "Monitoring & Observability": 0.15
+      },
+      "question_domains": ["Operating Systems/Networks", "Security"],
+      "pass_threshold": 0.65
+    },
+    {
+      "id": "job_qa_automation",
+      "title": "Lead QA Automation Engineer",
+      "company": "OmniStack Platforms",
+      "company_id": "comp_omnistack",
+      "required_skills": ["QA & Test Automation", "Python", "CI/CD"],
+      "preferred_skills": ["REST API & Microservices", "Docker"],
+      "min_experience_years": 3,
+      "education_levels": ["Bachelor"],
+      "skill_weights": {
+        "QA & Test Automation": 0.50,
+        "Python": 0.25,
+        "CI/CD": 0.25
+      },
+      "question_domains": ["General", "Web Development", "DevOps/SRE"],
+      "pass_threshold": 0.65
+    }
+  ]
+}

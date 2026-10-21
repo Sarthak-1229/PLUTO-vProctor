@@ -1,0 +1,29 @@
+{
+  "single_word_fillers": [
+    "um",
+    "umm",
+    "uh",
+    "uhh",
+    "er",
+    "err",
+    "ah",
+    "ahh",
+    "like",
+    "basically",
+    "actually",
+    "literally",
+    "honestly",
+    "seriously",
+    "right"
+  ],
+  "phrase_fillers": [
+    "you know",
+    "i mean",
+    "sort of",
+    "kind of",
+    "at the end of the day",
+    "to be honest",
+    "as a matter of fact",
+    "believe me"
+  ]
+}

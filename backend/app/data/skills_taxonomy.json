@@ -1,0 +1,214 @@
+{
+  "skills": [
+    {
+      "id": "skill_python",
+      "name": "Python",
+      "domain": "Data Science/ML",
+      "aliases": ["py", "python3", "python 3"],
+      "keywords": ["python", "pip", "pytest", "numpy", "pandas", "django", "fastapi"]
+    },
+    {
+      "id": "skill_java",
+      "name": "Java",
+      "domain": "OOP/Software Design",
+      "aliases": ["java8", "java 11", "java 17", "jdk", "jvm"],
+      "keywords": ["java", "jvm", "spring", "spring boot", "hibernate", "maven", "gradle"]
+    },
+    {
+      "id": "skill_javascript",
+      "name": "JavaScript",
+      "domain": "Web Development",
+      "aliases": ["js", "es6", "ecmascript"],
+      "keywords": ["javascript", "js", "node", "nodejs", "npm", "v8"]
+    },
+    {
+      "id": "skill_typescript",
+      "name": "TypeScript",
+      "domain": "Web Development",
+      "aliases": ["ts"],
+      "keywords": ["typescript", "ts", "interfaces", "generics", "tsconfig"]
+    },
+    {
+      "id": "skill_react",
+      "name": "React",
+      "domain": "Web Development",
+      "aliases": ["reactjs", "react.js"],
+      "keywords": ["react", "react.js", "jsx", "hooks", "redux", "virtual dom"]
+    },
+    {
+      "id": "skill_css",
+      "name": "CSS",
+      "domain": "Web Development",
+      "aliases": ["css3", "stylesheet", "tailwind", "sass"],
+      "keywords": ["css", "css3", "flexbox", "grid", "tailwind", "viewport", "responsive design"]
+    },
+    {
+      "id": "skill_html",
+      "name": "HTML",
+      "domain": "Web Development",
+      "aliases": ["html5"],
+      "keywords": ["html", "html5", "semantic html", "dom"]
+    },
+    {
+      "id": "skill_docker",
+      "name": "Docker",
+      "domain": "DevOps/SRE",
+      "aliases": ["container", "containers", "containerization"],
+      "keywords": ["docker", "dockerfile", "container", "containerization", "image", "docker-compose"]
+    },
+    {
+      "id": "skill_kubernetes",
+      "name": "Kubernetes",
+      "domain": "DevOps/SRE",
+      "aliases": ["k8s", "k8", "kube"],
+      "keywords": ["kubernetes", "k8s", "pod", "deployment", "kubectl", "helm", "service mesh", "istio"]
+    },
+    {
+      "id": "skill_ci_cd",
+      "name": "CI/CD",
+      "domain": "DevOps/SRE",
+      "aliases": ["continuous integration", "continuous deployment", "jenkins", "github actions"],
+      "keywords": ["ci/cd", "ci", "cd", "jenkins", "pipeline", "github actions", "gitlab ci", "automated deployment", "canary deployment"]
+    },
+    {
+      "id": "skill_monitoring",
+      "name": "Monitoring & Observability",
+      "domain": "DevOps/SRE",
+      "aliases": ["sre", "observability", "prometheus", "grafana", "elk"],
+      "keywords": ["monitoring", "observability", "metrics", "prometheus", "grafana", "elk", "logstash", "kibana", "slo", "sla", "alerting"]
+    },
+    {
+      "id": "skill_aws",
+      "name": "AWS",
+      "domain": "Cloud",
+      "aliases": ["amazon web services", "ec2", "s3", "lambda"],
+      "keywords": ["aws", "amazon web services", "ec2", "s3", "lambda", "iam", "cloudwatch", "rds", "vpc"]
+    },
+    {
+      "id": "skill_azure",
+      "name": "Azure",
+      "domain": "Cloud",
+      "aliases": ["microsoft azure"],
+      "keywords": ["azure", "microsoft azure", "azure devops", "blob storage", "arm template"]
+    },
+    {
+      "id": "skill_cloud_architecture",
+      "name": "Cloud Architecture",
+      "domain": "Cloud",
+      "aliases": ["cloud infrastructure", "cloud security"],
+      "keywords": ["cloud", "cloud computing", "multi-tenant", "serverless", "auto-scaling", "iaas", "paas", "saas"]
+    },
+    {
+      "id": "skill_sql",
+      "name": "SQL",
+      "domain": "Databases",
+      "aliases": ["relational database", "rdbms", "postgres", "postgresql", "mysql"],
+      "keywords": ["sql", "rdbms", "postgres", "postgresql", "mysql", "indexing", "acid", "normalization", "joins", "query optimization"]
+    },
+    {
+      "id": "skill_nosql",
+      "name": "NoSQL",
+      "domain": "Databases",
+      "aliases": ["mongodb", "redis", "cassandra", "dynamodb"],
+      "keywords": ["nosql", "mongodb", "redis", "cassandra", "document store", "key-value", "cap theorem", "sharding", "replication"]
+    },
+    {
+      "id": "skill_database_security",
+      "name": "Database Security",
+      "domain": "Databases",
+      "aliases": ["db security", "sql injection prevention"],
+      "keywords": ["database security", "sql injection", "encryption at rest", "rbac", "database auditing", "data masking"]
+    },
+    {
+      "id": "skill_app_security",
+      "name": "Application Security",
+      "domain": "Security",
+      "aliases": ["appsec", "owasp", "web security"],
+      "keywords": ["appsec", "owasp", "xss", "csrf", "penetration testing", "vulnerability", "authn", "authz", "oauth", "jwt"]
+    },
+    {
+      "id": "skill_network_security",
+      "name": "Network Security & Cryptography",
+      "domain": "Security",
+      "aliases": ["cybersecurity", "infosec", "zero trust", "ids/ips", "firewall", "tls"],
+      "keywords": ["security", "zero trust", "ids", "ips", "firewall", "tls", "ssl", "cryptography", "encryption", "soar", "siem", "ddos"]
+    },
+    {
+      "id": "skill_machine_learning",
+      "name": "Machine Learning",
+      "domain": "Data Science/ML",
+      "aliases": ["ml", "scikit-learn", "deep learning", "ai"],
+      "keywords": ["machine learning", "deep learning", "neural network", "classification", "regression", "clustering", "confusion matrix", "data drift", "feature engineering"]
+    },
+    {
+      "id": "skill_nlp",
+      "name": "Natural Language Processing",
+      "domain": "Data Science/ML",
+      "aliases": ["nlp", "text processing", "llm"],
+      "keywords": ["nlp", "tokenization", "tf-idf", "embeddings", "transformers", "sentiment analysis", "language model", "bert"]
+    },
+    {
+      "id": "skill_computer_vision",
+      "name": "Computer Vision",
+      "domain": "Data Science/ML",
+      "aliases": ["cv", "image processing", "opencv"],
+      "keywords": ["computer vision", "opencv", "cnn", "image recognition", "object detection", "segmentation"]
+    },
+    {
+      "id": "skill_bioinformatics",
+      "name": "Bioinformatics & Genomics",
+      "domain": "Bioinformatics",
+      "aliases": ["genomics", "computational biology"],
+      "keywords": ["bioinformatics", "variant calling", "reference genome", "pathway analysis", "indels", "fasta", "fastq", "dna sequencing", "rna-seq", "alignment"]
+    },
+    {
+      "id": "skill_blockchain",
+      "name": "Blockchain & Distributed Ledger",
+      "domain": "Blockchain",
+      "aliases": ["crypto", "web3", "smart contracts"],
+      "keywords": ["blockchain", "51% attack", "smart contract", "consensus", "proof of work", "proof of stake", "distributed ledger", "ethereum", "solidity"]
+    },
+    {
+      "id": "skill_oop_design_patterns",
+      "name": "OOP & Design Patterns",
+      "domain": "OOP/Software Design",
+      "aliases": ["object oriented programming", "solid principles", "design patterns"],
+      "keywords": ["oop", "solid", "design pattern", "singleton", "factory", "observer", "strategy", "encapsulation", "polymorphism", "inheritance", "clean architecture"]
+    },
+    {
+      "id": "skill_dsa",
+      "name": "Data Structures & Algorithms",
+      "domain": "Data Structures and Algorithms",
+      "aliases": ["dsa", "algorithms", "data structures"],
+      "keywords": ["data structures", "algorithms", "sorting", "searching", "graph", "tree", "dynamic programming", "time complexity", "big o", "hash table", "binary search"]
+    },
+    {
+      "id": "skill_os_networking",
+      "name": "Operating Systems & Networking",
+      "domain": "Operating Systems/Networks",
+      "aliases": ["linux", "tcp/ip", "systems programming", "posix"],
+      "keywords": ["operating system", "linux", "kernel", "process", "thread", "concurrency", "deadlock", "banker's algorithm", "tcp", "udp", "ip", "dns", "socket", "http"]
+    },
+    {
+      "id": "skill_qa_automation",
+      "name": "QA & Test Automation",
+      "domain": "General",
+      "aliases": ["software testing", "qa", "unit testing", "e2e"],
+      "keywords": ["testing", "unit test", "integration test", "e2e", "qa", "automation", "test case", "regression testing", "selenium", "cypress", "mocking"]
+    },
+    {
+      "id": "skill_git",
+      "name": "Git & Version Control",
+      "domain": "General",
+      "aliases": ["github", "gitlab", "vcs"],
+      "keywords": ["git", "version control", "branching", "merge", "rebase", "pull request"]
+    },
+    {
+      "id": "skill_rest_api",
+      "name": "REST API & Microservices",
+      "domain": "Web Development",
+      "aliases": ["api", "restful", "microservices"],
+      "keywords": ["api", "rest", "restful", "endpoints", "microservices", "json", "http status", "grpc"]
+    }
+  ]
+}
