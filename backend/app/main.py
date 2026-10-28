@@ -1,7 +1,7 @@
 """Main FastAPI application entry point for PLUTO vProctor."""
 
 from datetime import datetime, timezone
-from fastapi import FastAPI
+from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from backend.app.config import settings
 
@@ -33,6 +33,21 @@ app.include_router(interview_router)
 app.include_router(analysis_router)
 app.include_router(report_router)
 app.include_router(settings_router)
+
+
+@app.post("/api/fixtures/save")
+async def save_fixture(
+    fixture_id: str = Form(...),
+    video_file: UploadFile = File(...),
+    labels_json: str = Form(...),
+):
+    """Save ground-truth fixture recording and annotation labels."""
+    fixture_dir = settings.BASE_DIR / "backend" / "tests" / "fixtures" / "recordings"
+    fixture_dir.mkdir(parents=True, exist_ok=True)
+    video_bytes = await video_file.read()
+    (fixture_dir / f"{fixture_id}.webm").write_bytes(video_bytes)
+    (fixture_dir / f"{fixture_id}.labels.json").write_text(labels_json, encoding="utf-8")
+    return {"status": "ok", "fixture_id": fixture_id}
 
 
 @app.get("/health")

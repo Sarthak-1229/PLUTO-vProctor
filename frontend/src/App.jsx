@@ -42,6 +42,7 @@ import {
   Flame
 } from 'lucide-react'
 import plutoLogo from './assets/logo.png'
+import RecordFixturePage from './RecordFixturePage'
 
 // Step definitions
 const STEPS = [
@@ -641,6 +642,11 @@ export default function App() {
     const m = Math.floor(sec / 60)
     const s = Math.floor(sec % 60)
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+  }
+
+  // Developer Ground-Truth Fixture Recording Page
+  if (typeof window !== 'undefined' && window.location.pathname.startsWith('/dev/record-fixture')) {
+    return <RecordFixturePage />
   }
 
   return (

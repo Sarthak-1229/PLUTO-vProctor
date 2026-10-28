@@ -1,0 +1,32 @@
+{
+  "fixture_id": "fixture_synth_001",
+  "is_synthetic": true,
+  "duration_sec": 15.0,
+  "reference_transcript": "Synthetic carrier speech with deliberate pause and look-away intervals.",
+  "labels": [
+    {
+      "type": "LOOK_AWAY",
+      "start": 3.0,
+      "end": 5.5,
+      "duration": 2.5
+    },
+    {
+      "type": "PAUSE",
+      "start": 7.0,
+      "end": 9.2,
+      "duration": 2.2
+    },
+    {
+      "type": "LOOK_AWAY",
+      "start": 10.5,
+      "end": 12.0,
+      "duration": 1.5
+    },
+    {
+      "type": "FILLER",
+      "start": 6.2,
+      "end": 6.8,
+      "text": "umm"
+    }
+  ]
+}
