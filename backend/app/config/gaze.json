@@ -1,0 +1,67 @@
+{
+  "active_preset": "strict",
+  "presets": {
+    "strict": {
+      "name": "Strict (Assessment Mode)",
+      "max_yaw_deg": 15.0,
+      "max_pitch_down_deg": 12.0,
+      "max_pitch_up_deg": 14.0,
+      "max_roll_deg": 15.0,
+      "max_iris_horizontal_ratio": 0.18,
+      "max_iris_vertical_ratio": 0.16,
+      "alert_trigger_sec": 0.8,
+      "event_deduction_sec": 1.0,
+      "hysteresis_exit_ratio": 0.75
+    },
+    "normal": {
+      "name": "Normal (Standard Interview)",
+      "max_yaw_deg": 20.0,
+      "max_pitch_down_deg": 16.0,
+      "max_pitch_up_deg": 18.0,
+      "max_roll_deg": 20.0,
+      "max_iris_horizontal_ratio": 0.22,
+      "max_iris_vertical_ratio": 0.20,
+      "alert_trigger_sec": 1.2,
+      "event_deduction_sec": 1.5,
+      "hysteresis_exit_ratio": 0.75
+    },
+    "relaxed": {
+      "name": "Relaxed (Practice Mode)",
+      "max_yaw_deg": 25.0,
+      "max_pitch_down_deg": 20.0,
+      "max_pitch_up_deg": 22.0,
+      "max_roll_deg": 25.0,
+      "max_iris_horizontal_ratio": 0.26,
+      "max_iris_vertical_ratio": 0.24,
+      "alert_trigger_sec": 1.5,
+      "event_deduction_sec": 2.0,
+      "hysteresis_exit_ratio": 0.75
+    }
+  },
+  "penalties": {
+    "look_down_per_sec": 1.5,
+    "look_side_per_sec": 1.0,
+    "look_up_per_sec": 0.5,
+    "face_missing_per_sec": 2.0,
+    "multiple_faces_per_sec": 2.5,
+    "excessive_motion_each": 1.0,
+    "posture_slump_each": 0.5,
+    "tab_switch_each": 2.0,
+    "window_blur_each": 1.0
+  },
+  "body_language": {
+    "motion_threshold_norm": 0.08,
+    "posture_y_slump_norm": 0.12,
+    "min_face_size_norm": 0.12,
+    "max_face_size_norm": 0.65
+  },
+  "calibration": {
+    "duration_sec": 4.0,
+    "min_valid_frames": 20
+  },
+  "filter": {
+    "one_euro_min_cutoff": 1.0,
+    "one_euro_beta": 0.007,
+    "one_euro_d_cutoff": 1.0
+  }
+}

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { LiveGazeDetector, PRESETS } from './utils/liveGazeDetector'
 import {
   ShieldCheck,
   Building2,
@@ -74,6 +75,28 @@ export default function App() {
   const [distanceStatus, setDistanceStatus] = useState('Optimal')
   const [lightingStatus, setLightingStatus] = useState('Good')
   const [audioLevel, setAudioLevel] = useState(65)
+  const [activePreset, setActivePreset] = useState('strict')
+  const [calibrationStatus, setCalibrationStatus] = useState('NOT_CALIBRATED')
+  const [calibrationCountdown, setCalibrationCountdown] = useState(4)
+  const [calibrationData, setCalibrationData] = useState({
+    baseline_yaw: 0.0,
+    baseline_pitch: 0.0,
+    baseline_roll: 0.0,
+    baseline_iris_h: 0.0,
+    baseline_iris_v: 0.0,
+    baseline_nose_y: 0.5,
+    baseline_interocular: 0.15,
+    is_calibrated: false,
+  })
+  const [gazeHudStats, setGazeHudStats] = useState({
+    fps: 0,
+    attention: 100,
+    isDirect: true,
+    lookAwayType: null,
+    yaw: 0,
+    pitch: 0,
+  })
+  const liveGazeDetectorRef = useRef(new LiveGazeDetector('strict'))
   const videoRef = useRef(null)
   const streamRef = useRef(null)
   const mediaRecorderRef = useRef(null)
@@ -302,12 +325,82 @@ export default function App() {
     }
   }
 
+  // Run 4-second interactive camera and neutral gaze calibration
+  const handleRunCalibration = async () => {
+    setCalibrationStatus('CALIBRATING')
+    setCalibrationCountdown(4)
+
+    const detector = liveGazeDetectorRef.current
+    await detector.initialize()
+
+    const samples = []
+    let secondsLeft = 4
+
+    const countdownTimer = setInterval(() => {
+      secondsLeft -= 1
+      setCalibrationCountdown(secondsLeft)
+      if (secondsLeft <= 0) {
+        clearInterval(countdownTimer)
+        if (samples.length >= 3) {
+          const meanYaw = samples.reduce((a, s) => a + s.yaw, 0) / samples.length
+          const meanPitch = samples.reduce((a, s) => a + s.pitch, 0) / samples.length
+          const meanRoll = samples.reduce((a, s) => a + s.roll, 0) / samples.length
+          const meanIrisH = samples.reduce((a, s) => a + s.irisH, 0) / samples.length
+          const meanIrisV = samples.reduce((a, s) => a + s.irisV, 0) / samples.length
+          const meanNoseY = samples.reduce((a, s) => a + s.noseY, 0) / samples.length
+
+          const newCalib = {
+            baseline_yaw: Math.round(meanYaw * 10) / 10,
+            baseline_pitch: Math.round(meanPitch * 10) / 10,
+            baseline_roll: Math.round(meanRoll * 10) / 10,
+            baseline_iris_h: Math.round(meanIrisH * 1000) / 1000,
+            baseline_iris_v: Math.round(meanIrisV * 1000) / 1000,
+            baseline_nose_y: Math.round(meanNoseY * 1000) / 1000,
+            baseline_interocular: 0.15,
+            is_calibrated: true,
+          }
+          setCalibrationData(newCalib)
+          detector.setCalibration(newCalib)
+          setCalibrationStatus('CALIBRATED')
+        } else {
+          // If no samples detected, mark as calibrated with neutral center
+          setCalibrationData((prev) => ({ ...prev, is_calibrated: true }))
+          setCalibrationStatus('CALIBRATED')
+        }
+      }
+    }, 1000)
+
+    const sampleLoop = () => {
+      if (secondsLeft <= 0) return
+      if (videoRef.current && videoRef.current.readyState >= 2) {
+        const res = detector.processVideoFrame(videoRef.current)
+        if (res && res.faceDetected) {
+          samples.push({
+            yaw: res.netYaw,
+            pitch: res.netPitch,
+            roll: res.netRoll,
+            irisH: res.netIrisH,
+            irisV: res.netIrisV,
+            noseY: res.faceCenter ? res.faceCenter.y : 0.5,
+          })
+        }
+      }
+      requestAnimationFrame(sampleLoop)
+    }
+    requestAnimationFrame(sampleLoop)
+  }
+
   // Start Interview
   const handleStartInterview = async () => {
     if (!sessionId) return
     try {
       const res = await fetch(`/api/interview/${sessionId}/start`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          calibration: calibrationData,
+          preset_name: activePreset,
+        }),
       })
       if (!res.ok) throw new Error('Failed to start interview.')
       const data = await res.json()
@@ -391,21 +484,73 @@ export default function App() {
     return () => clearInterval(interval)
   }, [currentStep, currentQuestionIndex, questions])
 
-  // Proctoring telemetry
+  // Proctoring telemetry: Real-time 15+ FPS Gaze Tracking, Tab Switch & Window Blur
   useEffect(() => {
     if (currentStep !== 'interview') return
+
+    const detector = liveGazeDetectorRef.current
+    detector.setPreset(activePreset)
+    if (calibrationData.is_calibrated) {
+      detector.setCalibration(calibrationData)
+    }
+
+    let isRunning = true
+    let animationId = null
+
+    const detectLoop = () => {
+      if (!isRunning) return
+      if (videoRef.current && videoRef.current.readyState >= 2) {
+        const res = detector.processVideoFrame(videoRef.current)
+        if (res) {
+          setGazeHudStats({
+            fps: res.fps || 24,
+            attention: res.attentionScore,
+            isDirect: res.isLookingDirect,
+            lookAwayType: res.lookAwayType,
+            yaw: res.netYaw,
+            pitch: res.netPitch,
+          })
+
+          if (res.shouldAlert) {
+            setIsLookingAway(true)
+            const dirStr = res.lookAwayType ? `[${res.lookAwayType}]` : ''
+            triggerProctorAlert(
+              res.lookAwayType || 'LOOK_AWAY',
+              `Looking away from camera / screen ${dirStr} (> 0.8s)`,
+              2
+            )
+          } else if (res.isLookingDirect) {
+            setIsLookingAway(false)
+          }
+        }
+      }
+      animationId = requestAnimationFrame(detectLoop)
+    }
+
+    detector.initialize().then(() => {
+      animationId = requestAnimationFrame(detectLoop)
+    })
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
         triggerProctorAlert('TAB_SWITCH', 'Switched browser tab or minimized window', 5)
       }
     }
+
+    const handleWindowBlur = () => {
+      triggerProctorAlert('WINDOW_BLUR', 'Application window lost focus / clicked outside', 2)
+    }
+
     document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('blur', handleWindowBlur)
 
     return () => {
+      isRunning = false
+      if (animationId) cancelAnimationFrame(animationId)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('blur', handleWindowBlur)
     }
-  }, [currentStep])
+  }, [currentStep, activePreset, calibrationData])
 
   const triggerProctorAlert = (type, message, penalty) => {
     setLiveAlert({ type, message })
@@ -1091,6 +1236,73 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Gaze Preset Selection & 4s Calibration */}
+              <div className="space-y-3 bg-[#F4F0EA] p-4 rounded-xl border-2 border-black shadow-[2px_2px_0px_0px_#000]">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <span className="text-xs font-black uppercase text-black">
+                    Eye Contact Sensitivity Preset
+                  </span>
+                  <div className="flex space-x-1.5">
+                    {['strict', 'normal', 'relaxed'].map((pKey) => (
+                      <button
+                        key={pKey}
+                        onClick={() => {
+                          setActivePreset(pKey)
+                          liveGazeDetectorRef.current?.setPreset(pKey)
+                        }}
+                        className={`px-2.5 py-1 rounded text-[11px] font-black uppercase border-2 border-black transition-all ${
+                          activePreset === pKey
+                            ? 'bg-[#FFE600] text-black shadow-[2px_2px_0px_0px_#000]'
+                            : 'bg-white text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        {pKey}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-300 flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-black text-black uppercase">Neutral Gaze Calibration</p>
+                    <p className="text-[11px] font-bold text-slate-600">
+                      {calibrationStatus === 'CALIBRATED'
+                        ? `Calibrated (Yaw ${calibrationData.baseline_yaw}°, Pitch ${calibrationData.baseline_pitch}°)`
+                        : 'Calibrates for high/low webcam angle and individual posture.'}
+                    </p>
+                  </div>
+
+                  <button
+                    disabled={calibrationStatus === 'CALIBRATING'}
+                    onClick={handleRunCalibration}
+                    className={`px-4 py-2 rounded-xl border-2 border-black font-black text-xs uppercase shadow-[2px_2px_0px_0px_#000] flex items-center space-x-1.5 transition-all ${
+                      calibrationStatus === 'CALIBRATED'
+                        ? 'bg-[#A7F3D0] text-black hover:bg-[#86efac]'
+                        : calibrationStatus === 'CALIBRATING'
+                        ? 'bg-[#FEF08A] text-black animate-pulse cursor-wait'
+                        : 'bg-white hover:bg-slate-100 text-black'
+                    }`}
+                  >
+                    {calibrationStatus === 'CALIBRATING' ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin stroke-[2.5]" />
+                        <span>Look at camera... {calibrationCountdown}s</span>
+                      </>
+                    ) : calibrationStatus === 'CALIBRATED' ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 stroke-[2.5] text-black" />
+                        <span>Re-Calibrate (4s)</span>
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="w-3.5 h-3.5 stroke-[2.5]" />
+                        <span>Calibrate Gaze (4s)</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
               {/* Live Mic Meter */}
               <div className="space-y-1.5 bg-[#F4F0EA] p-4 rounded-xl border-2 border-black shadow-[2px_2px_0px_0px_#000]">
                 <div className="flex justify-between text-xs font-black uppercase text-black">
@@ -1258,6 +1470,21 @@ export default function App() {
                   muted
                   className="w-full h-full object-cover rounded-xl"
                 />
+
+                {/* Live Gaze & FPS HUD */}
+                <div className="absolute top-3 right-3 flex items-center space-x-1.5 text-[10px] font-mono font-black z-10 pointer-events-none">
+                  <span className="px-2 py-0.5 rounded bg-black/75 text-[#67E8F9] border border-white/20">
+                    {gazeHudStats.fps > 0 ? `${gazeHudStats.fps} FPS` : '15+ FPS'}
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-black/75 text-[#FFE600] border border-white/20">
+                    ATTN {gazeHudStats.attention}%
+                  </span>
+                  {gazeHudStats.lookAwayType && (
+                    <span className="px-2 py-0.5 rounded bg-[#FF4D4D] text-black border border-black animate-pulse">
+                      {gazeHudStats.lookAwayType}
+                    </span>
+                  )}
+                </div>
 
                 {/* Live Gaze/Look-Away Warning Overlay */}
                 {liveAlert && (

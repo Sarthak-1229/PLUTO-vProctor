@@ -150,3 +150,4 @@ def test_acoustic_energy_and_flux_computation(tmp_path):
     assert len(flux) > 0
     # Pure tone has low spectral flux
     assert np.mean(flux) < 0.20
+

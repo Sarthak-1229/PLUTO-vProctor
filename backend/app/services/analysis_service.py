@@ -110,6 +110,21 @@ class AnalysisService:
 
                 domain_keywords = list(dict.fromkeys(domain_keywords))[:40]
 
+                # Check for calibration and preset data in session metadata
+                calib_data = None
+                preset_name = None
+                if session.screening_details and isinstance(session.screening_details, dict):
+                    calib_data = session.screening_details.get("calibration")
+                    preset_name = session.screening_details.get("preset_name")
+
+                def _run_video():
+                    return video_pipeline.analyze_video(
+                        video_path,
+                        calibration=calib_data,
+                        preset_name=preset_name,
+                        progress_callback=update_video_p,
+                    )
+
                 def _run_audio():
                     return audio_pipeline.analyze_audio(
                         video_path,
@@ -119,9 +134,7 @@ class AnalysisService:
                     )
 
                 # Run both pipelines simultaneously
-                video_task = loop.run_in_executor(
-                    _executor, video_pipeline.analyze_video, video_path, update_video_p
-                )
+                video_task = loop.run_in_executor(_executor, _run_video)
                 audio_task = loop.run_in_executor(_executor, _run_audio)
                 video_res, audio_res = await asyncio.gather(video_task, audio_task)
 

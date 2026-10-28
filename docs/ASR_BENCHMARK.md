@@ -121,3 +121,4 @@ Tested against session recording `sess_ce7da3c8cfb1_interview.webm` (58.32s dura
    - Submitted with answer payloads to ensure interviewer speech is excluded from scoring.
 4. **Removal of Fake Gaze Simulation**:
    - Eradicated `setInterval` with `Math.random() < 0.12`.
+

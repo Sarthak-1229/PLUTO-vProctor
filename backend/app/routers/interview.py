@@ -26,12 +26,43 @@ class AnswerSubmitRequest(BaseModel):
     tts_windows: Optional[List[List[float]]] = None
 
 
+class StartInterviewRequest(BaseModel):
+    calibration: Optional[Dict[str, Any]] = None
+    preset_name: Optional[str] = "strict"
+
+
+@router.get("/config/gaze", response_model=Dict[str, Any])
+def get_gaze_config():
+    """Return active presets and thresholds from gaze.json."""
+    cfg_file = settings.BASE_DIR / "backend" / "app" / "config" / "gaze.json"
+    if cfg_file.exists():
+        with open(cfg_file, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
 
 @router.post("/{sid}/start", response_model=Dict[str, Any])
-def start_interview_session(sid: str, db: Session = Depends(get_db)):
+def start_interview_session(
+    sid: str,
+    req: Optional[StartInterviewRequest] = None,
+    db: Session = Depends(get_db),
+):
     """Initialize interview session, selecting time-bounded diverse question list."""
     try:
-        return interview_service.start_interview(sid, db)
+        res = interview_service.start_interview(sid, db)
+        if req and (req.calibration or req.preset_name):
+            session = db.query(InterviewSession).filter(InterviewSession.id == sid).first()
+            if session:
+                details = session.screening_details or {}
+                if not isinstance(details, dict):
+                    details = {}
+                if req.calibration:
+                    details["calibration"] = req.calibration
+                if req.preset_name:
+                    details["preset_name"] = req.preset_name
+                session.screening_details = details
+                db.commit()
+        return res
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
