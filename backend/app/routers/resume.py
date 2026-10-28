@@ -88,6 +88,13 @@ async def upload_resume(
         "job_title": job.title,
         "company": job.company,
         "candidate_name": parsed.get("candidate_name"),
+        "fit_score": screening.get("fit_score", 0.0),
+        "decision": screening.get("decision", screening.get("status", "PASS")),
+        "status": screening.get("status", "PASS"),
+        "skill_score": screening.get("skill_score", 0.0),
+        "experience_years": parsed.get("experience_years", 0.0),
+        "matched_skills": screening.get("matched_skills", []),
+        "missing_skills": screening.get("missing_skills", []),
         "parsed_resume": {
             "skills": parsed.get("skills", []),
             "experience_years": parsed.get("experience_years", 0.0),

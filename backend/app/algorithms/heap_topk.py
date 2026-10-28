@@ -91,12 +91,13 @@ def top_k(items: List[Tuple[float, Any]], k: int) -> List[Tuple[float, Any]]:
     """
     if k <= 0:
         return []
-    heap: MinHeap[Tuple[float, Any]] = MinHeap()
-    for score, item in items:
-        heap.push((score, item))
+    heap: MinHeap[Tuple[float, int, Any]] = MinHeap()
+    for i, (score, item) in enumerate(items):
+        heap.push((score, i, item))
         if len(heap) > k:
             heap.pop()
     result = []
     while heap:
-        result.append(heap.pop())
+        score, _, item = heap.pop()
+        result.append((score, item))
     return sorted(result, key=lambda x: x[0], reverse=True)

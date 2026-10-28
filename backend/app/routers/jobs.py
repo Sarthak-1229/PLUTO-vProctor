@@ -40,6 +40,12 @@ def _build_trie_index(db: Session):
             if len(clean) >= 2:
                 job_trie.insert(clean)
                 _job_index.setdefault(clean, []).append(j_dict)
+        # Index company tokens
+        for token in (j.company or "").lower().split():
+            clean = "".join(c for c in token if c.isalnum())
+            if len(clean) >= 2:
+                job_trie.insert(clean)
+                _job_index.setdefault(clean, []).append(j_dict)
         # Index skills
         for skill in (j.required_skills or []):
             for token in skill.lower().split():

@@ -20,11 +20,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from backend.app.routers.analysis import router as analysis_router
+from backend.app.routers.interview import router as interview_router
 from backend.app.routers.jobs import router as jobs_router
+from backend.app.routers.report import router as report_router
 from backend.app.routers.resume import router as resume_router
+from backend.app.routers.settings import router as settings_router
 
 app.include_router(jobs_router)
 app.include_router(resume_router)
+app.include_router(interview_router)
+app.include_router(analysis_router)
+app.include_router(report_router)
+app.include_router(settings_router)
 
 
 @app.get("/health")
