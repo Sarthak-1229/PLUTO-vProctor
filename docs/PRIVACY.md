@@ -38,3 +38,4 @@ DELETE /api/interview/{sessionId}/delete-data
 ## 4. PII Protection in Logs
 - Application structured logs record only operational request traces (`X-Request-ID`, endpoint, latency, status code).
 - Candidate transcripts, resume text, and biometric landmarks are **never** logged to server stdout or plain-text application log files.
+

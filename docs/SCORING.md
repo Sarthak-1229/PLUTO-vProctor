@@ -83,3 +83,4 @@ Clicking any deduction row in the UI seeks the video player to the exact event:
 - **Grade B ($70.0 - 84.9$)**: Ready with Minor Polish
 - **Grade C ($55.0 - 69.9$)**: Needs Practice Before Real Interview
 - **Grade D ($< 55.0$)**: Requires Substantial Preparation
+

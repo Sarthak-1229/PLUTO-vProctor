@@ -67,3 +67,4 @@ test('InterviewFSM supports follow-up loop', () => {
   assert.ok(fsm.transition(INTERVIEW_STATES.LISTENING))
   assert.equal(fsm.getState(), INTERVIEW_STATES.LISTENING)
 })
+

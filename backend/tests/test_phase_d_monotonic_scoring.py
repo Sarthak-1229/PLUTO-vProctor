@@ -119,3 +119,4 @@ def test_timeline_seek_binary_search_precision():
     assert len(found) >= 1
     assert found[0]["id"] == "e2"
     assert abs(found[0]["t"] - 12.9) <= 0.3
+

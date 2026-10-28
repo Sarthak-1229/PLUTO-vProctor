@@ -105,3 +105,4 @@ export function clearSessionState() {
     sessionStorage.removeItem(SESSION_STORAGE_KEY)
   } catch (e) {}
 }
+

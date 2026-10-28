@@ -34,3 +34,4 @@ Whisper-family speech models and acoustic detectors can exhibit higher error rat
 PLUTO vProctor's evaluation dossier is strictly an **advisory decision-support tool**:
 - Automated reports provide timestamped evidence, video scrubbing links, and rubric breakdowns so human hiring managers can review context before making decisions.
 - Overrides ("Proceed Anyway") ensure candidates are never unilaterally screened out by automated parsers without human review.
+

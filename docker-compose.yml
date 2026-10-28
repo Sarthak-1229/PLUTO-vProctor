@@ -96,3 +96,4 @@ volumes:
   pgdata:
   redisdata:
   storage_data:
+

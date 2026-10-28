@@ -226,3 +226,4 @@ class JobQueue:
 
 # Global singleton instance
 job_queue = JobQueue(max_concurrent_jobs=2)
+

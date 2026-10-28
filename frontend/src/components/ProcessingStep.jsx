@@ -54,3 +54,4 @@ export function ProcessingStep({ processingStatus, sessionId }) {
     </div>
   )
 }
+

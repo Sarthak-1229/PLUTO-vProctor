@@ -64,3 +64,4 @@ jobs:
       - name: Build Vite Production Bundle
         run: |
           npm --prefix frontend run build
+
