@@ -11,9 +11,10 @@ import {
   User,
   Zap,
 } from 'lucide-react'
+import { DEFAULT_JOBS } from '../utils/defaultJobs'
 
 export function RoleSelectStep({
-  jobs,
+  jobs = [],
   selectedJob,
   onSelectJob,
   resumeFile,
@@ -26,16 +27,26 @@ export function RoleSelectStep({
   const [searchQuery, setSearchQuery] = useState('')
   const [isDragging, setIsDragging] = useState(false)
 
-  const filteredJobs = jobs.filter((job) => {
+  // Ensure jobs list is always available even during initial network loading
+  const activeJobs = Array.isArray(jobs) && jobs.length > 0 ? jobs : DEFAULT_JOBS
+
+  const filteredJobs = activeJobs.filter((job) => {
+    if (!job) return false
     const q = searchQuery.toLowerCase().trim()
     if (!q) return true
-    return (
-      job.title?.toLowerCase().includes(q) ||
-      job.company?.toLowerCase().includes(q) ||
-      job.question_domains?.some((d) => d.toLowerCase().includes(q)) ||
-      job.required_skills?.some((s) => s.toLowerCase().includes(q))
-    )
+    const titleMatch = (job.title || '').toLowerCase().includes(q)
+    const companyMatch = (job.company || '').toLowerCase().includes(q)
+    const domainMatch = Array.isArray(job.question_domains) && job.question_domains.some((d) => String(d).toLowerCase().includes(q))
+    const skillMatch = Array.isArray(job.required_skills) && job.required_skills.some((s) => String(s).toLowerCase().includes(q))
+    return titleMatch || companyMatch || domainMatch || skillMatch
   })
+
+  // Auto-select first job if none selected
+  React.useEffect(() => {
+    if (!selectedJob && activeJobs.length > 0) {
+      onSelectJob(activeJobs[0])
+    }
+  }, [selectedJob, activeJobs, onSelectJob])
 
   const handleDragOver = (e) => {
     e.preventDefault()
@@ -78,17 +89,19 @@ export function RoleSelectStep({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b-2 border-black pb-4">
             <div className="flex items-center space-x-2">
               <Briefcase className="w-5 h-5 text-black stroke-[2.5]" />
-              <h2 className="text-lg font-black text-black uppercase">Available Positions ({jobs.length})</h2>
+              <h2 className="text-lg font-black text-black uppercase">
+                Available Positions ({filteredJobs.length}{filteredJobs.length !== activeJobs.length ? ` of ${activeJobs.length}` : ''})
+              </h2>
             </div>
             {/* Search Input */}
             <div className="relative">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 stroke-[2.5]" />
               <input
                 type="text"
-                placeholder="Search roles, skills..."
+                placeholder="Search roles, skills, companies..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-3 py-1.5 bg-[#F4F0EA] border-2 border-black rounded-lg text-xs font-bold text-black placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#FFE600] w-full sm:w-56"
+                className="pl-9 pr-3 py-1.5 bg-[#F4F0EA] border-2 border-black rounded-lg text-xs font-bold text-black placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#FFE600] w-full sm:w-64"
               />
             </div>
           </div>
@@ -96,8 +109,8 @@ export function RoleSelectStep({
           {/* Job List */}
           <div className="space-y-3 max-h-[460px] overflow-y-auto pr-1">
             {filteredJobs.length === 0 ? (
-              <div className="text-center py-10 font-bold text-xs uppercase text-slate-500">
-                No matching positions found. Try a different query.
+              <div className="text-center py-10 font-bold text-xs uppercase text-slate-500 bg-[#F4F0EA] rounded-xl border-2 border-dashed border-black">
+                No matching positions found for "{searchQuery}". Try a different keyword.
               </div>
             ) : (
               filteredJobs.map((job) => {
@@ -126,7 +139,7 @@ export function RoleSelectStep({
                         </p>
                       </div>
                       <span className="px-2 py-0.5 rounded bg-black text-[#FFE600] text-[10px] font-mono font-black">
-                        Pass {job.pass_threshold}%
+                        Pass {typeof job.pass_threshold === 'number' && job.pass_threshold <= 1.0 ? Math.round(job.pass_threshold * 100) : (job.pass_threshold || 65)}%
                       </span>
                     </div>
 
@@ -251,4 +264,3 @@ export function RoleSelectStep({
     </div>
   )
 }
-

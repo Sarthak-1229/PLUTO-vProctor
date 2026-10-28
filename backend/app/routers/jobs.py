@@ -56,9 +56,18 @@ def _build_trie_index(db: Session):
 
 
 @router.get("", response_model=List[Dict[str, Any]])
+@router.get("/", response_model=List[Dict[str, Any]])
 def list_jobs(db: Session = Depends(get_db)):
     """Retrieve all available job profiles."""
     jobs = db.query(Job).all()
+    if not jobs:
+        import json
+        from backend.app.config import settings
+        jobs_file = settings.BASE_DIR / "backend" / "app" / "data" / "jobs.json"
+        if jobs_file.exists():
+            with open(jobs_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return data.get("jobs", [])
     return [
         {
             "id": j.id,

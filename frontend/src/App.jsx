@@ -62,17 +62,23 @@ export default function App() {
   // 1. Fetch available jobs on mount
   useEffect(() => {
     async function fetchJobs() {
-      try {
-        const res = await fetch('/api/jobs/')
-        if (res.ok) {
-          const data = await res.json()
-          setJobs(data)
-          if (data.length > 0 && !selectedJob) {
-            setSelectedJob(data[0])
+      const endpoints = ['/api/jobs', '/api/jobs/', 'http://127.0.0.1:8000/api/jobs']
+      for (const ep of endpoints) {
+        try {
+          const res = await fetch(ep)
+          if (res.ok) {
+            const data = await res.json()
+            if (Array.isArray(data) && data.length > 0) {
+              setJobs(data)
+              if (!selectedJob) {
+                setSelectedJob(data[0])
+              }
+              break
+            }
           }
+        } catch (e) {
+          // Fall through to next endpoint or default
         }
-      } catch (err) {
-        console.warn('Failed to load jobs list:', err)
       }
     }
     fetchJobs()
