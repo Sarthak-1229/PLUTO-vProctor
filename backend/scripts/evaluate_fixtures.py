@@ -119,9 +119,18 @@ def evaluate_single_fixture(
     audio_res = audio_pipeline.analyze_audio(webm_path)
 
     det_events = video_res.get("events", []) + audio_res.get("events", [])
-    det_fillers = [e for e in det_events if e.get("type") in ("FILLER_WORD", "FILLER_PHRASE")]
-    det_pauses = [e for e in det_events if e.get("type") in ("LONG_PAUSE", "HESITATION")]
-    det_lookaway = [e for e in det_events if e.get("type") in ("LOOK_AWAY", "LOOK_SIDE", "LOOK_DOWN", "LOOK_UP")]
+    det_fillers = [
+        e for e in det_events
+        if e.get("type") in ("FILLER_WORD", "FILLER_PHRASE") or e.get("type", "").startswith("FILLER")
+    ]
+    det_pauses = [
+        e for e in det_events
+        if e.get("type") in ("LONG_PAUSE", "HESITATION") or e.get("type", "").startswith("PAUSE")
+    ]
+    det_lookaway = [
+        e for e in det_events
+        if e.get("type") in ("LOOK_AWAY", "LOOK_SIDE", "LOOK_DOWN", "LOOK_UP")
+    ]
 
     # Match Fillers
     f_tp, f_fp, f_fn, f_errs = match_events(gt_fillers, det_fillers, max_tolerance_sec=1.2)
@@ -260,3 +269,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

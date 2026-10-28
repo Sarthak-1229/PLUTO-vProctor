@@ -96,6 +96,8 @@ export default function App() {
   const recognitionRef = useRef(null)
   const sessionStartTimeRef = useRef(null)
   const questionStartTimeRef = useRef(0)
+  const currentTtsWindowsRef = useRef([])
+  const ttsStartRef = useRef(null)
 
   // Processing & Report State
   const [processingStatus, setProcessingStatus] = useState({
@@ -236,7 +238,11 @@ export default function App() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: 640, height: 480 },
-        audio: true,
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: false,
+          autoGainControl: false,
+        },
       })
       streamRef.current = stream
       setCameraActive(true)
@@ -314,6 +320,7 @@ export default function App() {
       setEventsLog([])
       sessionStartTimeRef.current = Date.now()
       questionStartTimeRef.current = 0
+      currentTtsWindowsRef.current = []
 
       if (streamRef.current) {
         try {
@@ -321,6 +328,9 @@ export default function App() {
           const recorder = new MediaRecorder(streamRef.current, { mimeType: 'video/webm' })
           recorder.ondataavailable = (event) => {
             if (event.data.size > 0) recordedChunksRef.current.push(event.data)
+          }
+          recorder.onstart = () => {
+            sessionStartTimeRef.current = Date.now()
           }
           recorder.start(1000)
           mediaRecorderRef.current = recorder
@@ -337,15 +347,30 @@ export default function App() {
     }
   }
 
-  // Text-To-Speech for questions
+  // Text-To-Speech for questions with playback window logging
   const speakQuestion = (text) => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel()
       const utterance = new SpeechSynthesisUtterance(text)
       utterance.rate = 1.0
-      utterance.onstart = () => setIsSpeaking(true)
-      utterance.onend = () => setIsSpeaking(false)
-      utterance.onerror = () => setIsSpeaking(false)
+      utterance.onstart = () => {
+        setIsSpeaking(true)
+        if (sessionStartTimeRef.current) {
+          ttsStartRef.current = (Date.now() - sessionStartTimeRef.current) / 1000.0
+        }
+      }
+      utterance.onend = () => {
+        setIsSpeaking(false)
+        if (sessionStartTimeRef.current && ttsStartRef.current !== null) {
+          const ttsEnd = (Date.now() - sessionStartTimeRef.current) / 1000.0
+          currentTtsWindowsRef.current.push([ttsStartRef.current, ttsEnd])
+          ttsStartRef.current = null
+        }
+      }
+      utterance.onerror = () => {
+        setIsSpeaking(false)
+        ttsStartRef.current = null
+      }
       window.speechSynthesis.speak(utterance)
     }
   }
@@ -377,19 +402,10 @@ export default function App() {
     }
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
-    const gazeInterval = setInterval(() => {
-      if (Math.random() < 0.12 && !isLookingAway) {
-        setIsLookingAway(true)
-        triggerProctorAlert('LOOK_AWAY', 'Looking away from camera / screen (> 2.0s)', 2)
-        setTimeout(() => setIsLookingAway(false), 2500)
-      }
-    }, 8000)
-
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
-      clearInterval(gazeInterval)
     }
-  }, [currentStep, isLookingAway])
+  }, [currentStep])
 
   const triggerProctorAlert = (type, message, penalty) => {
     setLiveAlert({ type, message })
@@ -482,6 +498,8 @@ export default function App() {
   const submitAnswerForQuestion = async (qIndex, transcriptText, startTimeSec = null, endTimeSec = null) => {
     if (!sessionId) return
     setIsSubmittingAnswer(true)
+    const ttsToSubmit = [...(currentTtsWindowsRef.current || [])]
+    currentTtsWindowsRef.current = []
     try {
       await fetch(`/api/interview/${sessionId}/question/${qIndex}/answer`, {
         method: 'POST',
@@ -490,6 +508,7 @@ export default function App() {
           transcript: transcriptText || '',
           start_time_sec: startTimeSec !== null && startTimeSec !== undefined ? startTimeSec : null,
           end_time_sec: endTimeSec !== null && endTimeSec !== undefined ? endTimeSec : null,
+          tts_windows: ttsToSubmit,
         }),
       })
     } catch (err) {

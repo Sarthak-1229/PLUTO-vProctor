@@ -90,13 +90,39 @@ class AnalysisService:
                 video_res = {"events": [], "metrics": {"face_detected": True, "look_away_count": 0}}
                 audio_res = {"events": [], "metrics": {"wpm": 130, "filler_count": 0}, "transcript": "Interview completed."}
             else:
+                # Collect keywords and TTS windows from session questions
+                session_questions_pre = (
+                    db.query(SessionQuestion)
+                    .filter(SessionQuestion.session_id == session_id)
+                    .order_by(SessionQuestion.order_index)
+                    .all()
+                )
+                domain_keywords: List[str] = []
+                tts_windows_collected: List[Tuple[float, float]] = []
+                for sq in session_questions_pre:
+                    if sq.question_rel and sq.question_rel.expected_keywords:
+                        domain_keywords.extend(sq.question_rel.expected_keywords)
+                    if sq.answer_score and isinstance(sq.answer_score, dict):
+                        tts_list = sq.answer_score.get("tts_windows", [])
+                        for item in tts_list:
+                            if isinstance(item, (list, tuple)) and len(item) == 2:
+                                tts_windows_collected.append((float(item[0]), float(item[1])))
+
+                domain_keywords = list(dict.fromkeys(domain_keywords))[:40]
+
+                def _run_audio():
+                    return audio_pipeline.analyze_audio(
+                        video_path,
+                        tts_windows=tts_windows_collected if tts_windows_collected else None,
+                        keywords=domain_keywords if domain_keywords else None,
+                        progress_callback=update_audio_p,
+                    )
+
                 # Run both pipelines simultaneously
                 video_task = loop.run_in_executor(
                     _executor, video_pipeline.analyze_video, video_path, update_video_p
                 )
-                audio_task = loop.run_in_executor(
-                    _executor, audio_pipeline.analyze_audio, video_path, update_audio_p
-                )
+                audio_task = loop.run_in_executor(_executor, _run_audio)
                 video_res, audio_res = await asyncio.gather(video_task, audio_task)
 
             # Save combined events to SQLite database
@@ -116,7 +142,7 @@ class AnalysisService:
                 )
                 db.add(event_row)
 
-            # Evaluate any questions that lacked live transcripts using whisper audio pipeline results
+            # Evaluate questions using authoritative ASR pipeline transcript and timestamps
             from backend.app.services.answer_eval_service import answer_eval_service
             session_questions = (
                 db.query(SessionQuestion)
@@ -128,50 +154,47 @@ class AnalysisService:
             whisper_words = audio_res.get("words", [])
             num_q = len(session_questions)
 
-            if num_q > 0 and whisper_transcript:
+            if num_q > 0 and (whisper_transcript or whisper_words):
                 words_per_q = max(1, len(whisper_words) // num_q) if whisper_words else 0
                 for idx, sq in enumerate(session_questions):
-                    updated_from_whisper = False
-                    if not sq.transcript or len(sq.transcript.strip().split()) < 3:
-                        if sq.start_time_sec is not None and sq.end_time_sec is not None and whisper_words:
-                            cand_words = [
-                                w for w in whisper_words
-                                if sq.start_time_sec <= w["start"] <= sq.end_time_sec + 1.0
-                            ]
-                            cand_text = " ".join(w.get("raw_word", w["word"]) for w in cand_words).strip()
-                        elif whisper_words and len(whisper_words) >= num_q:
-                            chunk_words = whisper_words[idx * words_per_q : (idx + 1) * words_per_q]
-                            cand_text = " ".join(w.get("raw_word", w["word"]) for w in chunk_words).strip()
-                        else:
-                            cand_text = whisper_transcript
-
+                    if sq.start_time_sec is not None and sq.end_time_sec is not None and whisper_words:
+                        cand_words = [
+                            w for w in whisper_words
+                            if sq.start_time_sec <= w["start"] <= sq.end_time_sec + 1.0
+                        ]
+                        cand_text = " ".join(w.get("raw_word", w["word"]) for w in cand_words).strip()
                         if cand_text:
                             sq.transcript = cand_text
-                            updated_from_whisper = True
+                    elif not sq.transcript or len(sq.transcript.strip().split()) < 3:
+                        if whisper_words and len(whisper_words) >= num_q:
+                            chunk_words = whisper_words[idx * words_per_q : (idx + 1) * words_per_q]
+                            sq.transcript = " ".join(w.get("raw_word", w["word"]) for w in chunk_words).strip()
+                        elif whisper_transcript:
+                            sq.transcript = whisper_transcript
 
-                    if updated_from_whisper or not sq.answer_score or sq.answer_score.get("overall_answer_score") is None:
-                        q_rel = sq.question_rel
-                        q_text = sq.custom_question_text or (q_rel.question if q_rel else "Introductory Question")
-                        ref_ans = q_rel.answer if q_rel else ""
-                        exp_kw = q_rel.expected_keywords if q_rel else []
+                    # Always grade with the authoritative transcript
+                    q_rel = sq.question_rel
+                    q_text = sq.custom_question_text or (q_rel.question if q_rel else "Introductory Question")
+                    ref_ans = q_rel.answer if q_rel else ""
+                    exp_kw = q_rel.expected_keywords if q_rel else []
 
-                        if sq.is_warmup:
-                            sq.answer_score = {
-                                "overall_answer_score": 90.0 if sq.transcript else 50.0,
-                                "algorithmic_score": 90.0 if sq.transcript else 50.0,
-                                "llm_score": 90.0 if sq.transcript else 50.0,
-                                "feedback": "Warmup self-introduction provided.",
-                                "reference_answer": "Candidate introduction and background.",
-                                "matched_keywords": [],
-                                "missed_keywords": [],
-                            }
-                        else:
-                            sq.answer_score = await answer_eval_service.evaluate_answer(
-                                question=q_text,
-                                reference_answer=ref_ans,
-                                expected_keywords=exp_kw,
-                                candidate_transcript=sq.transcript or "",
-                            )
+                    if sq.is_warmup:
+                        sq.answer_score = {
+                            "overall_answer_score": 90.0 if sq.transcript else 50.0,
+                            "algorithmic_score": 90.0 if sq.transcript else 50.0,
+                            "llm_score": 90.0 if sq.transcript else 50.0,
+                            "feedback": "Warmup self-introduction provided.",
+                            "reference_answer": "Candidate introduction and background.",
+                            "matched_keywords": [],
+                            "missed_keywords": [],
+                        }
+                    else:
+                        sq.answer_score = await answer_eval_service.evaluate_answer(
+                            question=q_text,
+                            reference_answer=ref_ans,
+                            expected_keywords=exp_kw,
+                            candidate_transcript=sq.transcript or "",
+                        )
 
             session.interview_status = "ANALYZED"
             db.commit()

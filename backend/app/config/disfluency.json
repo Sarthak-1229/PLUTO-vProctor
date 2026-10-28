@@ -1,0 +1,61 @@
+{
+  "hard_fillers": [
+    "um", "umm", "ummm", "uh", "uhh", "uhhh", "er", "err",
+    "ah", "ahh", "ahhh", "hmm", "hmmm", "hm", "mm", "mmm"
+  ],
+  "hard_filler_fuzzy_targets": ["um", "umm", "uh", "er", "ah", "ahh", "hmm"],
+  "hard_filler_max_levenshtein": 1,
+
+  "soft_fillers": [
+    "like", "basically", "actually", "literally", "honestly",
+    "seriously", "right", "okay", "so"
+  ],
+  "soft_filler_context_notes": "Flag 'like', 'so', 'right' only when standalone or flanked by pauses. Do NOT flag 'like' used as verb/comparison or 'so' starting a clause with a direct object.",
+
+  "phrase_fillers": [
+    "you know", "i mean", "sort of", "kind of",
+    "at the end of the day", "to be honest",
+    "as a matter of fact", "believe me",
+    "you know what i mean", "if you will",
+    "or something", "or whatever"
+  ],
+
+  "pause_thresholds": {
+    "sentence_boundary_max_sec": 0.8,
+    "hesitation_min_sec": 0.6,
+    "hesitation_max_sec": 1.2,
+    "long_pause_min_sec": 1.2,
+    "late_start_sec": 3.0
+  },
+
+  "pace_bands": {
+    "very_slow_wpm": 80,
+    "slow_wpm": 100,
+    "normal_min_wpm": 100,
+    "normal_max_wpm": 160,
+    "fast_wpm": 180,
+    "very_fast_wpm": 210
+  },
+
+  "penalties": {
+    "hard_filler_per_100_words": 1.5,
+    "soft_filler_per_100_words": 0.5,
+    "phrase_filler_each": 0.5,
+    "long_pause_each": 1.0,
+    "hesitation_each": 0.3,
+    "late_start_each": 1.5,
+    "pace_deviation_per_band": 1.0,
+    "hard_filler_free_allowance_per_answer": 1,
+    "max_fluency_deduction_per_answer": 8.0
+  },
+
+  "acoustic_filler_detector": {
+    "min_duration_ms": 150,
+    "max_duration_ms": 1500,
+    "min_energy_above_noise_db": 10.0,
+    "max_spectral_flux": 0.15,
+    "min_pitch_stability": 0.6,
+    "overlap_iou_dedup_threshold": 0.3
+  }
+}
+

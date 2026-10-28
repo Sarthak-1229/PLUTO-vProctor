@@ -52,7 +52,10 @@ class Settings(BaseSettings):
     EMBEDDING_MODEL_NAME: str = "sentence-transformers/all-MiniLM-L6-v2"
     EMBEDDING_DEVICE: str = "cpu"
 
-    # Speech-to-Text Settings (faster-whisper)
+    # Speech-to-Text Settings (ASR)
+    ASR_PROVIDER: str = "auto"  # "auto", "faster_whisper", "deepgram", "assemblyai"
+    DEEPGRAM_API_KEY: str = ""
+    ASSEMBLYAI_API_KEY: str = ""
     WHISPER_MODEL_SIZE: str = "small"  # fallback "base"
     WHISPER_DEVICE: str = "cpu"        # "cuda" or "cpu"; default CPU while LLM is loaded
     WHISPER_COMPUTE_TYPE: str = "int8"

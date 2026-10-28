@@ -46,11 +46,13 @@ class VideoAnalysisPipeline:
             raise ValueError(f"Could not open video file: {video_path}")
 
         orig_fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
-        if orig_fps <= 0 or np.isnan(orig_fps):
+        if orig_fps <= 0 or np.isnan(orig_fps) or orig_fps > 65.0 or orig_fps < 5.0:
             orig_fps = 30.0
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or 1
-        if total_frames <= 0:
-            total_frames = 300
+        raw_total_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+        if raw_total_frames is None or np.isnan(raw_total_frames) or raw_total_frames <= 0 or raw_total_frames > 1e8:
+            total_frames = 1800
+        else:
+            total_frames = int(raw_total_frames)
         duration_sec = total_frames / orig_fps
 
         frame_step = max(1, int(round(orig_fps / self.target_fps)))

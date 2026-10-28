@@ -23,6 +23,7 @@ class AnswerSubmitRequest(BaseModel):
     transcript: str
     start_time_sec: Optional[float] = None
     end_time_sec: Optional[float] = None
+    tts_windows: Optional[List[List[float]]] = None
 
 
 
@@ -148,6 +149,9 @@ async def submit_question_answer(
             expected_keywords=exp_kw,
             candidate_transcript=clean_transcript,
         )
+
+    if req.tts_windows and isinstance(eval_result, dict):
+        eval_result["tts_windows"] = req.tts_windows
 
     sq.answer_score = eval_result
     db.commit()

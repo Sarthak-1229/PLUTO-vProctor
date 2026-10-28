@@ -1,11 +1,12 @@
 """Audio speech-to-text, filler-word detection, pause analysis, and pace evaluation pipeline.
 
-Implements Section 5.5 of docs/spec/5b-interview-analysis.md.
+Integrates ASRProvider (FasterWhisper, Deepgram, AssemblyAI), acoustic filled-pause detector,
+TTS window exclusion, and DisfluencyEngine.
 """
 from __future__ import annotations
 
-import io
 import json
+import os
 import re
 import uuid
 from pathlib import Path
@@ -15,48 +16,39 @@ import av
 import numpy as np
 from scipy.io import wavfile
 
-# PyAV 14+ compatibility patch for faster-whisper
+# PyAV 14+ compatibility patch for faster-whisper / audio decoding
 _orig_av_open = av.open
 def _safe_av_open(*args, **kwargs):
     kwargs.pop("metadata_errors", None)
     return _orig_av_open(*args, **kwargs)
 av.open = _safe_av_open
 
-from backend.app.algorithms.edit_distance import levenshtein
-from backend.app.algorithms.string_match import kmp_search, rabin_karp_search
 from backend.app.config import settings
-
-FILLERS_FILE = settings.BASE_DIR / "backend" / "app" / "data" / "fillers.json"
+from backend.app.pipelines.acoustic_filler import detect_acoustic_fillers
+from backend.app.pipelines.asr import TranscriptionResult, Word, WordSource
+from backend.app.pipelines.asr.registry import get_asr_provider
+from backend.app.pipelines.disfluency_engine import DisfluencyEngine
 
 
 class AudioAnalysisPipeline:
-    """Offline audio pipeline extracting 16kHz speech, transcribing via faster-whisper, and detecting fillers/pauses."""
+    """Audio pipeline extracting 16kHz speech, transcribing via ASR provider,
+
+    detecting acoustic + lexical fillers, pauses, and pacing.
+    """
 
     def __init__(self):
-        self.single_fillers: Set[str] = set()
-        self.phrase_fillers: List[str] = []
-        self._whisper_model = None
-        self._load_fillers()
+        self.disfluency_engine = DisfluencyEngine()
 
-    def _load_fillers(self):
-        if FILLERS_FILE.exists():
-            with open(FILLERS_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                self.single_fillers = set(data.get("single_word_fillers", []))
-                self.phrase_fillers = data.get("phrase_fillers", [])
+    @property
+    def single_fillers(self) -> Set[str]:
+        return self.disfluency_engine.hard_fillers | self.disfluency_engine.soft_fillers
 
-    def _get_whisper_model(self):
-        if self._whisper_model is None:
-            from faster_whisper import WhisperModel
-            self._whisper_model = WhisperModel(
-                settings.WHISPER_MODEL_SIZE,
-                device=settings.WHISPER_DEVICE,
-                compute_type=settings.WHISPER_COMPUTE_TYPE,
-            )
-        return self._whisper_model
+    @property
+    def phrase_fillers(self) -> List[str]:
+        return self.disfluency_engine.phrase_fillers
 
     def extract_wav_16k_mono(self, input_path: Path, output_wav_path: Path) -> Path:
-        """Demux and resample input video/audio (e.g. webm/mp4) to 16 kHz mono PCM wav using PyAV."""
+        """Demux and resample input media (webm/mp4) to 16 kHz mono PCM WAV using PyAV."""
         container = av.open(str(input_path))
         audio_stream = next((s for s in container.streams if s.type == "audio"), None)
         if not audio_stream:
@@ -69,14 +61,11 @@ class AudioAnalysisPipeline:
         for frame in container.decode(audio_stream):
             resampled_frames = resampler.resample(frame)
             for rf in resampled_frames:
-                # Convert plane to numpy array
-                arr = rf.to_ndarray()
-                pcm_chunks.append(arr)
+                pcm_chunks.append(rf.to_ndarray())
 
         container.close()
 
         if not pcm_chunks:
-            # Generate 1s of silence if empty
             data = np.zeros(16000, dtype=np.int16)
         else:
             data = np.concatenate(pcm_chunks, axis=1).squeeze()
@@ -85,170 +74,156 @@ class AudioAnalysisPipeline:
         wavfile.write(str(output_wav_path), 16000, data)
         return output_wav_path
 
+    @staticmethod
+    def filter_tts_windows(
+        words: List[Word],
+        tts_windows: Optional[List[Tuple[float, float]]] = None,
+    ) -> List[Word]:
+        """Exclude words that fall within TTS output playback windows (interviewer voice pickup)."""
+        if not tts_windows:
+            return words
+
+        filtered: List[Word] = []
+        for w in words:
+            in_tts = False
+            for tts_start, tts_end in tts_windows:
+                # If word overlaps significantly (>50% of word duration) with TTS window
+                inter_s = max(w.start, tts_start)
+                inter_e = min(w.end, tts_end)
+                if inter_e > inter_s:
+                    overlap_dur = inter_e - inter_s
+                    w_dur = max(0.001, w.end - w.start)
+                    if (overlap_dur / w_dur) > 0.5:
+                        in_tts = True
+                        break
+            if not in_tts:
+                filtered.append(w)
+        return filtered
+
     def analyze_audio(
         self,
         media_path: Path,
+        *,
+        tts_windows: Optional[List[Tuple[float, float]]] = None,
+        keywords: Optional[List[str]] = None,
+        question_segments: Optional[List[Dict[str, Any]]] = None,
         progress_callback: Optional[Callable[[float], None]] = None,
     ) -> Dict[str, Any]:
-        """Run complete audio transcription, filler word detection, and pause analysis."""
+        """Run complete audio transcription, filler word detection, pause analysis, and pace scoring.
+
+        Args:
+            media_path: Path to WebM/MP4 recording or WAV.
+            tts_windows: List of (start_sec, end_sec) when AI interviewer was speaking.
+            keywords: Technical domain keywords for ASR boosting.
+            question_segments: Optional list of {'id': ..., 'start': ..., 'end': ...} question time windows.
+            progress_callback: Progress indicator callback.
+
+        Returns:
+            Structured dictionary matching scoring engine and report requirements.
+        """
         wav_path = media_path.with_suffix(".16k.wav")
         try:
             self.extract_wav_16k_mono(media_path, wav_path)
         except Exception as e:
             print(f"Warning: Audio extraction fallback: {e}")
-            # If extraction failed, create a small dummy wav for graceful execution
             wavfile.write(str(wav_path), 16000, np.zeros(16000, dtype=np.int16))
 
         if progress_callback:
-            progress_callback(0.3)
+            progress_callback(0.2)
 
-        # Transcribe with faster-whisper using direct float32 samples to bypass decode_audio
-        all_words: List[Dict[str, Any]] = []
-        transcript_pieces: List[str] = []
+        # 1. Transcribe with active ASR provider
+        provider = get_asr_provider()
+        asr_result: TranscriptionResult = provider.transcribe(
+            wav_path,
+            language="en",
+            keywords=keywords,
+        )
 
-        info_duration_sec = 1.0  # Fallback duration if transcription fails
+        if progress_callback:
+            progress_callback(0.5)
+
+        # 2. Filter out words spoken during interviewer TTS playback
+        clean_asr_words = self.filter_tts_windows(asr_result.words, tts_windows)
+
+        # 3. Acoustic filled-pause detection (catches nasal 'um', 'uh' normalized by ASR)
+        acoustic_fillers: List[Word] = []
         try:
-            samplerate, audio_data = wavfile.read(str(wav_path))
-            if audio_data.dtype == np.int16:
-                audio_input = audio_data.astype(np.float32) / 32768.0
-            else:
-                audio_input = audio_data.astype(np.float32)
-            if len(audio_input.shape) > 1:
-                audio_input = audio_input.mean(axis=1)
-
-            model = self._get_whisper_model()
-            segments, info = model.transcribe(
-                audio_input,
-                word_timestamps=True,
-                vad_filter=False,  # Keep filler words in the transcript!
-                initial_prompt="Umm, uh, like, you know, so, I mean, basically...",
-                beam_size=settings.WHISPER_BEAM_SIZE,
-            )
-
-            for seg in segments:
-                transcript_pieces.append(seg.text)
-                if seg.words:
-                    for w in seg.words:
-                        clean_w = re.sub(r"[^\w']", "", w.word.strip().lower())
-                        all_words.append({
-                            "word": clean_w,
-                            "raw_word": w.word,
-                            "start": round(w.start, 2),
-                            "end": round(w.end, 2),
-                            "prob": round(w.probability, 2),
-                        })
-            if hasattr(info, 'duration') and info.duration:
-                info_duration_sec = info.duration
+            acoustic_fillers = detect_acoustic_fillers(wav_path, clean_asr_words)
+            # Filter acoustic fillers against TTS windows as well
+            acoustic_fillers = self.filter_tts_windows(acoustic_fillers, tts_windows)
         except Exception as e:
-            print(f"Warning: Whisper transcription fallback: {e}")
-            transcript_pieces.append("Candidate completed response.")
+            print(f"Warning: Acoustic filler detection failed: {e}")
 
-        full_transcript = " ".join(transcript_pieces).strip()
         if progress_callback:
             progress_callback(0.7)
 
-        # 1. Filler Detection
+        # 4. Disfluency & fluency analysis
+        disfluency_res = self.disfluency_engine.analyze(
+            clean_asr_words,
+            acoustic_fillers,
+        )
+
+        # Map disfluency events to proctoring / report event format
         events: List[Dict[str, Any]] = []
-        detected_fillers_count = 0
+        for ev in disfluency_res.events:
+            sev = "LOW"
+            if ev.event_type == "late_start" or ev.sub_type == "long_pause":
+                sev = "MEDIUM"
+            elif ev.deduction >= 1.5:
+                sev = "HIGH"
 
-        # Exact and Fuzzy single word fillers
-        for w_info in all_words:
-            w = w_info["word"]
-            if not w:
-                continue
-            is_filler = False
-            # Exact match
-            if w in self.single_fillers:
-                is_filler = True
+            # Use standard event types compatible with both scoring engine and fixtures
+            if ev.event_type == "filler":
+                ev_type = "FILLER_PHRASE" if ev.sub_type == "phrase" else "FILLER_WORD"
+            elif ev.event_type == "pause":
+                ev_type = "LONG_PAUSE" if ev.sub_type == "long_pause" else "HESITATION"
+            elif ev.event_type == "late_start":
+                ev_type = "LATE_START"
+            elif ev.event_type == "pace":
+                ev_type = f"PACE_{ev.sub_type.upper()}"
             else:
-                # Fuzzy match (Levenshtein distance <= 1 for short sounds like "ummm", "uhhh")
-                for sf in ["um", "umm", "uh", "er", "ah"]:
-                    if abs(len(w) - len(sf)) <= 2 and levenshtein(w, sf) <= 1:
-                        is_filler = True
-                        break
+                ev_type = f"{ev.event_type.upper()}_{ev.sub_type.upper()}"
 
-            if is_filler:
-                detected_fillers_count += 1
-                events.append({
-                    "id": f"evt_filler_{uuid.uuid4().hex[:8]}",
-                    "t_start": w_info["start"],
-                    "t_end": w_info["end"],
-                    "category": "Confidence (fluency)",
-                    "type": "FILLER_WORD",
-                    "severity": "LOW",
-                    "points_deducted": 0.5,
-                    "reason": f"Spoken filler sound '{w_info['raw_word']}'",
-                })
-
-        # Multi-word phrase fillers using KMP and Rabin-Karp
-        full_transcript_lower = full_transcript.lower()
-        for phrase in self.phrase_fillers:
-            # Check with hand-written KMP
-            kmp_matches = kmp_search(full_transcript_lower, phrase)
-            # Cross-verify with Rabin-Karp
-            rk_matches = rabin_karp_search(full_transcript_lower, phrase)
-            matches = sorted(list(set(kmp_matches + rk_matches)))
-
-            for _ in matches:
-                detected_fillers_count += 1
-                events.append({
-                    "id": f"evt_phrase_filler_{uuid.uuid4().hex[:8]}",
-                    "t_start": 0.0,
-                    "t_end": 0.0,
-                    "category": "Confidence (fluency)",
-                    "type": "FILLER_PHRASE",
-                    "severity": "LOW",
-                    "points_deducted": 0.5,
-                    "reason": f"Spoken filler phrase '{phrase}'",
-                })
-
-        # 2. Pause Analysis
-        pause_count = 0
-        for i in range(len(all_words) - 1):
-            gap = all_words[i + 1]["start"] - all_words[i]["end"]
-            if gap >= 1.2:  # Mid-answer pause > 1.2s
-                pause_count += 1
-                events.append({
-                    "id": f"evt_pause_{uuid.uuid4().hex[:8]}",
-                    "t_start": all_words[i]["end"],
-                    "t_end": all_words[i + 1]["start"],
-                    "category": "Confidence (fluency)",
-                    "type": "LONG_PAUSE",
-                    "severity": "MEDIUM",
-                    "points_deducted": 1.0,
-                    "reason": f"Noticeable hesitation/pause of {gap:.1f}s",
-                })
-
-        # 3. Speaking Pace (Words Per Minute)
-        audio_dur_sec = max(1.0, info_duration_sec if info_duration_sec > 1.0 else (all_words[-1]["end"] if all_words else 1.0))
-        audio_dur_min = audio_dur_sec / 60.0
-        word_count = len(all_words)
-        wpm = round(word_count / audio_dur_min, 1) if audio_dur_min > 0 else 0.0
-
-        if wpm > 0 and wpm < 95:
-            events.append({
-                "id": f"evt_pace_slow_{uuid.uuid4().hex[:8]}",
-                "t_start": 0.0,
-                "t_end": round(audio_dur_sec, 2),
+            ev_dict = {
+                "id": f"evt_{ev.event_type}_{uuid.uuid4().hex[:8]}",
+                "t_start": ev.start,
+                "t_end": ev.end,
                 "category": "Confidence (fluency)",
-                "type": "PACE_SLOW",
-                "severity": "LOW",
-                "points_deducted": 1.0,
-                "reason": f"Speaking pace slow ({wpm:.0f} WPM vs recommended 110-160 WPM)",
-            })
-        elif wpm > 185:
-            events.append({
-                "id": f"evt_pace_fast_{uuid.uuid4().hex[:8]}",
-                "t_start": 0.0,
-                "t_end": round(audio_dur_sec, 2),
-                "category": "Confidence (fluency)",
-                "type": "PACE_FAST",
-                "severity": "LOW",
-                "points_deducted": 1.0,
-                "reason": f"Speaking pace rushed ({wpm:.0f} WPM vs recommended 110-160 WPM)",
-            })
+                "type": ev_type,
+                "sub_type": ev.sub_type,
+                "severity": sev,
+                "points_deducted": ev.deduction,
+                "reason": ev.reason,
+                "question_id": ev.question_id,
+            }
+            events.append(ev_dict)
 
-        # Clean up temporary wav file
+        # Build word dicts for downstream consumers
+        word_dicts = [
+            {
+                "word": w.text,
+                "raw_word": w.text,
+                "start": w.start,
+                "end": w.end,
+                "prob": w.confidence,
+                "is_filler": w.is_filler,
+                "filler_type": w.filler_type,
+                "source": w.source.value,
+            }
+            for w in disfluency_res.words
+        ]
+
+        # Reconstruct authoritative transcript from non-acoustic words
+        full_transcript = " ".join(
+            w.text for w in disfluency_res.words if w.source != WordSource.ACOUSTIC
+        ).strip()
+        if not full_transcript and asr_result.full_text:
+            full_transcript = asr_result.full_text
+
+        # Fluency score (starts at 100, deducted by disfluency_res.total_deduction)
+        fluency_score = round(max(0.0, 100.0 - disfluency_res.total_deduction), 1)
+
+        # Clean up temporary WAV file
         if wav_path.exists():
             try:
                 wav_path.unlink()
@@ -258,22 +233,38 @@ class AudioAnalysisPipeline:
         if progress_callback:
             progress_callback(1.0)
 
-        # Fluency score calculation
-        fluency_deductions = sum(e["points_deducted"] for e in events)
-        fluency_score = round(max(0.0, 100.0 - fluency_deductions), 1)
+        total_duration = asr_result.duration_sec
+        if total_duration <= 0.0 and disfluency_res.words:
+            total_duration = disfluency_res.words[-1].end
 
         return {
             "transcript": full_transcript,
-            "duration_sec": round(audio_dur_sec, 2),
-            "word_count": word_count,
+            "duration_sec": round(total_duration, 2),
+            "word_count": disfluency_res.word_count,
+            "provider_name": provider.name,
             "metrics": {
-                "filler_count": detected_fillers_count,
-                "pause_count": pause_count,
-                "words_per_minute": wpm,
+                "filler_count": (
+                    disfluency_res.hard_filler_count
+                    + disfluency_res.soft_filler_count
+                    + disfluency_res.phrase_filler_count
+                    + disfluency_res.acoustic_filler_count
+                ),
+                "hard_filler_count": disfluency_res.hard_filler_count,
+                "soft_filler_count": disfluency_res.soft_filler_count,
+                "phrase_filler_count": disfluency_res.phrase_filler_count,
+                "acoustic_filler_count": disfluency_res.acoustic_filler_count,
+                "pause_count": disfluency_res.hesitation_count + disfluency_res.long_pause_count,
+                "hesitation_count": disfluency_res.hesitation_count,
+                "long_pause_count": disfluency_res.long_pause_count,
+                "total_pause_duration": disfluency_res.total_pause_duration,
+                "words_per_minute": disfluency_res.pace_wpm,
+                "pace_band": disfluency_res.pace_band,
                 "fluency_score": fluency_score,
+                "fillers_per_minute": disfluency_res.fillers_per_minute,
             },
             "events": events,
-            "words": all_words,
+            "words": word_dicts,
+            "disfluency_summary": disfluency_res.to_dict(),
         }
 
 
