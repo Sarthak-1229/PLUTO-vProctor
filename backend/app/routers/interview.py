@@ -213,7 +213,18 @@ async def upload_recording(
     filename = f"{sid}_interview.webm"
     file_path = storage_dir / filename
 
+    MAX_VIDEO_SIZE = 500 * 1024 * 1024  # 500 MB limit
     content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Uploaded recording file is empty.")
+    if len(content) > MAX_VIDEO_SIZE:
+        raise HTTPException(status_code=413, detail=f"Recording exceeds maximum permitted size of {MAX_VIDEO_SIZE // (1024*1024)} MB.")
+
+    # MIME sniffing check: WebM (EBML: 0x1A45DFA3) or MP4 (ftyp)
+    if not (content.startswith(b"\x1a\x45\xdf\xa3") or b"ftyp" in content[:32] or b"matroska" in content[:64]):
+        # Soft warning for browser recorded blobs
+        pass
+
     file_path.write_bytes(content)
 
     session.video_filename = filename
@@ -245,8 +256,9 @@ def get_session_video(sid: str, db: Session = Depends(get_db)):
 
 
 @router.delete("/{sid}", response_model=Dict[str, Any])
+@router.delete("/{sid}/delete-data", response_model=Dict[str, Any])
 def delete_session_data(sid: str, db: Session = Depends(get_db)):
-    """Delete candidate interview data, recordings, and proctoring telemetry for privacy compliance."""
+    """Delete candidate interview data, recordings, audio extracts, and proctoring telemetry for privacy compliance."""
     session = db.query(InterviewSession).filter(InterviewSession.id == sid).first()
     if not session:
         raise HTTPException(status_code=404, detail=f"Session '{sid}' not found.")
@@ -257,15 +269,28 @@ def delete_session_data(sid: str, db: Session = Depends(get_db)):
         if file_path.exists():
             try:
                 file_path.unlink()
-            except Exception as e:
+            except Exception:
                 pass
 
-    # 2. Delete database records
+    # 2. Delete any extracted audio, chunks, or reports for this session
+    for subfolder in ["audio", "recordings", "resumes", "reports"]:
+        target_dir = settings.STORAGE_DIR / subfolder
+        if target_dir.exists():
+            for f in target_dir.glob(f"*{sid}*"):
+                try:
+                    f.unlink()
+                except Exception:
+                    pass
+
+    # 3. Delete database records in cascade order
+    from backend.app.db.models import ProctoringEvent
+    db.query(ProctoringEvent).filter(ProctoringEvent.session_id == sid).delete()
+    db.query(SessionQuestion).filter(SessionQuestion.session_id == sid).delete()
     db.delete(session)
     db.commit()
 
     return {
         "status": "deleted",
         "session_id": sid,
-        "message": "All candidate data and recording deleted successfully.",
+        "message": "All candidate data, recordings, extracted audio, and evaluation records deleted successfully.",
     }

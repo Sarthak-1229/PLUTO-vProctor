@@ -34,10 +34,22 @@ async def upload_resume(
             detail="Unsupported file format. Please upload a PDF or DOCX resume.",
         )
 
-    # Read bytes
+    # Read bytes and validate size (Max 10 MB)
+    MAX_RESUME_SIZE = 10 * 1024 * 1024
     file_bytes = await file.read()
     if not file_bytes:
         raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+    if len(file_bytes) > MAX_RESUME_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Resume file size exceeds maximum limit of {MAX_RESUME_SIZE // (1024*1024)} MB.",
+        )
+
+    # Magic byte MIME verification
+    if fn_lower.endswith(".pdf") and not file_bytes.startswith(b"%PDF"):
+        raise HTTPException(status_code=400, detail="Corrupted or invalid PDF file header.")
+    elif fn_lower.endswith(".docx") and not file_bytes.startswith(b"PK\x03\x04"):
+        raise HTTPException(status_code=400, detail="Corrupted or invalid DOCX file header.")
 
     # Save to storage
     storage_dir = settings.STORAGE_DIR / "resumes"

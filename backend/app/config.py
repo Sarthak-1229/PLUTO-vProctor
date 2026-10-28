@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     STORAGE_DIR: Path = BASE_DIR / "storage"
     PROCESSED_DATA_DIR: Path = BASE_DIR / "backend" / "app" / "data" / "processed"
 
+    # Observability & Infrastructure
+    LOG_LEVEL: str = "INFO"
+    REDIS_URL: str = ""
+    RETENTION_DAYS: int = 30
+
     # API Server Configuration
     API_HOST: str = "127.0.0.1"
     API_PORT: int = 8000

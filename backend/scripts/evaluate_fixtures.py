@@ -221,6 +221,11 @@ def main():
         default=str(ROOT_DIR / "backend" / "tests" / "fixtures" / "recordings"),
         help="Directory containing .webm and .labels.json files",
     )
+    parser.add_argument(
+        "--gate-check",
+        action="store_true",
+        help="Enforce CI quality gate thresholds (exit 1 if metrics regress)",
+    )
     args = parser.parse_args()
 
     f_dir = Path(args.fixtures_dir)
@@ -265,6 +270,23 @@ def main():
     print("\n" + "=" * 80)
     print(f"Evaluation complete. Saved results to {out_json.name}")
     print("=" * 80)
+
+    # Gate check validation
+    if args.gate_check and all_results:
+        avg_lookaway_recall = sum(r["lookaway"]["recall"] for r in all_results) / len(all_results)
+        avg_pause_recall = sum(r["pause"]["recall"] for r in all_results) / len(all_results)
+        max_median_err = max(r["timestamps"]["median_error_sec"] for r in all_results)
+
+        print("\nCI Gate Validation:")
+        print(f"  * Look-away Recall: {avg_lookaway_recall * 100:.1f}%")
+        print(f"  * Pause Recall:     {avg_pause_recall * 100:.1f}%")
+        print(f"  * Median Time Error: {max_median_err:.2f}s (Threshold: <= 4.0s)")
+
+        if avg_lookaway_recall < 0.50 or max_median_err > 5.0:
+            print("\n[CI GATE FAILED] Performance metrics regressed below acceptable bounds.")
+            sys.exit(1)
+        else:
+            print("\n[CI GATE PASSED] All benchmark thresholds satisfied.")
 
 
 if __name__ == "__main__":

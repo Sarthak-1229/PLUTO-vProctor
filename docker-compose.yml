@@ -1,0 +1,98 @@
+services:
+  # 1. PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: pluto-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pluto_user
+      POSTGRES_PASSWORD: pluto_password
+      POSTGRES_DB: pluto_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pluto_user -d pluto_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 2. Redis Task Queue Broker
+  redis:
+    image: redis:7-alpine
+    container_name: pluto-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 3. FastAPI Backend API
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: pluto-backend
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=production
+      - LOG_LEVEL=INFO
+      - DATABASE_URL=postgresql://pluto_user:pluto_password@postgres:5432/pluto_db
+      - REDIS_URL=redis://redis:6379/0
+      - ASR_PROVIDER=auto
+      - WHISPER_MODEL_SIZE=small
+      - WHISPER_DEVICE=cpu
+    volumes:
+      - storage_data:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  # 4. Background Analysis Worker
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: pluto-worker
+    restart: unless-stopped
+    command: ["python", "-c", "import asyncio; from backend.app.services.job_queue import job_queue; job_queue.start_workers(); asyncio.get_event_loop().run_forever()"]
+    environment:
+      - ENVIRONMENT=production
+      - LOG_LEVEL=INFO
+      - DATABASE_URL=postgresql://pluto_user:pluto_password@postgres:5432/pluto_db
+      - REDIS_URL=redis://redis:6379/0
+      - WHISPER_MODEL_SIZE=small
+      - WHISPER_DEVICE=cpu
+    volumes:
+      - storage_data:/app/storage
+    depends_on:
+      backend:
+        condition: service_started
+
+  # 5. React Frontend (Nginx)
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: pluto-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "5173:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  redisdata:
+  storage_data:
