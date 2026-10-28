@@ -332,9 +332,9 @@ class VideoAnalysisPipeline:
         )
 
         return {
-            "duration_sec": round(frame_idx / orig_fps, 2),
+            "duration_sec": final_time,
             "analyzed_frames": analyzed_frames,
-            "sample_rate_fps": round(effective_sample_rate, 1),
+            "sample_rate_fps": round(analyzed_frames / max(1.0, final_time), 1),
             "metrics": {
                 "face_detected": analyzed_frames > 0 and len(merged_missing) < (analyzed_frames * 0.8),
                 "eye_contact_percentage": eye_contact_pct,
