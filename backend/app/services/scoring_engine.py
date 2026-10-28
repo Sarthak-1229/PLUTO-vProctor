@@ -27,11 +27,10 @@ class ScoringEngine:
     """Calculates overall scores, category grades, and timeline deductions."""
 
     CATEGORY_WEIGHTS = {
-        "resume_fit": 0.20,
-        "eye_contact": 0.20,
-        "body_motion": 0.15,
-        "confidence_fluency": 0.25,
-        "answer_quality": 0.20,
+        "technical_depth": 0.35,       # Answer Quality vs Ground Truth (35%)
+        "confidence_fluency": 0.25,    # Communication / Fluency (25%)
+        "proctoring_integrity": 0.25,  # Eye Contact & Body Motion (25%)
+        "resume_fit": 0.15,            # Resume Screening Fit (15%)
     }
 
     def compute_overall_score(
@@ -40,14 +39,27 @@ class ScoringEngine:
         proctoring_events: List[Dict[str, Any]],
         answer_scores: List[float],
     ) -> Dict[str, Any]:
-        """Combine all category deductions and compute weighted overall score and grade band."""
+        """Combine all category deductions and compute weighted overall score and grade band.
+
+        Score buckets follow Phase D specification:
+        - Technical Depth: 35%
+        - Fluency / Confidence: 25%
+        - Proctoring Integrity: 25%
+        - Resume Fit: 15%
+        """
+        # Answer Quality / Technical Depth score
+        tech_score = round(sum(answer_scores) / len(answer_scores), 1) if answer_scores else 0.0
+
         # Category starting points (100 each)
         cat_scores = {
             "resume_fit": round(screening_fit * 100.0, 1),
+            "technical_depth": tech_score,
+            "confidence_fluency": 100.0,
+            "proctoring_integrity": 100.0,
+            # Sub-category references for granular reporting
             "eye_contact": 100.0,
             "body_motion": 100.0,
-            "confidence_fluency": 100.0,
-            "answer_quality": 100.0,
+            "answer_quality": tech_score,
         }
 
         # Apply deductions from proctoring events
@@ -57,36 +69,46 @@ class ScoringEngine:
             cat = ev.get("category", "")
             pts = float(ev.get("points_deducted", 1.0))
             t_start = float(ev.get("t_start", 0.0))
+            bucket = "Proctoring Integrity"
 
             if "eye" in cat.lower():
+                cat_scores["proctoring_integrity"] -= pts
                 cat_scores["eye_contact"] -= pts
-            elif "body" in cat.lower() or "motion" in cat.lower():
+                bucket = "Proctoring Integrity"
+            elif "body" in cat.lower() or "motion" in cat.lower() or "posture" in cat.lower():
+                cat_scores["proctoring_integrity"] -= pts
                 cat_scores["body_motion"] -= pts
+                bucket = "Proctoring Integrity"
+            elif "proctoring" in cat.lower():
+                cat_scores["proctoring_integrity"] -= pts
+                bucket = "Proctoring Integrity"
             elif "confidence" in cat.lower() or "fluency" in cat.lower():
                 cat_scores["confidence_fluency"] -= pts
+                bucket = "Fluency/Confidence"
 
             formatted_deductions.append({
                 "id": ev.get("id", f"ded_{len(formatted_deductions)}"),
                 "t": t_start,
                 "mmss": format_seconds_mmss(t_start),
+                "bucket": bucket,
                 "category": cat,
                 "type": ev.get("type", "VIOLATION"),
                 "points": pts,
                 "reason": ev.get("reason", "Proctoring violation"),
                 "question_id": ev.get("question_id"),
+                "evidence_ref": ev.get("sub_type", ev.get("type", "FLAG")),
             })
-
-        # Answer Quality score
-        if answer_scores:
-            cat_scores["answer_quality"] = round(sum(answer_scores) / len(answer_scores), 1)
 
         # Clamp all categories to [0, 100]
         for k in cat_scores:
             cat_scores[k] = round(max(0.0, min(100.0, cat_scores[k])), 1)
 
-        # Compute weighted overall score
-        overall = sum(
-            cat_scores[cat] * self.CATEGORY_WEIGHTS[cat] for cat in self.CATEGORY_WEIGHTS
+        # Compute weighted overall score using the 4 main buckets
+        overall = (
+            cat_scores["technical_depth"] * self.CATEGORY_WEIGHTS["technical_depth"]
+            + cat_scores["confidence_fluency"] * self.CATEGORY_WEIGHTS["confidence_fluency"]
+            + cat_scores["proctoring_integrity"] * self.CATEGORY_WEIGHTS["proctoring_integrity"]
+            + cat_scores["resume_fit"] * self.CATEGORY_WEIGHTS["resume_fit"]
         )
         overall_score = round(max(0.0, min(100.0, overall)), 1)
 

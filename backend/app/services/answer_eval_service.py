@@ -86,6 +86,16 @@ class AnswerEvaluationService:
 
         emb_sim = float(np.dot(cand_emb, ref_emb))
 
+        # Off-topic gate: if semantic similarity to reference is very low (< 0.25), score near zero
+        if emb_sim < 0.25:
+            return {
+                "algorithmic_score": round(max(0.0, emb_sim * 20.0), 1),
+                "keyword_recall": 0.0,
+                "matched_keywords": [],
+                "missed_keywords": expected_keywords,
+                "embedding_similarity": round(emb_sim, 3),
+            }
+
         # TF-IDF cosine
         tfidf_sim = 0.0
         if self.tfidf:
@@ -115,13 +125,17 @@ class AnswerEvaluationService:
         # BM25 score
         bm25_val = float(self.bm25.score(question, 0)) if self.bm25 else 0.5
 
-        # Predict probability from trained model
+        # Predict probability from trained model or robust formula
         if self.model:
             feats = [[emb_sim, tfidf_sim, kw_recall, len_ratio, bm25_val]]
             prob = self.model.predict_proba(feats)[0][1]
             raw_score = prob * 100.0
         else:
             raw_score = (0.50 * emb_sim + 0.35 * kw_recall + 0.15 * tfidf_sim) * 100.0
+
+        # Cap very short answers (< 7 words)
+        if len(candidate_transcript.split()) < 7:
+            raw_score = min(45.0, raw_score)
 
         algorithmic_score = round(max(0.0, min(100.0, raw_score)), 1)
 
