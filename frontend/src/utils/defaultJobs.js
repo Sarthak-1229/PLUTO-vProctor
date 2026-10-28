@@ -144,3 +144,4 @@ export const DEFAULT_JOBS = [
     pass_threshold: 65
   }
 ]
+

@@ -170,22 +170,33 @@ export default function App() {
     setLoadingScreening(true)
     const formData = new FormData()
     formData.append('resume', resumeFile)
+    formData.append('file', resumeFile)
     formData.append('job_id', selectedJob.id)
     if (candidateName) formData.append('candidate_name', candidateName)
 
     try {
-      const res = await fetch('/api/resume/screen', {
+      let res = await fetch('/api/resume/screen', {
         method: 'POST',
         body: formData,
       })
-      if (!res.ok) throw new Error('Screening failed')
+      if (!res.ok) {
+        // Fallback to /api/resume/upload if needed
+        res = await fetch('/api/resume/upload', {
+          method: 'POST',
+          body: formData,
+        })
+      }
+      if (!res.ok) {
+        const errDetail = await res.text()
+        throw new Error(errDetail || 'Screening request rejected by server')
+      }
       const data = await res.json()
       setScreeningResult(data)
       setSessionId(data.session_id)
       setCurrentStep('screening')
     } catch (e) {
       console.error('Screening submission error:', e)
-      alert('Failed to screen resume. Please ensure the backend is running.')
+      alert(`Failed to screen resume: ${e.message || 'Please ensure the backend is running.'}`)
     } finally {
       setLoadingScreening(false)
     }

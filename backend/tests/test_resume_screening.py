@@ -97,3 +97,22 @@ def test_upload_unqualified_resume_rejected():
     assert data["screening"]["status"] == "REJECTED"
     assert len(data["screening"]["reasons"]) > 0
     assert any("Missing required skills" in r for r in data["screening"]["reasons"])
+
+
+def test_screen_endpoint_with_resume_field_and_custom_name():
+    """Verify /api/resume/screen supports 'resume' form field and custom candidate_name."""
+    pdf_path = FIXTURES_DIR / "resume_senior_sec_analyst.pdf"
+    with open(pdf_path, "rb") as f:
+        res = client.post(
+            "/api/resume/screen",
+            data={"job_id": "job_sec_analyst", "candidate_name": "Sarthak Bhosale"},
+            files={"resume": (pdf_path.name, f, "application/pdf")},
+        )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["session_id"].startswith("sess_")
+    assert data["candidate_name"] == "Sarthak Bhosale"
+    assert "fit_score" in data
+    assert "gaps" in data
+    assert "parsed_profile" in data
+    assert "skills" in data["parsed_profile"]
