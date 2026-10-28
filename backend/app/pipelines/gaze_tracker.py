@@ -349,3 +349,4 @@ class GazeTracker:
             face_scale=round(face_scale, 3),
             attention_score=round(attention, 1),
         )
+

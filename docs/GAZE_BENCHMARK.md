@@ -112,3 +112,4 @@ All thresholds are centralized in `backend/app/config/gaze.json` and mirrored in
 3. **Environment Proctoring**:
    - Logs `TAB_SWITCH` on `visibilitychange` (severity: HIGH, 5 pts).
    - Logs `WINDOW_BLUR` on `window.onblur` (severity: MEDIUM, 2 pts).
+

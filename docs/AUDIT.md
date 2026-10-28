@@ -191,3 +191,4 @@ To gather real ground-truth human fixtures, open your browser to:
   - Modularized component structure splitting `App.jsx`.
 - **Phase F (Production Readiness & CI Gates):**
   - Background task queue, PostgreSQL/SQLite support, structured logging, Docker Compose stack.
+

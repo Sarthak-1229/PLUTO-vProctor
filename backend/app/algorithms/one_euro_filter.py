@@ -136,3 +136,4 @@ class OneEuroFilterVector:
     def reset(self):
         for f in self.filters:
             f.reset()
+

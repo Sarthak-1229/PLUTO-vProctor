@@ -121,3 +121,4 @@ def test_video_pipeline_runs_with_gaze_tracker(tmp_path):
     assert "eye_contact_percentage" in res["metrics"]
     assert "active_preset" in res["metrics"]
     assert res["metrics"]["active_preset"] == "strict"
+
