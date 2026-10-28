@@ -26,7 +26,27 @@ export function ReportView({
   const [expandedQuestion, setExpandedQuestion] = useState(0)
   const videoRef = useRef(null)
 
-  if (!reportData) return null
+  if (!reportData) {
+    return (
+      <div className="max-w-md mx-auto text-center py-20 space-y-6">
+        <div className="w-16 h-16 bg-[#FFE600] border-[3px] border-black rounded-2xl text-black mx-auto flex items-center justify-center shadow-[5px_5px_0px_0px_#000] animate-bounce">
+          <FileText className="w-8 h-8 stroke-[2.5]" />
+        </div>
+        <h2 className="text-2xl font-black text-black uppercase tracking-tight">
+          Compiling Forensic Report
+        </h2>
+        <p className="text-xs font-bold text-slate-600">
+          Aggregating telemetry, question grading, and monotonic scoring records for session {sessionId || 'active'}.
+        </p>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-6 py-2.5 bg-[#FFE600] hover:bg-[#ffd700] border-2 border-black rounded-xl font-black text-xs uppercase shadow-[3px_3px_0px_0px_#000] hover:-translate-y-0.5 active:translate-y-0.5"
+        >
+          Reload Dossier
+        </button>
+      </div>
+    )
+  }
 
   // Format seconds as mm:ss
   const formatSeconds = (sec) => {
@@ -189,12 +209,12 @@ export function ReportView({
               reportData.deduction_timeline.map((ded, i) => (
                 <div
                   key={i}
-                  onClick={() => seekVideo(ded.t_start)}
+                  onClick={() => seekVideo(ded.t_start !== undefined ? ded.t_start : (ded.t || 0))}
                   className="p-3 rounded-xl bg-[#F4F0EA] hover:bg-[#FEF9C3] border-2 border-black cursor-pointer flex items-center justify-between text-xs font-bold shadow-[2px_2px_0px_0px_#000] hover:-translate-y-0.5 active:translate-y-0.5 transition-all group"
                 >
                   <div className="flex items-center space-x-3">
                     <span className="px-2 py-1 rounded bg-black text-[#FFE600] font-mono font-black text-[11px]">
-                      {formatSeconds(ded.t_start)}
+                      {formatSeconds(ded.t_start !== undefined ? ded.t_start : (ded.t || 0))}
                     </span>
                     <div>
                       <p className="font-black text-black uppercase text-[12px]">
@@ -204,7 +224,7 @@ export function ReportView({
                     </div>
                   </div>
                   <span className="font-mono font-black text-[#FF4D4D] text-sm shrink-0">
-                    -{ded.points_deducted} pts
+                    -{ded.points_deducted !== undefined ? ded.points_deducted : (ded.points || 0)} pts
                   </span>
                 </div>
               ))

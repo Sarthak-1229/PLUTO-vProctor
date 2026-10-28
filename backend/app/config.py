@@ -61,10 +61,10 @@ class Settings(BaseSettings):
     ASR_PROVIDER: str = "auto"  # "auto", "faster_whisper", "deepgram", "assemblyai"
     DEEPGRAM_API_KEY: str = ""
     ASSEMBLYAI_API_KEY: str = ""
-    WHISPER_MODEL_SIZE: str = "small"  # fallback "base"
+    WHISPER_MODEL_SIZE: str = "base.en"  # Fast, highly accurate on CPU; fallback "base"
     WHISPER_DEVICE: str = "cpu"        # "cuda" or "cpu"; default CPU while LLM is loaded
     WHISPER_COMPUTE_TYPE: str = "int8"
-    WHISPER_BEAM_SIZE: int = 3
+    WHISPER_BEAM_SIZE: int = 1         # Greedy decoding for fast real-time transcription
 
     # Proctoring Video Thresholds (MediaPipe Face Mesh / Pose)
     MIN_FACE_DETECTION_CONFIDENCE: float = 0.5

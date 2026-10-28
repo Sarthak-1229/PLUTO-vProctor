@@ -93,9 +93,30 @@ export default function App() {
       if (saved.currentQuestionIndex !== undefined) setCurrentQuestionIndex(saved.currentQuestionIndex)
       if (saved.currentStep === 'report' || saved.currentStep === 'interview') {
         setCurrentStep(saved.currentStep)
+        if (saved.currentStep === 'report' && saved.sessionId) {
+          fetch(`/api/report/${saved.sessionId}`)
+            .then((r) => (r.ok ? r.json() : null))
+            .then((d) => d && setReportData(d))
+            .catch(() => {})
+        }
       }
     }
   }, [])
+
+  // Auto-fetch report data if entering or restored on report step without reportData
+  useEffect(() => {
+    if (currentStep === 'report' && !reportData && sessionId) {
+      fetch(`/api/report/${sessionId}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data) {
+            setReportData(data)
+            saveToPastInterviews(data)
+          }
+        })
+        .catch((err) => console.warn('Auto-reload report error:', err))
+    }
+  }, [currentStep, reportData, sessionId])
 
   // Persist session state on step/index changes
   useEffect(() => {
@@ -328,31 +349,44 @@ export default function App() {
 
   // Poll analysis status
   const pollAnalysisStatus = () => {
+    let failCount = 0
     const interval = setInterval(async () => {
       try {
         const res = await fetch(`/api/analysis/${sessionId}/status`)
         if (res.ok) {
+          failCount = 0
           const status = await res.json()
+          const vPct = status.video_pct !== undefined ? status.video_pct : Math.round((status.video_progress || 0) * 100)
+          const aPct = status.audio_pct !== undefined ? status.audio_pct : Math.round((status.audio_progress || 0) * 100)
           setProcessingStatus({
-            stage: status.stage || 'Analyzing vision and audio streams...',
-            video_pct: status.video_pct || 50,
-            audio_pct: status.audio_pct || 50,
+            stage: status.stage || 'Analyzing multimodal video & audio telemetry...',
+            video_pct: vPct,
+            audio_pct: aPct,
           })
 
-          if (status.status === 'COMPLETED' || (status.video_pct >= 100 && status.audio_pct >= 100)) {
+          if (status.status === 'COMPLETED' || (vPct >= 100 && aPct >= 100)) {
+            clearInterval(interval)
+            loadFinalReport()
+          }
+        } else {
+          failCount++
+          if (failCount > 6) {
             clearInterval(interval)
             loadFinalReport()
           }
         }
       } catch (e) {
-        clearInterval(interval)
-        loadFinalReport()
+        failCount++
+        if (failCount > 6) {
+          clearInterval(interval)
+          loadFinalReport()
+        }
       }
     }, 1500)
   }
 
   // Load final evaluation report
-  const loadFinalReport = async () => {
+  const loadFinalReport = async (retries = 3) => {
     try {
       const res = await fetch(`/api/report/${sessionId}`)
       if (res.ok) {
@@ -360,10 +394,16 @@ export default function App() {
         setReportData(data)
         // Save to past sessions in localStorage
         saveToPastInterviews(data)
+        setCurrentStep('report')
+        return
       }
     } catch (e) {
-      console.warn('Failed to load report:', e)
-    } finally {
+      console.warn('Failed to load report attempt:', e)
+    }
+
+    if (retries > 1) {
+      setTimeout(() => loadFinalReport(retries - 1), 2000)
+    } else {
       setCurrentStep('report')
     }
   }

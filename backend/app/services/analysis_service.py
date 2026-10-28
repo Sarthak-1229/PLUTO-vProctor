@@ -26,7 +26,7 @@ class AnalysisService:
         """Retrieve current analysis execution progress matching all consumer schemas."""
         curr = _analysis_status.get(
             session_id,
-            {"status": "NOT_STARTED", "video_progress": 0.0, "audio_progress": 0.0, "error": None},
+            {"status": "NOT_STARTED", "video_progress": 0.0, "audio_progress": 0.0, "stage": "Waiting to start...", "error": None},
         )
         status_val = curr.get("status", "NOT_STARTED")
         v_prog = curr.get("video_progress", 0.0)
@@ -34,19 +34,25 @@ class AnalysisService:
         is_comp = (status_val == "COMPLETED" or (v_prog >= 1.0 and a_prog >= 1.0))
         effective_status = "COMPLETED" if is_comp else status_val
 
+        v_final = 1.0 if is_comp else v_prog
+        a_final = 1.0 if is_comp else a_prog
+
         return {
             "session_id": session_id,
             "status": effective_status,
             "overall_status": effective_status,
-            "video_progress": 1.0 if is_comp else v_prog,
-            "audio_progress": 1.0 if is_comp else a_prog,
+            "stage": curr.get("stage", "Analyzing multimodal video & audio telemetry..."),
+            "video_progress": v_final,
+            "audio_progress": a_final,
+            "video_pct": round(v_final * 100),
+            "audio_pct": round(a_final * 100),
             "video": {
                 "status": "COMPLETED" if is_comp else ("PROCESSING" if status_val == "PROCESSING" else "PENDING"),
-                "progress": 1.0 if is_comp else v_prog,
+                "progress": v_final,
             },
             "audio": {
                 "status": "COMPLETED" if is_comp else ("PROCESSING" if status_val == "PROCESSING" else "PENDING"),
-                "progress": 1.0 if is_comp else a_prog,
+                "progress": a_final,
             },
             "error": curr.get("error"),
         }
@@ -69,8 +75,9 @@ class AnalysisService:
 
             _analysis_status[session_id] = {
                 "status": "PROCESSING",
-                "video_progress": 0.2,
-                "audio_progress": 0.2,
+                "stage": "Initializing parallel vision and speech pipelines...",
+                "video_progress": 0.1,
+                "audio_progress": 0.1,
                 "error": None,
             }
 
@@ -79,10 +86,14 @@ class AnalysisService:
             def update_video_p(val: float):
                 if session_id in _analysis_status:
                     _analysis_status[session_id]["video_progress"] = round(val, 2)
+                    if val < 0.95:
+                        _analysis_status[session_id]["stage"] = f"Analyzing video frames & gaze ({int(val * 100)}%)..."
 
             def update_audio_p(val: float):
                 if session_id in _analysis_status:
                     _analysis_status[session_id]["audio_progress"] = round(val, 2)
+                    if val < 0.95:
+                        _analysis_status[session_id]["stage"] = f"Transcribing audio & measuring pacing ({int(val * 100)}%)..."
 
             # Check if video exists and has content
             if not video_path.exists() or video_path.stat().st_size < 100:

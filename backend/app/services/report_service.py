@@ -203,6 +203,18 @@ class ReportService:
 
         db.commit()
 
+        normalized_timeline = []
+        for item in score_res.get("deductions_timeline", []):
+            item_copy = dict(item)
+            item_copy["t_start"] = item.get("t", item.get("t_start", 0.0))
+            item_copy["t_end"] = item.get("t_end", item_copy["t_start"] + 1.0)
+            item_copy["points_deducted"] = item.get("points", item.get("points_deducted", 1.0))
+            normalized_timeline.append(item_copy)
+
+        cat_scores_normalized = dict(cat_scores)
+        cat_scores_normalized["communication"] = cat_scores.get("confidence_fluency", 80.0)
+        cat_scores_normalized["resume_relevance"] = cat_scores.get("resume_fit", 85.0)
+
         return {
             "session_id": session_id,
             "candidate_name": session.candidate_name,
@@ -212,10 +224,10 @@ class ReportService:
             "overall_score": score_res["overall_score"],
             "grade": score_res["grade"],
             "readiness_label": score_res["readiness_label"],
-            "category_scores": cat_scores,
+            "category_scores": cat_scores_normalized,
             "summary": summary_dict,
-            "deductions_timeline": score_res["deductions_timeline"],
-            "deduction_timeline": score_res["deductions_timeline"],
+            "deductions_timeline": normalized_timeline,
+            "deduction_timeline": normalized_timeline,
             "total_deductions": score_res.get("total_deductions", 0.0),
             "questions_breakdown": q_breakdown,
         }

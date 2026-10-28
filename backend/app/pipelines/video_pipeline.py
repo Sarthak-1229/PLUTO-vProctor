@@ -30,6 +30,52 @@ class VideoAnalysisPipeline:
         self.target_fps = target_fps
         self.gaze_tracker = GazeTracker(preset_name=preset_name)
 
+    def _iter_frames(self, video_path: Path):
+        """Decode video frames resiliently using PyAV, with OpenCV as fallback."""
+        try:
+            import av
+            container = av.open(str(video_path))
+            video_stream = next((s for s in container.streams if s.type == "video"), None)
+            if video_stream is not None:
+                duration_sec = float(container.duration or 0) / av.time_base if container.duration else 300.0
+                min_interval = 1.0 / max(1.0, self.target_fps)
+                last_t = -1.0
+                frame_count = 0
+
+                for packet in container.demux(video_stream):
+                    for frame in packet.decode():
+                        t = float(frame.time) if frame.time is not None else round(frame_count / 30.0, 2)
+                        frame_count += 1
+                        if t - last_t >= min_interval or last_t < 0:
+                            last_t = t
+                            bgr = frame.to_ndarray(format="bgr24")
+                            yield bgr, round(t, 2), duration_sec
+                container.close()
+                return
+        except Exception as e:
+            print(f"PyAV decoding notice, falling back to OpenCV: {e}")
+
+        # Fallback to OpenCV
+        cap = cv2.VideoCapture(str(video_path))
+        if not cap.isOpened():
+            return
+        orig_fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+        if orig_fps <= 0 or np.isnan(orig_fps) or orig_fps > 65.0 or orig_fps < 5.0:
+            orig_fps = 30.0
+        raw_total_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT) or 1800
+        duration_sec = raw_total_frames / orig_fps if raw_total_frames > 0 else 300.0
+        frame_step = max(1, int(round(orig_fps / self.target_fps)))
+        idx = 0
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            if idx % frame_step == 0:
+                t = round(idx / orig_fps, 2)
+                yield frame, t, duration_sec
+            idx += 1
+        cap.release()
+
     def analyze_video(
         self,
         video_path: Path,
@@ -42,10 +88,6 @@ class VideoAnalysisPipeline:
         if not video_path.exists():
             raise FileNotFoundError(f"Video file not found: {video_path}")
 
-        cap = cv2.VideoCapture(str(video_path))
-        if not cap.isOpened():
-            raise ValueError(f"Could not open video file: {video_path}")
-
         # Set calibration and preset if provided
         if calibration:
             self.gaze_tracker.set_calibration(CalibrationData.from_dict(calibration))
@@ -54,22 +96,9 @@ class VideoAnalysisPipeline:
 
         self.gaze_tracker.reset()
 
-        orig_fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
-        if orig_fps <= 0 or np.isnan(orig_fps) or orig_fps > 65.0 or orig_fps < 5.0:
-            orig_fps = 30.0
-
-        raw_total_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
-        if raw_total_frames is None or np.isnan(raw_total_frames) or raw_total_frames <= 0 or raw_total_frames > 1e8:
-            total_frames = 1800
-        else:
-            total_frames = int(raw_total_frames)
-
-        frame_step = max(1, int(round(orig_fps / self.target_fps)))
-        effective_sample_rate = orig_fps / frame_step
-
-        frame_idx = 0
         analyzed_frames = 0
         direct_eye_contact_count = 0
+        last_sampled_t = 0.0
 
         # Violation tracking state
         look_away_events: List[Dict[str, Any]] = []
@@ -90,114 +119,100 @@ class VideoAnalysisPipeline:
         body_cfg = self.gaze_tracker.body_config
         penalties = self.gaze_tracker.penalties
 
-        try:
-            while True:
-                ret, frame = cap.read()
-                if not ret:
-                    break
+        for frame, t_current, est_dur in self._iter_frames(video_path):
+            last_sampled_t = t_current
+            analyzed_frames += 1
 
-                if frame_idx % frame_step != 0:
-                    frame_idx += 1
-                    continue
-
-                t_current = round(frame_idx / orig_fps, 2)
-                analyzed_frames += 1
-
-                if progress_callback and analyzed_frames % 20 == 0:
-                    est_prog = min(0.95, frame_idx / max(1, total_frames))
+            if progress_callback and analyzed_frames % 20 == 0:
+                if est_dur and est_dur > 0:
+                    est_prog = min(0.95, t_current / est_dur)
                     progress_callback(est_prog)
 
-                # Process frame through GazeTracker
-                try:
-                    res: FrameGazeResult = self.gaze_tracker.process_frame(frame, t_current)
-                except Exception as e:
-                    print(f"Warning: Frame {frame_idx} processing error: {e}")
-                    frame_idx += 1
-                    continue
+            # Process frame through GazeTracker
+            try:
+                res: FrameGazeResult = self.gaze_tracker.process_frame(frame, t_current)
+            except Exception as e:
+                print(f"Warning: Frame at t={t_current} processing error: {e}")
+                continue
 
-                attention_scores.append(res.attention_score)
+            attention_scores.append(res.attention_score)
 
-                # 1. Face continuity & Multi-face tracking
-                if not res.face_detected:
-                    if curr_missing_start is None:
-                        curr_missing_start = t_current
+            # 1. Face continuity & Multi-face tracking
+            if not res.face_detected:
+                if curr_missing_start is None:
+                    curr_missing_start = t_current
+            else:
+                if curr_missing_start is not None:
+                    if (t_current - curr_missing_start) >= 1.0:
+                        face_missing_intervals.append((curr_missing_start, t_current))
+                    curr_missing_start = None
+
+                if res.num_faces > 1:
+                    if curr_multiface_start is None:
+                        curr_multiface_start = t_current
                 else:
-                    if curr_missing_start is not None:
-                        if (t_current - curr_missing_start) >= 1.0:
-                            face_missing_intervals.append((curr_missing_start, t_current))
-                        curr_missing_start = None
+                    if curr_multiface_start is not None:
+                        if (t_current - curr_multiface_start) >= 0.5:
+                            multi_face_intervals.append((curr_multiface_start, t_current))
+                        curr_multiface_start = None
 
-                    if res.num_faces > 1:
-                        if curr_multiface_start is None:
-                            curr_multiface_start = t_current
-                    else:
-                        if curr_multiface_start is not None:
-                            if (t_current - curr_multiface_start) >= 0.5:
-                                multi_face_intervals.append((curr_multiface_start, t_current))
-                            curr_multiface_start = None
+            # 2. Eye Contact & Directional Look-Away Tracking
+            if res.is_looking_direct:
+                direct_eye_contact_count += 1
+                if curr_lookaway_start is not None:
+                    dur = t_current - curr_lookaway_start
+                    if dur >= event_min_dur:
+                        look_away_events.append({
+                            "start": curr_lookaway_start,
+                            "end": t_current,
+                            "duration": dur,
+                            "type": curr_lookaway_type or "LOOK_SIDE",
+                        })
+                    curr_lookaway_start = None
+                    curr_lookaway_type = None
+            else:
+                if curr_lookaway_start is None:
+                    curr_lookaway_start = t_current
+                    curr_lookaway_type = res.look_away_type
+                elif res.look_away_type == "LOOK_DOWN" and curr_lookaway_type != "LOOK_DOWN":
+                    # Upgrade to LOOK_DOWN if looking down during glance
+                    curr_lookaway_type = "LOOK_DOWN"
 
-                # 2. Eye Contact & Directional Look-Away Tracking
-                if res.is_looking_direct:
-                    direct_eye_contact_count += 1
-                    if curr_lookaway_start is not None:
-                        dur = t_current - curr_lookaway_start
-                        if dur >= event_min_dur:
-                            look_away_events.append({
-                                "start": curr_lookaway_start,
-                                "end": t_current,
-                                "duration": dur,
-                                "type": curr_lookaway_type or "LOOK_SIDE",
-                            })
-                        curr_lookaway_start = None
-                        curr_lookaway_type = None
-                else:
-                    if curr_lookaway_start is None:
-                        curr_lookaway_start = t_current
-                        curr_lookaway_type = res.look_away_type
-                    elif res.look_away_type == "LOOK_DOWN" and curr_lookaway_type != "LOOK_DOWN":
-                        # Upgrade to LOOK_DOWN if looking down during glance
-                        curr_lookaway_type = "LOOK_DOWN"
+            # 3. Body Motion & Posture Slump Tracking (Normalized by face scale)
+            if res.face_detected:
+                scale = max(0.05, res.face_scale)
+                if prev_face_center is not None:
+                    dx = (res.face_center[0] - prev_face_center[0]) / scale
+                    dy = (res.face_center[1] - prev_face_center[1]) / scale
+                    motion_dist = math.sqrt(dx * dx + dy * dy)
 
-                # 3. Body Motion & Posture Slump Tracking (Normalized by face scale)
-                if res.face_detected:
-                    scale = max(0.05, res.face_scale)
-                    if prev_face_center is not None:
-                        dx = (res.face_center[0] - prev_face_center[0]) / scale
-                        dy = (res.face_center[1] - prev_face_center[1]) / scale
-                        motion_dist = math.sqrt(dx * dx + dy * dy)
+                    motion_thresh = body_cfg.get("motion_threshold_norm", 0.08)
+                    if motion_dist > motion_thresh:
+                        motion_intervals.append((max(0.0, t_current - 0.5), t_current))
 
-                        motion_thresh = body_cfg.get("motion_threshold_norm", 0.08)
-                        if motion_dist > motion_thresh:
-                            motion_intervals.append((max(0.0, t_current - 0.5), t_current))
+                    # Posture slump
+                    baseline_y = self.gaze_tracker.calibration.baseline_nose_y
+                    slump_thresh = body_cfg.get("posture_y_slump_norm", 0.12)
+                    if (res.face_center[1] - baseline_y) / scale > slump_thresh:
+                        posture_intervals.append((max(0.0, t_current - 0.5), t_current))
 
-                        # Posture slump
-                        baseline_y = self.gaze_tracker.calibration.baseline_nose_y
-                        slump_thresh = body_cfg.get("posture_y_slump_norm", 0.12)
-                        if (res.face_center[1] - baseline_y) / scale > slump_thresh:
-                            posture_intervals.append((max(0.0, t_current - 0.5), t_current))
+                prev_face_center = res.face_center
 
-                    prev_face_center = res.face_center
-
-                frame_idx += 1
-
-            # Flush open intervals at video end
-            final_time = round(frame_idx / orig_fps, 2)
-            if curr_lookaway_start is not None:
-                dur = final_time - curr_lookaway_start
-                if dur >= event_min_dur:
-                    look_away_events.append({
-                        "start": curr_lookaway_start,
-                        "end": final_time,
-                        "duration": dur,
-                        "type": curr_lookaway_type or "LOOK_SIDE",
-                    })
-            if curr_missing_start is not None and (final_time - curr_missing_start) >= 1.0:
-                face_missing_intervals.append((curr_missing_start, final_time))
-            if curr_multiface_start is not None and (final_time - curr_multiface_start) >= 0.5:
-                multi_face_intervals.append((curr_multiface_start, final_time))
-
-        finally:
-            cap.release()
+        # Flush open intervals at video end
+        final_time = round(last_sampled_t, 2)
+        if curr_lookaway_start is not None:
+            dur = final_time - curr_lookaway_start
+            if dur >= event_min_dur:
+                look_away_events.append({
+                    "start": curr_lookaway_start,
+                    "end": final_time,
+                    "duration": dur,
+                    "type": curr_lookaway_type or "LOOK_SIDE",
+                })
+        if curr_missing_start is not None and (final_time - curr_missing_start) >= 1.0:
+            face_missing_intervals.append((curr_missing_start, final_time))
+        if curr_multiface_start is not None and (final_time - curr_multiface_start) >= 0.5:
+            multi_face_intervals.append((curr_multiface_start, final_time))
 
         if progress_callback:
             progress_callback(1.0)
