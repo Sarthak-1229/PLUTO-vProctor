@@ -215,6 +215,8 @@ class ReportService:
         cat_scores_normalized["communication"] = cat_scores.get("confidence_fluency", 80.0)
         cat_scores_normalized["resume_relevance"] = cat_scores.get("resume_fit", 85.0)
 
+        total_pts_deducted = round(sum(float(d.get("points_deducted", 0.0)) for d in normalized_timeline), 1)
+
         return {
             "session_id": session_id,
             "candidate_name": session.candidate_name,
@@ -228,7 +230,7 @@ class ReportService:
             "summary": summary_dict,
             "deductions_timeline": normalized_timeline,
             "deduction_timeline": normalized_timeline,
-            "total_deductions": score_res.get("total_deductions", 0.0),
+            "total_deductions": total_pts_deducted,
             "questions_breakdown": q_breakdown,
         }
 

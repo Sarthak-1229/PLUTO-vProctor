@@ -5,6 +5,21 @@
  * Uses One Euro adaptive filtering to eliminate jitter without phase lag.
  */
 
+const LEFT_EYE_OUTER = 33
+const LEFT_EYE_INNER = 133
+const LEFT_EYE_TOP = 159
+const LEFT_EYE_BOTTOM = 145
+const LEFT_IRIS_CENTER = 468
+
+const RIGHT_EYE_INNER = 362
+const RIGHT_EYE_OUTER = 263
+const RIGHT_EYE_TOP = 386
+const RIGHT_EYE_BOTTOM = 374
+const RIGHT_IRIS_CENTER = 473
+
+const NOSE_TIP = 1
+const CHIN = 199
+
 class LowPassFilter {
   constructor(alpha = 0.5) {
     this.alpha = alpha
@@ -348,6 +363,48 @@ export class LiveGazeDetector {
       fps: this.fps,
       faceCenter: { x: lm[NOSE_TIP].x, y: lm[NOSE_TIP].y },
       interocular: Math.hypot(lm[263].x - lm[33].x, lm[263].y - lm[33].y),
+    }
+  }
+
+  start(videoElement) {
+    this.videoElement = videoElement
+    this.isRunning = true
+
+    const loop = () => {
+      if (!this.isRunning) return
+      if (this.videoElement && this.videoElement.readyState >= 2) {
+        if (!this.isReady) {
+          this.initialize().then(() => {
+            if (this.isRunning) {
+              this.animFrameId = requestAnimationFrame(loop)
+            }
+          })
+          return
+        }
+        const stats = this.processVideoFrame(this.videoElement)
+        if (stats && typeof this.onGazeUpdate === 'function') {
+          this.onGazeUpdate({
+            isDirect: stats.isLookingDirect,
+            lookAwayType: stats.lookAwayType,
+            faceDetected: stats.faceDetected,
+            attentionScore: stats.attentionScore,
+            fps: stats.fps,
+            netYaw: stats.netYaw,
+            netPitch: stats.netPitch,
+          })
+        }
+      }
+      this.animFrameId = requestAnimationFrame(loop)
+    }
+
+    this.animFrameId = requestAnimationFrame(loop)
+  }
+
+  stop() {
+    this.isRunning = false
+    if (this.animFrameId) {
+      cancelAnimationFrame(this.animFrameId)
+      this.animFrameId = null
     }
   }
 }

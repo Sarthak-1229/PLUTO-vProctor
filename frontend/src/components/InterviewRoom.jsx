@@ -73,21 +73,44 @@ export function InterviewRoom({
   useEffect(() => {
     if (!liveDetector) return
 
+    let lastLogTime = 0
+
     const handleGazeUpdate = (stats) => {
-      setIsLookingAway(!stats.isDirect)
-      if (!stats.isDirect && stats.lookAwayType) {
+      const lookingAway = !stats.isDirect || !stats.faceDetected
+      setIsLookingAway(lookingAway)
+
+      if (lookingAway) {
+        const violationType = !stats.faceDetected
+          ? 'FACE_MISSING'
+          : stats.lookAwayType || 'GAZE_DIVERGENCE'
+        const label = !stats.faceDetected
+          ? 'Face Not Visible / Covered Camera'
+          : `Eye Contact Divergence: ${violationType.replace('_', ' ')}`
+
         setLiveAlert({
-          message: `Eye Contact Divergence: ${stats.lookAwayType.replace('_', ' ')}`,
-          type: stats.lookAwayType,
+          message: label,
+          type: violationType,
         })
+
+        // Log deduction in real-time stream every 3.5 seconds
+        const now = Date.now()
+        if (now - lastLogTime >= 3500) {
+          lastLogTime = now
+          const penalty = !stats.faceDetected ? 2 : 1
+          const event = {
+            id: now,
+            message: label,
+            penalty,
+            time: formatSeconds(overallSeconds),
+          }
+          setProctoringEvents((prev) => [event, ...prev.slice(0, 15)])
+        }
       } else {
         setLiveAlert(null)
       }
     }
 
-    if (typeof liveDetector.onGazeUpdate === 'function') {
-      liveDetector.onGazeUpdate = handleGazeUpdate
-    }
+    liveDetector.onGazeUpdate = handleGazeUpdate
 
     // Proctoring tab switch / blur listener
     const handleBlur = () => {
@@ -104,6 +127,9 @@ export function InterviewRoom({
     window.addEventListener('blur', handleBlur)
     return () => {
       window.removeEventListener('blur', handleBlur)
+      if (liveDetector.onGazeUpdate === handleGazeUpdate) {
+        liveDetector.onGazeUpdate = null
+      }
     }
   }, [liveDetector, overallSeconds])
 
