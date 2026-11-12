@@ -1,13 +1,29 @@
 """API router for dynamically querying and tuning application thresholds and weights."""
 from __future__ import annotations
 
-from typing import Any, Dict
-from fastapi import APIRouter
+from typing import Any, Dict, Optional
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from backend.app.config import settings
+from backend.app.core.errors import AppError
+from backend.app.db.models import User
+from backend.app.services.authorization import ADMIN_ROLES, get_user_when_auth_enabled
 
 router = APIRouter(prefix="/api/settings", tags=["Settings"])
+
+
+def _require_admin_when_auth_enabled(
+    current_user: Optional[User] = Depends(get_user_when_auth_enabled),
+) -> Optional[User]:
+    if settings.AUTH_ENABLED:
+        if current_user is None:
+            raise AppError(status_code=401, code="authentication_required", message="Authentication is required.")
+        if current_user.role not in ADMIN_ROLES:
+            raise AppError(status_code=403, code="forbidden_role", message="Administrator privileges required.")
+    elif current_user is not None and current_user.role not in ADMIN_ROLES:
+        raise AppError(status_code=403, code="forbidden_role", message="Administrator privileges required.")
+    return current_user
 
 
 class SettingsUpdateSchema(BaseModel):
@@ -26,7 +42,7 @@ class SettingsUpdateSchema(BaseModel):
 
 
 @router.get("", response_model=Dict[str, Any])
-def get_current_settings():
+def get_current_settings(_admin: Optional[User] = Depends(_require_admin_when_auth_enabled)):
     """Retrieve active thresholds, fairness limits, and scoring weights."""
     return {
         "gaze_tolerance_x": settings.GAZE_CENTER_TOLERANCE_X,
@@ -44,7 +60,10 @@ def get_current_settings():
 
 
 @router.put("", response_model=Dict[str, Any])
-def update_settings(payload: SettingsUpdateSchema):
+def update_settings(
+    payload: SettingsUpdateSchema,
+    _admin: Optional[User] = Depends(_require_admin_when_auth_enabled),
+):
     """Adjust thresholds and fairness parameters for the interview runtime."""
     if payload.gaze_tolerance_x is not None:
         settings.GAZE_CENTER_TOLERANCE_X = payload.gaze_tolerance_x

@@ -101,3 +101,33 @@ This document records architectural decisions, defaults chosen during developmen
 - **Context:** Browser camera drops, low FPS, temporary network glitches, or short blinks can resemble gaze loss or silence if telemetry lacks confidence/health context.
 - **Decision:** Separate system-health diagnostics (camera/mic availability, frame rate, calibration quality, ASR availability) from candidate behavior indicators, store consent/policy context explicitly, and never label automated gaze signals as definitive proof of misconduct without duration, confidence, and human-review affordances.
 - **Rationale:** Upholds accessibility, diagnostic clarity, and ethical AI proctoring requirements (`SECURITY_PRIVACY_AND_FAIRNESS.md`).
+
+### DECISION-017: Argon2id Password Hashing with Dummy Timing Equalization & Portal Separation
+- **Date:** 2026-11-12 (v2 Phase 2)
+- **Context:** Candidate and administrator authentication must resist offline dictionary attacks, GPU brute forcing, user enumeration, and timing side channels.
+- **Decision:** Use Argon2id (`time_cost=2`, `memory_cost=65536`, `parallelism=4`) as the default password hasher. Normalize all emails with Unicode NFC and lowercasing. Execute a dummy Argon2id verification when a user is not found to equalize response timing. Separate candidate login (`/api/auth/login`) from administrator login (`/api/auth/admin/login`), strictly denying candidate logins on admin routes and vice versa after credential verification to prevent role enumeration.
+- **Rationale:** State-of-the-art password defense aligned with OWASP guidelines and project security specifications.
+
+### DECISION-018: Ephemeral Access Tokens with Sliding Rate Limiting and Rotating Refresh Families
+- **Date:** 2026-11-12 (v2 Phase 2)
+- **Context:** Single-page frontend applications need secure token storage without exposing long-lived credentials to XSS or replay attacks.
+- **Decision:** Mint short-lived in-memory JWT access tokens (15-minute expiry) and rotating refresh session tokens stored exclusively in `HttpOnly`, `SameSite=Lax` cookies paired with double-submit CSRF headers. Store only SHA-256 digests of refresh and one-time tokens in the database. Detect refresh token reuse; if a revoked or replaced token is replayed, immediately revoke the entire token family and increment `user.token_version` to invalidate all outstanding access tokens. Enforce per-IP and per-account sliding-window rate limiting on all sensitive auth endpoints.
+- **Rationale:** Eliminates persistent token theft vectors and provides automatic compromise containment.
+
+### DECISION-019: Multi-Resume Library with Magic-Byte Enforcement and Candidate Editable Confirmation
+- **Date:** 2026-11-12 (v2 Phase 2)
+- **Context:** Candidates need the ability to maintain multiple resumes, upload PDF/DOCX/TXT files, review extracted skills/experience, and manually override or edit parsed data before confirmation.
+- **Decision:** Implement database-backed `resumes` and `resume_profiles` tables with random UUID storage keys (`storage/resumes/{uuid}.ext`). Enforce strict MIME verification, magic-byte header inspection (`%PDF-`, `PK\x03\x04`), binary character rejection for text, maximum 10 MB file size, and maximum 15 PDF pages using `pdfplumber`. Provide an interactive review step allowing candidates to inspect, edit, and confirm extracted profile fields before using them for screening or interview launching. Clean up storage files if parsing fails.
+- **Rationale:** Protects against file upload vulnerabilities, corrupted artifacts, and parser hallucination while empowering candidate data autonomy.
+
+### DECISION-020: Universal Pre-Interview Job Recommendations (Resume, Manual Profile, or Hybrid)
+- **Date:** 2026-11-12 (v2 Phase 2)
+- **Context:** Candidates should receive relevant job and role recommendations immediately upon registration or resume upload, without being required to complete an AI or live interview first.
+- **Decision:** Implement `job_recommendation_service.py` to evaluate job fit using extracted resume skills, manually entered profile skills, education, and experience years. Support candidates who do not upload a resume by matching against manual candidate profiles, and support hybrid evaluation when both exist. Pre-compute and persist recommendation cards with match scores and skill gaps.
+- **Rationale:** Delivers immediate value to candidates upon onboarding while preserving existing job catalog ranking algorithms.
+
+### DECISION-021: Strict Cross-Candidate IDOR Boundaries across Offline and Auth Modes
+- **Date:** 2026-11-12 (v2 Phase 2)
+- **Context:** In self-practice mode (`AUTH_ENABLED=False`), anonymous candidates can take practice interviews. However, account-linked sessions (`candidate_user_id IS NOT NULL`) must remain strictly private even if auth is disabled.
+- **Decision:** In `enforce_session_access()`, if `candidate_user_id` is set, strictly require authenticated caller matching the candidate ID or an administrator, raising 401 for anonymous callers and 403 for unauthorized users. Unclaimed legacy sessions (`candidate_user_id IS NULL`) remain accessible in offline mode.
+- **Rationale:** Eliminates IDOR cross-candidate data leakage while preserving offline self-practice compatibility.

@@ -28,12 +28,29 @@ EXPECTED_TABLES = {
     "session_questions",
     "proctoring_events",
     "reports",
+    "users",
+    "candidate_profiles",
+    "resumes",
+    "resume_profiles",
+    "job_role_templates",
+    "job_recommendations",
+    "refresh_tokens",
+    "one_time_tokens",
+    "audit_logs",
 }
 EXPECTED_INDEXES = {
-    "sessions": {"ix_sessions_interview_status"},
+    "sessions": {"ix_sessions_interview_status", "ix_sessions_candidate_user_id", "ix_sessions_room_id"},
     "session_questions": {"ix_session_questions_session_id", "ix_session_questions_order_index"},
     "proctoring_events": {"ix_proctoring_events_session_id", "ix_proctoring_events_t_start"},
+    "users": {"ix_users_email", "ix_users_role"},
+    "resumes": {"ix_resumes_user_id"},
+    "resume_profiles": {"ix_resume_profiles_user_id"},
+    "job_recommendations": {"ix_job_recommendations_user_id", "ix_job_recommendations_target_id"},
+    "refresh_tokens": {"ix_refresh_tokens_user_id", "ix_refresh_tokens_rotation_family_id", "ix_refresh_tokens_expires_at"},
+    "one_time_tokens": {"ix_one_time_tokens_user_id", "ix_one_time_tokens_purpose", "ix_one_time_tokens_expires_at"},
+    "audit_logs": {"ix_audit_logs_actor_user_id", "ix_audit_logs_action", "ix_audit_logs_resource_type", "ix_audit_logs_resource_id", "ix_audit_logs_created_at"},
 }
+EXPECTED_SESSION_V2_COLUMNS = {"candidate_user_id", "interview_mode", "room_id"}
 
 
 def _make_alembic_cfg(db_url: str, output_buf: io.StringIO | None = None) -> Config:
@@ -61,6 +78,23 @@ def test_alembic_upgrade_fresh_sqlite_creates_all_tables_and_indexes(tmp_path):
         for table, expected_ix in EXPECTED_INDEXES.items():
             actual_ix = {ix["name"] for ix in insp.get_indexes(table)}
             assert expected_ix.issubset(actual_ix), f"{table} missing indexes: {expected_ix - actual_ix}"
+
+        session_cols = {c["name"] for c in insp.get_columns("sessions")}
+        assert EXPECTED_SESSION_V2_COLUMNS.issubset(session_cols)
+    finally:
+        eng.dispose()
+
+
+def test_alembic_explicit_sqlalchemy_url_overrides_env_override(tmp_path, monkeypatch):
+    """Explicit cfg sqlalchemy.url (used by per-DB tests) takes precedence over ALEMBIC_DATABASE_URL."""
+    monkeypatch.setenv("ALEMBIC_DATABASE_URL", "postgresql://bad:bad@127.0.0.1:5999/nonexistent?connect_timeout=1")
+    fresh_db = tmp_path / "explicit_override.db"
+    db_url = f"sqlite:///{fresh_db.as_posix()}"
+    cfg = _make_alembic_cfg(db_url)
+    command.upgrade(cfg, "head")
+    eng = create_engine(db_url)
+    try:
+        assert EXPECTED_TABLES.issubset(set(inspect(eng).get_table_names()))
     finally:
         eng.dispose()
 
@@ -104,16 +138,22 @@ def test_alembic_upgrade_copy_of_existing_pluto_db_preserves_data_and_adds_index
             assert dst_conn.execute(f"SELECT COUNT(*) FROM [{t}]").fetchone()[0] == count
         post_sids = sorted(r[0] for r in dst_conn.execute("SELECT id FROM sessions").fetchall())
         assert post_sids == pre_sids
+        legacy_rows = dst_conn.execute(
+            "SELECT candidate_user_id, interview_mode FROM sessions"
+        ).fetchall()
+        assert len(legacy_rows) == len(pre_sids)
+        assert all(row[0] is None and row[1] == "self_practice" for row in legacy_rows)
     finally:
         dst_conn.close()
 
-    # Verify safe downgrade back to 866ba5fa0eae drops only secondary indexes, preserving all rows
-    command.downgrade(cfg, "866ba5fa0eae")
+    # Verify safe downgrade back to 0002_add_core_indexes drops only Phase 2 schema while preserving legacy sessions
+    command.downgrade(cfg, "0002_add_core_indexes")
     eng2 = create_engine(db_url)
     try:
         insp2 = inspect(eng2)
-        for table in EXPECTED_TABLES:
+        for table in {"companies", "jobs", "questions", "sessions", "session_questions", "proctoring_events", "reports"}:
             assert table in insp2.get_table_names()
+        assert "users" not in insp2.get_table_names()
     finally:
         eng2.dispose()
 
@@ -131,7 +171,7 @@ def test_alembic_postgresql_ddl_compilation_clean():
         assert f"CREATE TABLE {table}" in sql_text
     for expected_ix_set in EXPECTED_INDEXES.values():
         for ix in expected_ix_set:
-            assert f"CREATE INDEX {ix}" in sql_text
+            assert (f"CREATE INDEX {ix}" in sql_text) or (f"CREATE UNIQUE INDEX {ix}" in sql_text)
 
 
 @pytest.mark.skipif(
@@ -143,6 +183,7 @@ def test_alembic_upgrade_live_postgresql():
     pg_url = os.environ["TEST_POSTGRES_URL"]
     cfg = _make_alembic_cfg(pg_url)
     command.upgrade(cfg, "head")
+    command.check(cfg)
     eng = create_engine(pg_url)
     try:
         insp = inspect(eng)
@@ -151,6 +192,11 @@ def test_alembic_upgrade_live_postgresql():
             assert expected_ix.issubset({ix["name"] for ix in insp.get_indexes(table)})
     finally:
         eng.dispose()
+
+    # Verify bidirectional downgrade/re-upgrade works cleanly on live PostgreSQL
+    command.downgrade(cfg, "866ba5fa0eae")
+    command.upgrade(cfg, "head")
+    command.check(cfg)
 
 
 def test_no_utcnow_deprecation_warnings_in_pdf_report():

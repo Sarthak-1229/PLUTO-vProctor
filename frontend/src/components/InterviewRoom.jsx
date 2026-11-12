@@ -15,6 +15,7 @@ import {
   HelpCircle,
   MessageSquare,
 } from 'lucide-react'
+import { authFetch } from '../utils/authClient'
 
 export function InterviewRoom({
   sessionId,
@@ -261,7 +262,7 @@ export function InterviewRoom({
       setSubState('THINKING')
       try {
         const currentQ = questions[currentQuestionIndex]
-        const res = await fetch(`/api/interview/${sessionId}/followup`, {
+        const res = await authFetch(`/api/interview/${sessionId}/followup`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

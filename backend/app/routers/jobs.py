@@ -7,7 +7,9 @@ from sqlalchemy.orm import Session
 
 from backend.app.algorithms.trie import Trie
 from backend.app.db.database import get_db
-from backend.app.db.models import Company, Job
+from backend.app.db.models import Company, Job, User
+from backend.app.services.authorization import get_current_user
+from backend.app.services.job_recommendation_service import compute_recommendations_for_user
 
 router = APIRouter(prefix="/api/jobs", tags=["Jobs"])
 
@@ -131,6 +133,16 @@ def search_jobs(q: str = Query("", min_length=1), db: Session = Depends(get_db))
                     })
 
     return results
+
+
+@router.get("/recommendations", response_model=Dict[str, Any])
+def get_job_recommendations(
+    limit: int = Query(default=12, ge=1, le=30),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Return personalized job & role-template recommendations without requiring prior interviews."""
+    return compute_recommendations_for_user(db, current_user, limit=limit)
 
 
 @router.get("/{job_id}", response_model=Dict[str, Any])

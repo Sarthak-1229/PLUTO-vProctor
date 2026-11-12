@@ -11,7 +11,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from backend.app.config import settings
-from backend.app.core.errors import register_exception_handlers
+from backend.app.core.errors import (
+    SECURITY_HEADERS,
+    get_current_request_id,
+    register_exception_handlers,
+    request_id_ctx,
+)
 from backend.app.services.job_queue import job_queue
 
 # Configure structured logging
@@ -28,7 +33,7 @@ old_factory = logging.getLogRecordFactory()
 def record_factory(*args, **kwargs):
     record = old_factory(*args, **kwargs)
     if not hasattr(record, "request_id"):
-        record.request_id = "-"
+        record.request_id = get_current_request_id()
     return record
 
 
@@ -53,7 +58,7 @@ app = FastAPI(
     description="Production-ready multimodal AI video interview and proctoring engine.",
     lifespan=lifespan,
 )
-register_exception_handlers(app)
+register_exception_handlers(app, cors_origins=settings.CORS_ORIGINS)
 
 
 # 1. Request-ID Correlation Middleware
@@ -62,26 +67,25 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         req_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())[:8]
         t0 = time.time()
 
-        # Attach request_id to request state
+        # Attach request_id and start_time to request state and logging context
         request.state.request_id = req_id
+        request.state.start_time = t0
+        token = request_id_ctx.set(req_id)
+        try:
+            response: Response = await call_next(request)
+            duration_ms = round((time.time() - t0) * 1000, 2)
 
-        response: Response = await call_next(request)
-        duration_ms = round((time.time() - t0) * 1000, 2)
+            # Inject X-Request-ID and security headers into response
+            response.headers["X-Request-ID"] = req_id
+            response.headers["X-Response-Time-MS"] = str(duration_ms)
+            response.headers.update(SECURITY_HEADERS)
 
-        # Inject X-Request-ID into response headers
-        response.headers["X-Request-ID"] = req_id
-        response.headers["X-Response-Time-MS"] = str(duration_ms)
-
-        # Security Headers
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
-        response.headers["X-XSS-Protection"] = "1; mode=block"
-        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-
-        # Log completion (avoiding PII in URL params)
-        path = request.url.path
-        logger.info(f"{request.method} {path} -> {response.status_code} ({duration_ms}ms)")
-        return response
+            # Log completion (avoiding PII in URL params)
+            path = request.url.path
+            logger.info("%s %s -> %s (%.2fms)", request.method, path, response.status_code, duration_ms)
+            return response
+        finally:
+            request_id_ctx.reset(token)
 
 
 app.add_middleware(RequestIDMiddleware)
@@ -97,15 +101,23 @@ app.add_middleware(
 
 
 # 3. Route Registration
+from backend.app.routers.admin import router as admin_router
 from backend.app.routers.analysis import router as analysis_router
+from backend.app.routers.auth import router as auth_router
+from backend.app.routers.candidate import router as candidate_router
 from backend.app.routers.interview import router as interview_router
 from backend.app.routers.jobs import router as jobs_router
 from backend.app.routers.report import router as report_router
 from backend.app.routers.resume import router as resume_router
+from backend.app.routers.resumes import router as resumes_router
 from backend.app.routers.settings import router as settings_router
 
+app.include_router(auth_router)
+app.include_router(candidate_router)
+app.include_router(admin_router)
 app.include_router(jobs_router)
 app.include_router(resume_router)
+app.include_router(resumes_router)
 app.include_router(interview_router)
 app.include_router(analysis_router)
 app.include_router(report_router)
@@ -118,13 +130,18 @@ async def save_fixture(
     video_file: UploadFile = File(...),
     labels_json: str = Form(...),
 ):
-    """Save ground-truth fixture recording and annotation labels."""
+    """Save ground-truth fixture recording and annotation labels (dev/test fixture utility)."""
+    import re
+    if settings.ENVIRONMENT.strip().lower() == "production" or settings.AUTH_ENABLED:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=403, detail="Fixture saving is disabled when AUTH_ENABLED or production mode is active.")
+    safe_id = re.sub(r"[^A-Za-z0-9_-]", "_", fixture_id).strip("_") or "fixture"
     fixture_dir = settings.BASE_DIR / "backend" / "tests" / "fixtures" / "recordings"
     fixture_dir.mkdir(parents=True, exist_ok=True)
     video_bytes = await video_file.read()
-    (fixture_dir / f"{fixture_id}.webm").write_bytes(video_bytes)
-    (fixture_dir / f"{fixture_id}.labels.json").write_text(labels_json, encoding="utf-8")
-    return {"status": "ok", "fixture_id": fixture_id}
+    (fixture_dir / f"{safe_id}.webm").write_bytes(video_bytes)
+    (fixture_dir / f"{safe_id}.labels.json").write_text(labels_json, encoding="utf-8")
+    return {"status": "ok", "fixture_id": safe_id}
 
 
 @app.get("/health")

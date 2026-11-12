@@ -1,19 +1,29 @@
 """API endpoints for interview evaluation reports and PDF generation."""
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 
 from backend.app.db.database import get_db
+from backend.app.db.models import InterviewSession, User
+from backend.app.services.authorization import enforce_session_access, get_user_when_auth_enabled
 from backend.app.services.report_service import report_service
 
 router = APIRouter(prefix="/api/report", tags=["Report"])
 
 
 @router.get("/{sid}", response_model=Dict[str, Any])
-async def get_report_json(sid: str, db: Session = Depends(get_db)):
+async def get_report_json(
+    sid: str,
+    current_user: Optional[User] = Depends(get_user_when_auth_enabled),
+    db: Session = Depends(get_db),
+):
     """Retrieve full evaluation report including radar scores, timeline deductions, and summary."""
+    enforce_session_access(
+        db.query(InterviewSession).filter(InterviewSession.id == sid).first(),
+        current_user,
+    )
     try:
         return await report_service.generate_report(sid, db)
     except ValueError as e:
@@ -23,8 +33,16 @@ async def get_report_json(sid: str, db: Session = Depends(get_db)):
 
 
 @router.get("/{sid}/pdf")
-async def download_report_pdf(sid: str, db: Session = Depends(get_db)):
+async def download_report_pdf(
+    sid: str,
+    current_user: Optional[User] = Depends(get_user_when_auth_enabled),
+    db: Session = Depends(get_db),
+):
     """Generate and download formatted evaluation report PDF."""
+    enforce_session_access(
+        db.query(InterviewSession).filter(InterviewSession.id == sid).first(),
+        current_user,
+    )
     try:
         report_data = await report_service.generate_report(sid, db)
         pdf_bytes = report_service.generate_pdf_report(report_data)

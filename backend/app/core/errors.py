@@ -1,7 +1,9 @@
 """Unified API error envelope and exception handlers preserving FastAPI 'detail'."""
 from __future__ import annotations
 
+from contextvars import ContextVar
 import logging
+import time
 import uuid
 from typing import Any, Dict, List, Optional
 
@@ -11,6 +13,20 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 logger = logging.getLogger("pluto.errors")
+
+request_id_ctx: ContextVar[str] = ContextVar("pluto_request_id", default="-")
+
+
+def get_current_request_id() -> str:
+    """Return active correlation request ID from contextvars, or '-' outside requests."""
+    return request_id_ctx.get()
+
+SECURITY_HEADERS: Dict[str, str] = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "X-XSS-Protection": "1; mode=block",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+}
 
 
 class AppError(HTTPException):
@@ -70,7 +86,35 @@ def _sanitized_validation_details(exc: RequestValidationError) -> List[Dict[str,
     return sanitized
 
 
-def register_exception_handlers(app: FastAPI) -> None:
+def _build_unhandled_headers(
+    request: Request,
+    req_id: str,
+    cors_origins: Optional[List[str]] = None,
+) -> Dict[str, str]:
+    """Attach security, timing, request-ID, and CORS headers for ServerErrorMiddleware 500s."""
+    headers: Dict[str, str] = dict(SECURITY_HEADERS)
+    headers["X-Request-ID"] = req_id
+
+    start_time = getattr(request.state, "start_time", None)
+    if isinstance(start_time, (int, float)):
+        headers["X-Response-Time-MS"] = str(round((time.time() - start_time) * 1000, 2))
+
+    origin = request.headers.get("origin")
+    allowed = cors_origins or []
+    if origin:
+        if origin in allowed:
+            headers["Access-Control-Allow-Origin"] = origin
+            headers["Access-Control-Allow-Credentials"] = "true"
+            headers["Vary"] = "Origin"
+        elif "*" in allowed:
+            headers["Access-Control-Allow-Origin"] = "*"
+    return headers
+
+
+def register_exception_handlers(
+    app: FastAPI,
+    cors_origins: Optional[List[str]] = None,
+) -> None:
     """Attach standardized JSON exception handlers for HTTP, validation, and 500 errors."""
 
     @app.exception_handler(AppError)
@@ -122,7 +166,17 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
         req_id = _resolve_request_id(request)
-        logger.error("Unhandled exception [Req:%s] %s %s: %s", req_id, request.method, request.url.path, exc, exc_info=True)
+        token = request_id_ctx.set(req_id)
+        try:
+            logger.error(
+                "Unhandled exception %s %s: %s",
+                request.method,
+                request.url.path,
+                exc,
+                exc_info=True,
+            )
+        finally:
+            request_id_ctx.reset(token)
         payload = build_error_payload(
             code="INTERNAL_ERROR",
             message="An internal server error occurred.",
@@ -132,6 +186,6 @@ def register_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=500,
             content=payload,
-            headers={"X-Request-ID": req_id},
+            headers=_build_unhandled_headers(request, req_id, cors_origins),
         )
 

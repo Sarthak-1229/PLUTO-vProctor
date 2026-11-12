@@ -82,7 +82,10 @@ class InterviewSession(Base):
 
     id = Column(String(64), primary_key=True)
     job_id = Column(String(64), ForeignKey("jobs.id"), nullable=False)
+    candidate_user_id = Column(String(64), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     candidate_name = Column(String(128), default="Candidate")
+    interview_mode = Column(String(32), nullable=False, default="self_practice", server_default="self_practice")
+    room_id = Column(String(64), nullable=True, index=True)
     resume_filename = Column(String(256), nullable=True)
     resume_text = Column(Text, nullable=True)
     parsed_resume = Column(JSON, nullable=True)
@@ -95,6 +98,7 @@ class InterviewSession(Base):
     updated_at = Column(DateTime, default=_utcnow_naive, onupdate=_utcnow_naive)
 
     job = relationship("Job", back_populates="sessions")
+    candidate_user = relationship("User", back_populates="sessions", foreign_keys=[candidate_user_id])
     questions = relationship("SessionQuestion", back_populates="session", cascade="all, delete-orphan", order_by="SessionQuestion.order_index")
     proctoring_events = relationship("ProctoringEvent", back_populates="session", cascade="all, delete-orphan")
     report = relationship("InterviewReport", back_populates="session", uselist=False, cascade="all, delete-orphan")
@@ -152,3 +156,175 @@ class InterviewReport(Base):
     created_at = Column(DateTime, default=_utcnow_naive)
 
     session = relationship("InterviewSession", back_populates="report")
+
+
+class User(Base):
+    """Authenticated user account (candidate, admin, or super_admin)."""
+    __tablename__ = "users"
+
+    id = Column(String(64), primary_key=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    password_hash = Column(String(512), nullable=False)
+    full_name = Column(String(128), nullable=False)
+    role = Column(String(32), nullable=False, default="candidate", index=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+    email_verified = Column(Boolean, nullable=False, default=False)
+    failed_login_attempts = Column(Integer, nullable=False, default=0)
+    locked_until = Column(DateTime, nullable=True)
+    token_version = Column(Integer, nullable=False, default=0)
+    last_login_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=_utcnow_naive)
+    updated_at = Column(DateTime, default=_utcnow_naive, onupdate=_utcnow_naive)
+
+    profile = relationship("CandidateProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    resumes = relationship("Resume", back_populates="user", cascade="all, delete-orphan")
+    sessions = relationship("InterviewSession", back_populates="candidate_user", foreign_keys=[InterviewSession.candidate_user_id])
+    refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
+    one_time_tokens = relationship("OneTimeToken", back_populates="user", cascade="all, delete-orphan")
+
+
+class CandidateProfile(Base):
+    """Database-backed candidate personal, educational, technical, and experience profile."""
+    __tablename__ = "candidate_profiles"
+
+    id = Column(String(64), primary_key=True)
+    user_id = Column(String(64), ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False, index=True)
+    headline = Column(String(255), nullable=True)
+    phone = Column(String(32), nullable=True)
+    location = Column(String(128), nullable=True)
+    education_level = Column(String(64), nullable=True)
+    education_details_json = Column(JSON, nullable=True)
+    experience_years = Column(Float, nullable=False, default=0.0)
+    experience_summary_json = Column(JSON, nullable=True)
+    technical_skills_json = Column(JSON, nullable=True)
+    preferred_roles_json = Column(JSON, nullable=True)
+    portfolio_links_json = Column(JSON, nullable=True)
+    bio = Column(Text, nullable=True)
+    profile_completed = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, default=_utcnow_naive)
+    updated_at = Column(DateTime, default=_utcnow_naive, onupdate=_utcnow_naive)
+
+    user = relationship("User", back_populates="profile")
+
+
+class Resume(Base):
+    """Securely stored uploaded candidate resume metadata and extracted text."""
+    __tablename__ = "resumes"
+
+    id = Column(String(64), primary_key=True)
+    user_id = Column(String(64), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    original_filename = Column(String(255), nullable=False)
+    storage_key = Column(String(255), unique=True, nullable=False)
+    mime_type = Column(String(128), nullable=False)
+    file_size_bytes = Column(Integer, nullable=False)
+    sha256_hash = Column(String(64), nullable=False)
+    raw_text = Column(Text, nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, default=_utcnow_naive)
+    updated_at = Column(DateTime, default=_utcnow_naive, onupdate=_utcnow_naive)
+
+    user = relationship("User", back_populates="resumes")
+    parsed_profile = relationship("ResumeProfile", back_populates="resume", uselist=False, cascade="all, delete-orphan")
+
+
+class ResumeProfile(Base):
+    """Parsed and candidate-reviewed/confirmed structured resume profile."""
+    __tablename__ = "resume_profiles"
+
+    id = Column(String(64), primary_key=True)
+    resume_id = Column(String(64), ForeignKey("resumes.id", ondelete="CASCADE"), unique=True, nullable=False, index=True)
+    user_id = Column(String(64), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    extracted_data_json = Column(JSON, nullable=False)
+    edited_data_json = Column(JSON, nullable=True)
+    field_provenance_json = Column(JSON, nullable=True)
+    confirmed_by_user = Column(Boolean, nullable=False, default=False)
+    confirmed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=_utcnow_naive)
+    updated_at = Column(DateTime, default=_utcnow_naive, onupdate=_utcnow_naive)
+
+    resume = relationship("Resume", back_populates="parsed_profile")
+
+
+class JobRoleTemplate(Base):
+    """Seeded industry & entry-level role templates used for universal job recommendations."""
+    __tablename__ = "job_role_templates"
+
+    id = Column(String(64), primary_key=True)
+    slug = Column(String(128), unique=True, nullable=False, index=True)
+    title = Column(String(255), nullable=False)
+    level = Column(String(32), nullable=False, default="entry")
+    domain = Column(String(128), nullable=False)
+    required_skills_json = Column(JSON, nullable=False)
+    preferred_skills_json = Column(JSON, nullable=False)
+    min_experience_years = Column(Float, nullable=False, default=0.0)
+    education_levels_json = Column(JSON, nullable=True)
+    description = Column(Text, nullable=True)
+    mapped_job_id = Column(String(64), ForeignKey("jobs.id", ondelete="SET NULL"), nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, default=_utcnow_naive)
+    updated_at = Column(DateTime, default=_utcnow_naive, onupdate=_utcnow_naive)
+
+
+class JobRecommendation(Base):
+    """Computed job and role-template recommendations persisted per candidate."""
+    __tablename__ = "job_recommendations"
+
+    id = Column(String(64), primary_key=True)
+    user_id = Column(String(64), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    source_type = Column(String(32), nullable=False)
+    target_type = Column(String(32), nullable=False)
+    target_id = Column(String(64), nullable=False, index=True)
+    title = Column(String(255), nullable=False)
+    match_score = Column(Float, nullable=False)
+    matched_skills_json = Column(JSON, nullable=False)
+    missing_skills_json = Column(JSON, nullable=False)
+    explanation = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=_utcnow_naive)
+
+
+class RefreshToken(Base):
+    """Hashed rotating refresh sessions with family-level reuse revocation."""
+    __tablename__ = "refresh_tokens"
+
+    id = Column(String(64), primary_key=True)
+    user_id = Column(String(64), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    token_hash = Column(String(64), unique=True, nullable=False, index=True)
+    rotation_family_id = Column(String(64), nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=False, index=True)
+    revoked_at = Column(DateTime, nullable=True)
+    replaced_by_id = Column(String(64), nullable=True)
+    user_agent = Column(String(255), nullable=True)
+    ip_address = Column(String(64), nullable=True)
+    created_at = Column(DateTime, default=_utcnow_naive)
+
+    user = relationship("User", back_populates="refresh_tokens")
+
+
+class OneTimeToken(Base):
+    """Single-use hashed expiring tokens for password reset and email verification."""
+    __tablename__ = "one_time_tokens"
+
+    id = Column(String(64), primary_key=True)
+    user_id = Column(String(64), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    purpose = Column(String(32), nullable=False, index=True)
+    token_hash = Column(String(64), unique=True, nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=False, index=True)
+    used_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=_utcnow_naive)
+
+    user = relationship("User", back_populates="one_time_tokens")
+
+
+class AuditLog(Base):
+    """Immutable security and administrative audit trail."""
+    __tablename__ = "audit_logs"
+
+    id = Column(String(64), primary_key=True)
+    actor_user_id = Column(String(64), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    actor_role = Column(String(32), nullable=True)
+    action = Column(String(128), nullable=False, index=True)
+    resource_type = Column(String(64), nullable=False, index=True)
+    resource_id = Column(String(64), nullable=True, index=True)
+    details_json = Column(JSON, nullable=True)
+    ip_address = Column(String(64), nullable=True)
+    created_at = Column(DateTime, default=_utcnow_naive, index=True)

@@ -75,11 +75,20 @@ def test_validate_runtime_safety_blocks_insecure_production():
             SFU_URL="",
         ).validate_runtime_safety()
 
+    with pytest.raises(RuntimeError, match="COOKIE_SECURE"):
+        Settings(
+            ENVIRONMENT="production",
+            AUTH_ENABLED=True,
+            SECRET_KEY="a" * 48,
+            COOKIE_SECURE=False,
+        ).validate_runtime_safety()
+
     # Valid production config should succeed
     Settings(
         ENVIRONMENT="production",
         AUTH_ENABLED=True,
         SECRET_KEY="a" * 48,
+        COOKIE_SECURE=True,
         HOSTED_ROOMS_ENABLED=True,
         MEDIA_TRANSPORT_MODE="p2p",
     ).validate_runtime_safety()

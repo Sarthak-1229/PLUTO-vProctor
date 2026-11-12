@@ -4,10 +4,13 @@ All thresholds, weights, model parameters, and storage paths MUST live here
 to prevent magic numbers in business logic.
 """
 
+import secrets
 from pathlib import Path
 from typing import Any, Dict, List, Literal
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_EPHEMERAL_DEV_SECRET: str = secrets.token_urlsafe(48)
 
 
 class Settings(BaseSettings):
@@ -86,6 +89,13 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=15, ge=1, le=1440)
     REFRESH_TOKEN_EXPIRE_DAYS: int = Field(default=7, ge=1, le=90)
     COOKIE_SECURE: bool = False
+    COOKIE_SAMESITE: Literal["lax", "strict", "none"] = "lax"
+    REFRESH_COOKIE_NAME: str = "pluto_refresh_token"
+    CSRF_COOKIE_NAME: str = "pluto_csrf_token"
+    PASSWORD_RESET_EXPIRE_MINUTES: int = Field(default=30, ge=5, le=1440)
+    EMAIL_VERIFY_EXPIRE_HOURS: int = Field(default=24, ge=1, le=168)
+    MAX_FAILED_LOGIN_ATTEMPTS: int = Field(default=5, ge=3, le=20)
+    LOCKOUT_MINUTES: int = Field(default=15, ge=1, le=240)
 
     # WebRTC P2P / NAT Traversal (STUN & TURN) Configuration
     STUN_SERVERS: List[str] = ["stun:stun.l.google.com:19302"]
@@ -180,6 +190,15 @@ class Settings(BaseSettings):
             raise ValueError(f"SCORING_WEIGHTS must sum to ~1.0 (got {total:.3f}).")
         return value
 
+    def get_signing_secret(self) -> str:
+        """Return configured signing secret, or ephemeral secret in non-production."""
+        secret = self.SECRET_KEY.strip()
+        if secret:
+            return secret
+        if self.ENVIRONMENT.strip().lower() == "production":
+            raise RuntimeError("Unsafe production config: SECRET_KEY must be configured.")
+        return _EPHEMERAL_DEV_SECRET
+
     def validate_runtime_safety(self) -> None:
         """Fail fast when production settings enable auth/SFU without required security config."""
         if self.ENVIRONMENT.strip().lower() != "production":
@@ -191,6 +210,10 @@ class Settings(BaseSettings):
             if len(secret) < 32 or any(marker in lowered for marker in weak_markers):
                 raise RuntimeError(
                     "Unsafe production config: SECRET_KEY must be at least 32 non-placeholder characters when AUTH_ENABLED=True."
+                )
+            if not self.COOKIE_SECURE:
+                raise RuntimeError(
+                    "Unsafe production config: COOKIE_SECURE must be True in production when AUTH_ENABLED=True."
                 )
         if self.HOSTED_ROOMS_ENABLED and self.MEDIA_TRANSPORT_MODE == "sfu" and not self.SFU_URL.strip():
             raise RuntimeError(

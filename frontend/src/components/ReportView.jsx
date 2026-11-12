@@ -1,4 +1,5 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
+import { authFetch } from '../utils/authClient'
 import {
   FileText,
   Video,
@@ -24,7 +25,49 @@ export function ReportView({
   onRetryDifferentQuestions,
 }) {
   const [expandedQuestion, setExpandedQuestion] = useState(0)
+  const [videoSrcUrl, setVideoSrcUrl] = useState(null)
+  const [downloadingPdf, setDownloadingPdf] = useState(false)
   const videoRef = useRef(null)
+
+  useEffect(() => {
+    if (!sessionId) return undefined
+    let active = true
+    let objectUrl = null
+    authFetch(`/api/interview/${sessionId}/video`)
+      .then((res) => (res.ok ? res.blob() : null))
+      .then((blob) => {
+        if (!active || !blob) return
+        objectUrl = URL.createObjectURL(blob)
+        setVideoSrcUrl(objectUrl)
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [sessionId])
+
+  const handleDownloadPdf = async () => {
+    if (!sessionId) return
+    setDownloadingPdf(true)
+    try {
+      const res = await authFetch(`/api/report/${sessionId}/pdf`)
+      if (!res.ok) throw new Error('Unable to export PDF')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `PLUTO_vProctor_Report_${sessionId}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      alert(e.message || 'Failed to download PDF report.')
+    } finally {
+      setDownloadingPdf(false)
+    }
+  }
 
   if (!reportData) {
     return (
@@ -179,7 +222,7 @@ export function ReportView({
             <video
               ref={videoRef}
               controls
-              src={`/api/interview/${sessionId}/video`}
+              src={videoSrcUrl || undefined}
               className="w-full h-full object-cover"
             />
           </div>
@@ -405,15 +448,15 @@ export function ReportView({
             <span>Retry with Different Questions</span>
           </button>
 
-          <a
-            href={`/api/report/${sessionId}/pdf`}
-            target="_blank"
-            rel="noreferrer"
+          <button
+            type="button"
+            disabled={downloadingPdf}
+            onClick={handleDownloadPdf}
             className="px-6 py-3 rounded-xl bg-white hover:bg-slate-100 border-2 border-black font-black text-black text-xs uppercase shadow-[3px_3px_0px_0px_#000] hover:-translate-y-0.5 active:translate-y-0.5 transition-all flex items-center space-x-2"
           >
             <Download className="w-4 h-4 stroke-[2.5]" />
-            <span>Download Official PDF</span>
-          </a>
+            <span>{downloadingPdf ? 'Generating PDF...' : 'Download Official PDF'}</span>
+          </button>
 
           <button
             onClick={onResetSession}

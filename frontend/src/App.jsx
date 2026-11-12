@@ -1,6 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
-import { LiveGazeDetector, PRESETS } from './utils/liveGazeDetector'
+import { LiveGazeDetector } from './utils/liveGazeDetector'
 import { InterviewFSM, INTERVIEW_STATES, saveSessionState, loadSessionState, clearSessionState } from './utils/interviewFSM'
+import {
+  authFetch,
+  readCookie,
+  refreshAccessToken,
+  resolveRouteAccess,
+  setAccessToken,
+} from './utils/authClient'
 import { Navbar } from './components/Navbar'
 import { BrowserSupportBanner } from './components/BrowserSupportBanner'
 import { ErrorBoundary } from './components/ErrorBoundary'
@@ -13,6 +20,11 @@ import { ProcessingStep } from './components/ProcessingStep'
 import { ReportView } from './components/ReportView'
 import { CandidateDashboard } from './components/CandidateDashboard'
 import { SettingsModal } from './components/SettingsModal'
+import { CandidateAuthPage, AdminLoginPage } from './components/AuthPages'
+import { CandidateProfilePage } from './components/CandidateProfilePage'
+import { ResumeLibraryPage } from './components/ResumeLibraryPage'
+import { RecommendationsPage } from './components/RecommendationsPage'
+import { AdminConsolePage } from './components/AdminConsolePage'
 import RecordFixturePage from './RecordFixturePage'
 
 const STEPS = [
@@ -34,6 +46,28 @@ export default function App() {
 }
 
 function MainApp() {
+  // Auth & Routing State
+  const [authReady, setAuthReady] = useState(false)
+  const [authEnabled, setAuthEnabled] = useState(false)
+  const [currentUser, setCurrentUser] = useState(null)
+  const [pathname, setPathname] = useState(() =>
+    typeof window !== 'undefined' ? window.location.pathname : '/',
+  )
+
+  const navigate = (to) => {
+    if (typeof window !== 'undefined' && window.location.pathname !== to) {
+      window.history.pushState({}, '', to)
+    }
+    setPathname(to)
+  }
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+    const onPop = () => setPathname(window.location.pathname)
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+
   // Application State
   const [currentStep, setCurrentStep] = useState('select')
   const [jobs, setJobs] = useState([])
@@ -51,6 +85,18 @@ function MainApp() {
   const [reportData, setReportData] = useState(null)
   const [loadingScreening, setLoadingScreening] = useState(false)
 
+  // Reset session to start over
+  const handleResetSession = () => {
+    clearSessionState()
+    setSessionId(null)
+    setResumeFile(null)
+    setScreeningResult(null)
+    setReportData(null)
+    setQuestions([])
+    setCurrentQuestionIndex(0)
+    setCurrentStep('select')
+  }
+
   // Modals
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isDashboardOpen, setIsDashboardOpen] = useState(false)
@@ -61,6 +107,63 @@ function MainApp() {
   const recordedChunksRef = useRef([])
   const liveGazeDetectorRef = useRef(new LiveGazeDetector('strict'))
   const fsmRef = useRef(new InterviewFSM(INTERVIEW_STATES.IDLE))
+
+  // 0. Bootstrap auth flags and restore refresh session cleanly on boot
+  useEffect(() => {
+    let active = true
+    async function initAuth() {
+      let enabled = false
+      try {
+        const cfgRes = await fetch('/api/auth/config')
+        if (cfgRes.ok) {
+          const cfg = await cfgRes.json()
+          enabled = Boolean(cfg.auth_enabled)
+        }
+      } catch {
+        enabled = false
+      }
+      if (active) setAuthEnabled(enabled)
+
+      if (readCookie('pluto_csrf_token')) {
+        const refreshed = await refreshAccessToken()
+        if (active && refreshed?.user) {
+          setCurrentUser(refreshed.user)
+          setCandidateName((prev) => prev || refreshed.user.full_name || '')
+        }
+      }
+      if (active) setAuthReady(true)
+    }
+    initAuth()
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const routeGuard = authReady
+    ? resolveRouteAccess({ pathname, authEnabled, user: currentUser })
+    : { allowed: true, redirectTo: null, view: 'loading' }
+
+  useEffect(() => {
+    if (authReady && routeGuard.redirectTo && routeGuard.redirectTo !== pathname) {
+      navigate(routeGuard.redirectTo)
+    }
+  }, [authReady, routeGuard.redirectTo, pathname])
+
+  const handleLogout = async () => {
+    const csrf = readCookie('pluto_csrf_token')
+    try {
+      await authFetch('/api/auth/logout', {
+        method: 'POST',
+        headers: csrf ? { 'X-CSRF-Token': csrf } : {},
+      })
+    } catch {
+      // ignore network failures on logout cleanup
+    }
+    setAccessToken(null)
+    setCurrentUser(null)
+    handleResetSession()
+    navigate(authEnabled ? '/login' : '/')
+  }
 
   // 1. Fetch available jobs on mount
   useEffect(() => {
@@ -96,30 +199,23 @@ function MainApp() {
       if (saved.currentQuestionIndex !== undefined) setCurrentQuestionIndex(saved.currentQuestionIndex)
       if (saved.currentStep === 'report' || saved.currentStep === 'interview') {
         setCurrentStep(saved.currentStep)
-        if (saved.currentStep === 'report' && saved.sessionId) {
-          fetch(`/api/report/${saved.sessionId}`)
-            .then((r) => (r.ok ? r.json() : null))
-            .then((d) => d && setReportData(d))
-            .catch(() => {})
-        }
       }
     }
   }, [])
 
   // Auto-fetch report data if entering or restored on report step without reportData
   useEffect(() => {
-    if (currentStep === 'report' && !reportData && sessionId) {
-      fetch(`/api/report/${sessionId}`)
+    if (authReady && currentStep === 'report' && !reportData && sessionId) {
+      authFetch(`/api/report/${sessionId}`)
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
           if (data) {
             setReportData(data)
-            saveToPastInterviews(data)
           }
         })
         .catch((err) => console.warn('Auto-reload report error:', err))
     }
-  }, [currentStep, reportData, sessionId])
+  }, [authReady, currentStep, reportData, sessionId])
 
   // Persist session state on step/index changes
   useEffect(() => {
@@ -199,13 +295,13 @@ function MainApp() {
     if (candidateName) formData.append('candidate_name', candidateName)
 
     try {
-      let res = await fetch('/api/resume/screen', {
+      let res = await authFetch('/api/resume/screen', {
         method: 'POST',
         body: formData,
       })
-      if (!res.ok) {
+      if (!res.ok && res.status === 404) {
         // Fallback to /api/resume/upload if needed
-        res = await fetch('/api/resume/upload', {
+        res = await authFetch('/api/resume/upload', {
           method: 'POST',
           body: formData,
         })
@@ -241,7 +337,7 @@ function MainApp() {
     setCalibrationData(baseline)
     try {
       // Start session on backend with calibration baseline and preset
-      const res = await fetch(`/api/interview/${sessionId}/start`, {
+      const res = await authFetch(`/api/interview/${sessionId}/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -294,7 +390,7 @@ function MainApp() {
   const handleNextQuestion = async ({ qIndex, transcript, startTime, endTime, ttsWindows }) => {
     if (!sessionId) return
     try {
-      await fetch(`/api/interview/${sessionId}/question/${qIndex}/answer`, {
+      await authFetch(`/api/interview/${sessionId}/question/${qIndex}/answer`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -332,14 +428,14 @@ function MainApp() {
 
     try {
       setProcessingStatus({ stage: 'Uploading session video to server...', video_pct: 25, audio_pct: 25 })
-      await fetch(`/api/interview/${sessionId}/recording`, {
+      await authFetch(`/api/interview/${sessionId}/recording`, {
         method: 'POST',
         body: formData,
       })
 
       // Trigger analysis pipeline
       setProcessingStatus({ stage: 'Launching parallel video and audio pipelines...', video_pct: 35, audio_pct: 35 })
-      await fetch(`/api/analysis/${sessionId}/run`, { method: 'POST' })
+      await authFetch(`/api/analysis/${sessionId}/run`, { method: 'POST' })
 
       // Poll analysis status
       pollAnalysisStatus()
@@ -355,7 +451,7 @@ function MainApp() {
     let failCount = 0
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/analysis/${sessionId}/status`)
+        const res = await authFetch(`/api/analysis/${sessionId}/status`)
         if (res.ok) {
           failCount = 0
           const status = await res.json()
@@ -391,12 +487,10 @@ function MainApp() {
   // Load final evaluation report
   const loadFinalReport = async (retries = 3) => {
     try {
-      const res = await fetch(`/api/report/${sessionId}`)
+      const res = await authFetch(`/api/report/${sessionId}`)
       if (res.ok) {
         const data = await res.json()
         setReportData(data)
-        // Save to past sessions in localStorage
-        saveToPastInterviews(data)
         setCurrentStep('report')
         return
       }
@@ -411,30 +505,11 @@ function MainApp() {
     }
   }
 
-  // Save interview report summary to localStorage
-  const saveToPastInterviews = (report) => {
-    try {
-      const existing = JSON.parse(localStorage.getItem('pluto_past_interviews') || '[]')
-      const filtered = existing.filter((item) => item.session_id !== sessionId)
-      const newItem = {
-        session_id: sessionId,
-        job_title: report.job_title || selectedJob?.title,
-        company: report.company || selectedJob?.company,
-        overall_score: report.overall_score,
-        grade: report.grade,
-        timestamp: Date.now(),
-      }
-      localStorage.setItem('pluto_past_interviews', JSON.stringify([newItem, ...filtered].slice(0, 20)))
-    } catch (e) {
-      console.warn('Failed to cache past interview:', e)
-    }
-  }
-
   // Delete data action
   const handleDeleteData = async () => {
     if (!window.confirm('Are you sure you want to permanently delete this interview recording and all associated data?')) return
     try {
-      await fetch(`/api/interview/${sessionId}`, { method: 'DELETE' })
+      await authFetch(`/api/interview/${sessionId}`, { method: 'DELETE' })
       alert('All session recordings and evaluation data have been permanently erased.')
       handleResetSession()
     } catch (e) {
@@ -442,22 +517,32 @@ function MainApp() {
     }
   }
 
-  // Reset session to start over
-  const handleResetSession = () => {
-    clearSessionState()
-    setSessionId(null)
-    setResumeFile(null)
-    setScreeningResult(null)
-    setReportData(null)
-    setQuestions([])
-    setCurrentQuestionIndex(0)
-    setCurrentStep('select')
-  }
-
   // Retry with different questions rotated from knapsack pool
   const handleRetryDifferentQuestions = async () => {
     if (!sessionId) return
     handleCalibrationComplete(calibrationData || {})
+  }
+
+  const handleStartFromSavedResume = async (resumeId, jobId) => {
+    const chosenJob = jobs.find((j) => j.id === jobId) || selectedJob
+    if (chosenJob) setSelectedJob(chosenJob)
+    try {
+      const fd = new FormData()
+      fd.append('job_id', jobId)
+      const res = await authFetch(`/api/resumes/${resumeId}/start-session`, {
+        method: 'POST',
+        body: fd,
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail || 'Could not start screening from saved resume.')
+      setScreeningResult(data)
+      setSessionId(data.session_id)
+      setCandidateName(data.candidate_name || currentUser?.full_name || '')
+      setCurrentStep('screening')
+      navigate('/')
+    } catch (err) {
+      alert(err.message || 'Failed to launch saved-resume screening.')
+    }
   }
 
   return (
@@ -476,90 +561,160 @@ function MainApp() {
           activePreset={activePreset}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenDashboard={() => setIsDashboardOpen(true)}
+          currentUser={currentUser}
+          authEnabled={authEnabled}
+          currentPath={pathname}
+          onNavigate={navigate}
+          onLogout={handleLogout}
         />
 
         <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* STEP 1: Role Selection & Resume Upload */}
-          {currentStep === 'select' && (
-            <RoleSelectStep
+          {!authReady && (
+            <div className="py-16 text-center font-black uppercase text-sm">
+              Initializing PLUTO vProctor session...
+            </div>
+          )}
+
+          {authReady && (routeGuard.view === 'login' || routeGuard.view === 'register' || routeGuard.view === 'forgot-password' || routeGuard.view === 'reset-password') && (
+            <CandidateAuthPage
+              mode={routeGuard.view}
+              onNavigate={navigate}
+              onAuthSuccess={(user) => {
+                setCurrentUser(user)
+                setCandidateName(user.full_name || '')
+                navigate(user.role === 'admin' || user.role === 'super_admin' ? '/admin' : '/')
+              }}
+            />
+          )}
+
+          {authReady && routeGuard.view === 'admin-login' && (
+            <AdminLoginPage
+              onNavigate={navigate}
+              onAuthSuccess={(user) => {
+                setCurrentUser(user)
+                navigate('/admin')
+              }}
+            />
+          )}
+
+          {authReady && routeGuard.view === 'admin' && (
+            <AdminConsolePage
+              currentUser={currentUser}
+              onOpenSettings={() => setIsSettingsOpen(true)}
+            />
+          )}
+
+          {authReady && routeGuard.view === 'profile' && (
+            <CandidateProfilePage
+              onNavigate={navigate}
+              onProfileSaved={(p) => p?.full_name && setCandidateName(p.full_name)}
+            />
+          )}
+
+          {authReady && routeGuard.view === 'resumes' && (
+            <ResumeLibraryPage
               jobs={jobs}
-              selectedJob={selectedJob}
-              onSelectJob={setSelectedJob}
-              resumeFile={resumeFile}
-              onResumeChange={setResumeFile}
-              candidateName={candidateName}
-              onCandidateNameChange={setCandidateName}
-              onSubmitScreening={handleSubmitScreening}
-              loading={loadingScreening}
+              onStartInterviewFromSaved={handleStartFromSavedResume}
             />
           )}
 
-          {/* STEP 2: Screening Fit & Consent */}
-          {currentStep === 'screening' && (
-            <ScreeningStep
-              screeningResult={screeningResult}
-              selectedJob={selectedJob}
-              candidateName={candidateName}
-              consentChecked={consentChecked}
-              onConsentChange={setConsentChecked}
-              onProceed={handleProceedFromScreening}
-              onBack={() => setCurrentStep('select')}
+          {authReady && routeGuard.view === 'recommendations' && (
+            <RecommendationsPage
+              onNavigate={navigate}
+              onSelectJobForInterview={(jobId) => {
+                const matched = jobs.find((j) => j.id === jobId)
+                if (matched) setSelectedJob(matched)
+                setCurrentStep('select')
+                navigate('/')
+              }}
             />
           )}
 
-          {/* STEP 3: System Pre-Flight Check */}
-          {currentStep === 'precheck' && (
-            <SystemCheckStep
-              stream={mediaStream}
-              onProceed={handleProceedToCalibration}
-              onBack={() => setCurrentStep('screening')}
-            />
-          )}
+          {authReady && routeGuard.view === 'practice' && (
+            <>
+              {/* STEP 1: Role Selection & Resume Upload */}
+              {currentStep === 'select' && (
+                <RoleSelectStep
+                  jobs={jobs}
+                  selectedJob={selectedJob}
+                  onSelectJob={setSelectedJob}
+                  resumeFile={resumeFile}
+                  onResumeChange={setResumeFile}
+                  candidateName={candidateName}
+                  onCandidateNameChange={setCandidateName}
+                  onSubmitScreening={handleSubmitScreening}
+                  loading={loadingScreening}
+                />
+              )}
 
-          {/* STEP 4: Gaze Baseline Calibration */}
-          {currentStep === 'calibration' && (
-            <CalibrationStep
-              stream={mediaStream}
-              liveDetector={liveGazeDetectorRef.current}
-              onCalibrationComplete={handleCalibrationComplete}
-              onBack={() => setCurrentStep('precheck')}
-            />
-          )}
+              {/* STEP 2: Screening Fit & Consent */}
+              {currentStep === 'screening' && (
+                <ScreeningStep
+                  screeningResult={screeningResult}
+                  selectedJob={selectedJob}
+                  candidateName={candidateName}
+                  consentChecked={consentChecked}
+                  onConsentChange={setConsentChecked}
+                  onProceed={handleProceedFromScreening}
+                  onBack={() => setCurrentStep('select')}
+                />
+              )}
 
-          {/* STEP 5: Live Mock Interview Experience */}
-          {currentStep === 'interview' && (
-            <InterviewRoom
-              sessionId={sessionId}
-              candidateName={candidateName}
-              jobTitle={selectedJob?.title}
-              company={selectedJob?.company}
-              questions={questions}
-              currentQuestionIndex={currentQuestionIndex}
-              onNextQuestion={handleNextQuestion}
-              onFinishInterview={handleFinishInterview}
-              stream={mediaStream}
-              liveDetector={liveGazeDetectorRef.current}
-              activePreset={activePreset}
-            />
-          )}
+              {/* STEP 3: System Pre-Flight Check */}
+              {currentStep === 'precheck' && (
+                <SystemCheckStep
+                  stream={mediaStream}
+                  onProceed={handleProceedToCalibration}
+                  onBack={() => setCurrentStep('screening')}
+                />
+              )}
 
-          {/* STEP 6: Pipeline Processing */}
-          {currentStep === 'processing' && (
-            <ProcessingStep
-              processingStatus={processingStatus}
-              sessionId={sessionId}
-            />
-          )}
+              {/* STEP 4: Gaze Baseline Calibration */}
+              {currentStep === 'calibration' && (
+                <CalibrationStep
+                  stream={mediaStream}
+                  liveDetector={liveGazeDetectorRef.current}
+                  onCalibrationComplete={handleCalibrationComplete}
+                  onBack={() => setCurrentStep('precheck')}
+                />
+              )}
 
-          {/* STEP 7: Comprehensive Report & Scrubber */}
-          {currentStep === 'report' && (
-            <ReportView
-              reportData={reportData}
-              sessionId={sessionId}
-              onDeleteData={handleDeleteData}
-              onResetSession={handleResetSession}
-              onRetryDifferentQuestions={handleRetryDifferentQuestions}
-            />
+              {/* STEP 5: Live Mock Interview Experience */}
+              {currentStep === 'interview' && (
+                <InterviewRoom
+                  sessionId={sessionId}
+                  candidateName={candidateName}
+                  jobTitle={selectedJob?.title}
+                  company={selectedJob?.company}
+                  questions={questions}
+                  currentQuestionIndex={currentQuestionIndex}
+                  onNextQuestion={handleNextQuestion}
+                  onFinishInterview={handleFinishInterview}
+                  stream={mediaStream}
+                  liveDetector={liveGazeDetectorRef.current}
+                  activePreset={activePreset}
+                />
+              )}
+
+              {/* STEP 6: Pipeline Processing */}
+              {currentStep === 'processing' && (
+                <ProcessingStep
+                  processingStatus={processingStatus}
+                  sessionId={sessionId}
+                />
+              )}
+
+              {/* STEP 7: Comprehensive Report & Scrubber */}
+              {currentStep === 'report' && (
+                <ReportView
+                  reportData={reportData}
+                  sessionId={sessionId}
+                  onDeleteData={handleDeleteData}
+                  onResetSession={handleResetSession}
+                  onRetryDifferentQuestions={handleRetryDifferentQuestions}
+                />
+              )}
+            </>
           )}
         </main>
 
@@ -567,11 +722,14 @@ function MainApp() {
         <CandidateDashboard
           isOpen={isDashboardOpen}
           onClose={() => setIsDashboardOpen(false)}
+          currentUser={currentUser}
+          authEnabled={authEnabled}
           onLoadPastReport={async (pastSid) => {
             setSessionId(pastSid)
             setCurrentStep('processing')
+            navigate('/')
             try {
-              const res = await fetch(`/api/report/${pastSid}`)
+              const res = await authFetch(`/api/report/${pastSid}`)
               if (res.ok) {
                 const data = await res.json()
                 setReportData(data)
@@ -580,10 +738,6 @@ function MainApp() {
             } catch (e) {
               console.warn('Failed to load past report:', e)
             }
-          }}
-          onRetryRole={(roleJob) => {
-            setSelectedJob(roleJob)
-            setCurrentStep('select')
           }}
         />
 

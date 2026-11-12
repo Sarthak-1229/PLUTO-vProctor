@@ -2,13 +2,15 @@
 from __future__ import annotations
 
 import uuid
+from pathlib import Path
 from typing import Any, Dict, Optional
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from backend.app.config import settings
 from backend.app.db.database import get_db
-from backend.app.db.models import InterviewSession, Job
+from backend.app.db.models import InterviewSession, Job, User
+from backend.app.services.authorization import get_user_when_auth_enabled
 from backend.app.services.resume_service import resume_service
 
 router = APIRouter(prefix="/api/resume", tags=["Resume"])
@@ -21,6 +23,7 @@ async def upload_or_screen_resume(
     file: Optional[UploadFile] = File(None),
     resume: Optional[UploadFile] = File(None),
     candidate_name: Optional[str] = Form(None),
+    current_user: Optional[User] = Depends(get_user_when_auth_enabled),
     db: Session = Depends(get_db),
 ):
     """Upload resume (PDF/DOCX), parse sections/skills, and evaluate candidate fit."""
@@ -36,7 +39,8 @@ async def upload_or_screen_resume(
         raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found.")
 
     # Validate file type
-    filename = actual_file.filename or "resume.pdf"
+    raw_name = Path(actual_file.filename or "resume.pdf").name
+    filename = raw_name.replace("..", "_") or "resume.pdf"
     fn_lower = filename.lower()
     if not (fn_lower.endswith(".pdf") or fn_lower.endswith(".docx") or fn_lower.endswith(".txt")):
         raise HTTPException(
@@ -55,24 +59,50 @@ async def upload_or_screen_resume(
             detail=f"Resume file size exceeds maximum limit of {MAX_RESUME_SIZE // (1024*1024)} MB.",
         )
 
-    # Magic byte MIME verification
-    if fn_lower.endswith(".pdf") and not file_bytes.startswith(b"%PDF"):
-        raise HTTPException(status_code=400, detail="Corrupted or invalid PDF file header.")
-    elif fn_lower.endswith(".docx") and not file_bytes.startswith(b"PK\x03\x04"):
-        raise HTTPException(status_code=400, detail="Corrupted or invalid DOCX file header.")
+    # Magic byte and format integrity verification
+    if fn_lower.endswith(".pdf"):
+        if not file_bytes.startswith(b"%PDF"):
+            raise HTTPException(status_code=400, detail="Corrupted or invalid PDF file header.")
+        try:
+            import io
+            import pdfplumber
 
-    # Save to storage
+            with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
+                if len(pdf.pages) > 15:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="PDF resume exceeds maximum limit of 15 pages.",
+                    )
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail="Corrupted or unreadable PDF document.") from exc
+    elif fn_lower.endswith(".docx"):
+        if not file_bytes.startswith(b"PK\x03\x04"):
+            raise HTTPException(status_code=400, detail="Corrupted or invalid DOCX file header.")
+    elif fn_lower.endswith(".txt"):
+        if b"\x00" in file_bytes[:1024]:
+            raise HTTPException(status_code=400, detail="Plain text resume contains binary characters.")
+
+    # Save to storage using random session key
     storage_dir = settings.STORAGE_DIR / "resumes"
     storage_dir.mkdir(parents=True, exist_ok=True)
     session_id = f"sess_{uuid.uuid4().hex[:12]}"
-    saved_path = storage_dir / f"{session_id}_{filename}"
+    ext = Path(filename).suffix.lower() or ".pdf"
+    saved_path = storage_dir / f"{session_id}_{uuid.uuid4().hex[:8]}{ext}"
     saved_path.write_bytes(file_bytes)
 
-    # Parse resume
-    parsed = resume_service.parse_resume(file_bytes, filename)
+    # Parse resume with cleanup guard
+    try:
+        parsed = resume_service.parse_resume(file_bytes, filename)
+    except Exception:
+        saved_path.unlink(missing_ok=True)
+        raise
 
-    # Resolve candidate name (User provided > Parsed text > Candidate)
+    # Resolve candidate name (User provided > Authenticated profile > Parsed text > Candidate)
     c_name = (candidate_name or "").strip()
+    if (not c_name or c_name.lower() == "candidate") and current_user is not None:
+        c_name = current_user.full_name
     if not c_name or c_name.lower() in ("candidate", ""):
         c_name = parsed.get("candidate_name") or "Candidate"
 
@@ -91,6 +121,7 @@ async def upload_or_screen_resume(
     session_obj = InterviewSession(
         id=session_id,
         job_id=job.id,
+        candidate_user_id=current_user.id if current_user is not None else None,
         candidate_name=c_name,
         resume_filename=filename,
         resume_text=parsed.get("raw_text", ""),

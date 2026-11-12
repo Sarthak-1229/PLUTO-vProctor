@@ -22,13 +22,14 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
-# Resolve target database URL: explicit override / ALEMBIC_DATABASE_URL beats settings.DATABASE_URL
+# Resolve target database URL:
+# 1. Explicit programmatic/INI override (when not alembic.ini's placeholder)
+# 2. ALEMBIC_DATABASE_URL env var (used by CLI/CI overrides)
+# 3. settings.DATABASE_URL fallback
 _PLACEHOLDER_URL = "driver://user:pass@localhost/dbname"
 _configured_url = config.get_main_option("sqlalchemy.url")
-_effective_url = (
-    os.environ.get("ALEMBIC_DATABASE_URL")
-    or (_configured_url if _configured_url and _configured_url != _PLACEHOLDER_URL else settings.DATABASE_URL)
-)
+_explicit_url = _configured_url if _configured_url and _configured_url != _PLACEHOLDER_URL else None
+_effective_url = _explicit_url or os.environ.get("ALEMBIC_DATABASE_URL") or settings.DATABASE_URL
 config.set_main_option("sqlalchemy.url", _effective_url)
 
 

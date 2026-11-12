@@ -1,43 +1,45 @@
 import React, { useState, useEffect } from 'react'
-import {
-  History,
-  TrendingUp,
-  Award,
-  Calendar,
-  X,
-  ExternalLink,
-  RotateCcw,
-  Sparkles,
-} from 'lucide-react'
+import { History, X } from 'lucide-react'
+import { authFetch } from '../utils/authClient'
 
 export function CandidateDashboard({
   isOpen,
   onClose,
   onLoadPastReport,
-  onRetryRole,
+  currentUser,
+  authEnabled,
 }) {
   const [pastSessions, setPastSessions] = useState([])
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('pluto_past_interviews')
-      if (stored) {
-        setPastSessions(JSON.parse(stored))
-      }
-    } catch (e) {
-      console.warn('Failed to load past sessions:', e)
+    if (!isOpen) return
+    let active = true
+    if (currentUser) {
+      setLoading(true)
+      authFetch('/api/candidate/history')
+        .then((res) => (res.ok ? res.json() : { sessions: [] }))
+        .then((data) => {
+          if (active) setPastSessions(data.sessions || [])
+        })
+        .catch(() => active && setPastSessions([]))
+        .finally(() => active && setLoading(false))
+    } else if (!authEnabled) {
+      setPastSessions([])
+    } else {
+      setPastSessions([])
     }
-  }, [isOpen])
+    return () => {
+      active = false
+    }
+  }, [isOpen, currentUser, authEnabled])
 
   if (!isOpen) return null
 
-  // Calculate score average
+  const scored = pastSessions.filter((s) => typeof s.overall_score === 'number')
   const avgScore =
-    pastSessions.length > 0
-      ? (
-          pastSessions.reduce((acc, s) => acc + (s.overall_score || 0), 0) /
-          pastSessions.length
-        ).toFixed(1)
+    scored.length > 0
+      ? (scored.reduce((acc, s) => acc + (s.overall_score || 0), 0) / scored.length).toFixed(1)
       : 0
 
   return (
@@ -72,9 +74,7 @@ export function CandidateDashboard({
             <div className="bg-[#67E8F9] border-2 border-black p-4 rounded-xl shadow-[3px_3px_0px_0px_#000]">
               <span className="text-[10px] font-black uppercase text-slate-700">Highest Score</span>
               <p className="text-2xl font-black font-mono text-black mt-1">
-                {pastSessions.length > 0
-                  ? Math.max(...pastSessions.map((s) => s.overall_score || 0))
-                  : 0}
+                {scored.length > 0 ? Math.max(...scored.map((s) => s.overall_score || 0)) : 0}
                 /100
               </p>
             </div>
@@ -83,33 +83,43 @@ export function CandidateDashboard({
           {/* Past Sessions List */}
           <div className="space-y-3">
             <h3 className="text-xs font-black uppercase text-slate-700 tracking-wider">
-              Recorded Interviews
+              Database Interview History
             </h3>
-            {pastSessions.length === 0 ? (
+            {loading ? (
+              <div className="text-center py-8 font-bold text-xs uppercase text-slate-500">
+                Loading history...
+              </div>
+            ) : !currentUser ? (
               <div className="text-center py-10 border-2 border-dashed border-black rounded-xl font-bold text-xs uppercase text-slate-500">
-                No previous interviews saved yet. Complete your first session to see your performance timeline!
+                Sign in to view your saved interview history and evaluation reports.
+              </div>
+            ) : pastSessions.length === 0 ? (
+              <div className="text-center py-10 border-2 border-dashed border-black rounded-xl font-bold text-xs uppercase text-slate-500">
+                No previous interviews recorded on your account yet.
               </div>
             ) : (
               pastSessions.map((s, idx) => (
                 <div
                   key={s.session_id || idx}
-                  className="p-4 rounded-xl bg-[#F4F0EA] border-2 border-black flex flex-wrap items-center justify-between gap-4 shadow-[2px_2px_0px_0px_#000] hover:-translate-y-0.5 transition-all"
+                  className="p-4 rounded-xl bg-[#F4F0EA] border-2 border-black flex flex-wrap items-center justify-between gap-4 shadow-[2px_2px_0px_0px_#000]"
                 >
                   <div className="space-y-0.5">
                     <h4 className="font-black text-sm text-black">{s.job_title || 'Software Engineer'}</h4>
                     <p className="text-xs font-bold text-slate-600 flex items-center space-x-2">
-                      <span>{s.company || 'Tech Corp'}</span>
+                      <span>{s.company || 'PLUTO Role'}</span>
                       <span>•</span>
-                      <span>{new Date(s.timestamp || Date.now()).toLocaleDateString()}</span>
+                      <span>{s.created_at ? new Date(s.created_at).toLocaleDateString() : 'Recent'}</span>
                     </p>
                   </div>
 
                   <div className="flex items-center space-x-3">
                     <div className="text-right">
-                      <span className="font-mono font-black text-lg text-black">{s.overall_score || 85}</span>
+                      <span className="font-mono font-black text-lg text-black">
+                        {typeof s.overall_score === 'number' ? s.overall_score : '--'}
+                      </span>
                       <span className="text-xs text-slate-500 font-bold">/100</span>
                       <span className="ml-2 px-2 py-0.5 rounded bg-[#FFE600] border border-black font-mono font-black text-xs">
-                        {s.grade || 'A'}
+                        {s.grade || s.interview_status || 'EVAL'}
                       </span>
                     </div>
 

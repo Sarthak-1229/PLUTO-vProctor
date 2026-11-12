@@ -9,8 +9,10 @@ from sqlalchemy.orm import Session
 
 from backend.app.config import settings
 from backend.app.db.database import get_db
-from backend.app.db.models import InterviewSession, SessionQuestion
+from backend.app.db.models import InterviewSession, SessionQuestion, User
+from backend.app.services.authorization import enforce_session_access, get_user_when_auth_enabled
 from backend.app.services.interview_service import interview_service
+from backend.app.services.security_service import record_audit_event
 
 router = APIRouter(prefix="/api/interview", tags=["Interview"])
 
@@ -46,23 +48,26 @@ def get_gaze_config():
 def start_interview_session(
     sid: str,
     req: Optional[StartInterviewRequest] = None,
+    current_user: Optional[User] = Depends(get_user_when_auth_enabled),
     db: Session = Depends(get_db),
 ):
     """Initialize interview session, selecting time-bounded diverse question list."""
+    session = enforce_session_access(
+        db.query(InterviewSession).filter(InterviewSession.id == sid).first(),
+        current_user,
+    )
     try:
         res = interview_service.start_interview(sid, db)
         if req and (req.calibration or req.preset_name):
-            session = db.query(InterviewSession).filter(InterviewSession.id == sid).first()
-            if session:
-                details = session.screening_details or {}
-                if not isinstance(details, dict):
-                    details = {}
-                if req.calibration:
-                    details["calibration"] = req.calibration
-                if req.preset_name:
-                    details["preset_name"] = req.preset_name
-                session.screening_details = details
-                db.commit()
+            details = session.screening_details or {}
+            if not isinstance(details, dict):
+                details = {}
+            if req.calibration:
+                details["calibration"] = req.calibration
+            if req.preset_name:
+                details["preset_name"] = req.preset_name
+            session.screening_details = details
+            db.commit()
         return res
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -71,11 +76,16 @@ def start_interview_session(
 
 
 @router.get("/{sid}", response_model=Dict[str, Any])
-def get_interview_session(sid: str, db: Session = Depends(get_db)):
+def get_interview_session(
+    sid: str,
+    current_user: Optional[User] = Depends(get_user_when_auth_enabled),
+    db: Session = Depends(get_db),
+):
     """Retrieve session details and current question set."""
-    session = db.query(InterviewSession).filter(InterviewSession.id == sid).first()
-    if not session:
-        raise HTTPException(status_code=404, detail=f"Session '{sid}' not found.")
+    session = enforce_session_access(
+        db.query(InterviewSession).filter(InterviewSession.id == sid).first(),
+        current_user,
+    )
 
     questions = (
         db.query(SessionQuestion)
@@ -115,9 +125,14 @@ def get_interview_session(sid: str, db: Session = Depends(get_db)):
 async def check_for_followup(
     sid: str,
     req: FollowUpRequest,
+    current_user: Optional[User] = Depends(get_user_when_auth_enabled),
     db: Session = Depends(get_db),
 ):
     """Generate adaptive RAG follow-up grounded in dataset if answer was brief."""
+    enforce_session_access(
+        db.query(InterviewSession).filter(InterviewSession.id == sid).first(),
+        current_user,
+    )
     result = await interview_service.generate_rag_followup(
         session_id=sid,
         current_question_id=req.question_id,
@@ -134,12 +149,14 @@ async def submit_question_answer(
     sid: str,
     order_index: int,
     req: AnswerSubmitRequest,
+    current_user: Optional[User] = Depends(get_user_when_auth_enabled),
     db: Session = Depends(get_db),
 ):
     """Save candidate spoken transcript for question and trigger multimodal answer evaluation."""
-    session = db.query(InterviewSession).filter(InterviewSession.id == sid).first()
-    if not session:
-        raise HTTPException(status_code=404, detail=f"Session '{sid}' not found.")
+    session = enforce_session_access(
+        db.query(InterviewSession).filter(InterviewSession.id == sid).first(),
+        current_user,
+    )
 
     sq = (
         db.query(SessionQuestion)
@@ -201,12 +218,14 @@ async def submit_question_answer(
 async def upload_recording(
     sid: str,
     file: UploadFile = File(...),
+    current_user: Optional[User] = Depends(get_user_when_auth_enabled),
     db: Session = Depends(get_db),
 ):
     """Upload recorded interview session video (webm format)."""
-    session = db.query(InterviewSession).filter(InterviewSession.id == sid).first()
-    if not session:
-        raise HTTPException(status_code=404, detail=f"Session '{sid}' not found.")
+    session = enforce_session_access(
+        db.query(InterviewSession).filter(InterviewSession.id == sid).first(),
+        current_user,
+    )
 
     storage_dir = settings.STORAGE_DIR / "recordings"
     storage_dir.mkdir(parents=True, exist_ok=True)
@@ -241,12 +260,19 @@ async def upload_recording(
 
 
 @router.get("/{sid}/video")
-def get_session_video(sid: str, db: Session = Depends(get_db)):
+def get_session_video(
+    sid: str,
+    current_user: Optional[User] = Depends(get_user_when_auth_enabled),
+    db: Session = Depends(get_db),
+):
     """Stream recorded interview session video for interactive timeline playback."""
     from fastapi.responses import FileResponse
 
-    session = db.query(InterviewSession).filter(InterviewSession.id == sid).first()
-    if not session or not session.video_filename:
+    session = enforce_session_access(
+        db.query(InterviewSession).filter(InterviewSession.id == sid).first(),
+        current_user,
+    )
+    if not session.video_filename:
         raise HTTPException(status_code=404, detail=f"Recording for session '{sid}' not found.")
 
     file_path = settings.STORAGE_DIR / "recordings" / session.video_filename
@@ -258,11 +284,16 @@ def get_session_video(sid: str, db: Session = Depends(get_db)):
 
 @router.delete("/{sid}", response_model=Dict[str, Any])
 @router.delete("/{sid}/delete-data", response_model=Dict[str, Any])
-def delete_session_data(sid: str, db: Session = Depends(get_db)):
+def delete_session_data(
+    sid: str,
+    current_user: Optional[User] = Depends(get_user_when_auth_enabled),
+    db: Session = Depends(get_db),
+):
     """Delete candidate interview data, recordings, audio extracts, and proctoring telemetry for privacy compliance."""
-    session = db.query(InterviewSession).filter(InterviewSession.id == sid).first()
-    if not session:
-        raise HTTPException(status_code=404, detail=f"Session '{sid}' not found.")
+    session = enforce_session_access(
+        db.query(InterviewSession).filter(InterviewSession.id == sid).first(),
+        current_user,
+    )
 
     # 1. Delete video recording on disk if present
     if session.video_filename:
@@ -284,9 +315,19 @@ def delete_session_data(sid: str, db: Session = Depends(get_db)):
                     pass
 
     # 3. Delete database records in cascade order
-    from backend.app.db.models import ProctoringEvent
+    from backend.app.db.models import InterviewReport, ProctoringEvent
+    db.query(InterviewReport).filter(InterviewReport.session_id == sid).delete()
     db.query(ProctoringEvent).filter(ProctoringEvent.session_id == sid).delete()
     db.query(SessionQuestion).filter(SessionQuestion.session_id == sid).delete()
+    if current_user is not None:
+        record_audit_event(
+            db,
+            action="session.deleted",
+            resource_type="session",
+            resource_id=sid,
+            actor_user_id=current_user.id,
+            actor_role=current_user.role,
+        )
     db.delete(session)
     db.commit()
 
