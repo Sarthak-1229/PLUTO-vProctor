@@ -26,11 +26,14 @@ const STEPS = [
 ]
 
 export default function App() {
-  // Check developer fixture recording route first
+  // Check developer fixture recording route first without conditional hooks
   if (typeof window !== 'undefined' && window.location.pathname.startsWith('/dev/record-fixture')) {
     return <RecordFixturePage />
   }
+  return <MainApp />
+}
 
+function MainApp() {
   // Application State
   const [currentStep, setCurrentStep] = useState('select')
   const [jobs, setJobs] = useState([])

@@ -1,6 +1,7 @@
 """Main FastAPI application entry point for PLUTO vProctor."""
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 import logging
 import time
 import uuid
@@ -10,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from backend.app.config import settings
+from backend.app.core.errors import register_exception_handlers
 from backend.app.services.job_queue import job_queue
 
 # Configure structured logging
@@ -33,11 +35,25 @@ def record_factory(*args, **kwargs):
 logging.setLogRecordFactory(record_factory)
 logger = logging.getLogger("pluto.server")
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):  # noqa: ARG001
+    """Manage application startup and shutdown lifecycle cleanly."""
+    logger.info(f"Starting {settings.APP_NAME} in {settings.ENVIRONMENT} mode...")
+    settings.validate_runtime_safety()
+    job_queue.start_workers()
+    try:
+        yield
+    finally:
+        job_queue.stop_workers()
+
+
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
     description="Production-ready multimodal AI video interview and proctoring engine.",
+    lifespan=lifespan,
 )
+register_exception_handlers(app)
 
 
 # 1. Request-ID Correlation Middleware
@@ -80,14 +96,7 @@ app.add_middleware(
 )
 
 
-# 3. Startup & Shutdown Events
-@app.on_event("startup")
-async def on_startup():
-    logger.info(f"Starting {settings.APP_NAME} in {settings.ENVIRONMENT} mode...")
-    job_queue.start_workers()
-
-
-# 4. Route Registration
+# 3. Route Registration
 from backend.app.routers.analysis import router as analysis_router
 from backend.app.routers.interview import router as interview_router
 from backend.app.routers.jobs import router as jobs_router

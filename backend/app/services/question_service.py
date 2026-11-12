@@ -32,6 +32,7 @@ class QuestionService:
         self.embeddings: Optional[np.ndarray] = None
         self.qid_to_emb_idx: Dict[str, int] = {}
         self.inverted_index: Dict[str, Set[str]] = defaultdict(set)
+        self._st_model: Any = None
         self._load_data()
 
     def _load_data(self):
@@ -275,15 +276,19 @@ class QuestionService:
         final_list = [warmup] + ordered_questions
         return final_list
 
+    def _get_st_model(self):
+        if self._st_model is None:
+            from sentence_transformers import SentenceTransformer
+            self._st_model = SentenceTransformer("all-MiniLM-L6-v2", device="cpu")
+        return self._st_model
+
     def find_nearest_neighbors(self, query_text: str, k: int = 2) -> List[Dict[str, Any]]:
         """Retrieve top-K nearest dataset Q&A pairs via cosine similarity (for RAG follow-up grounding)."""
         if self.embeddings is None or not self.spoken_questions:
             return self.spoken_questions[:k]
 
-        from sentence_transformers import SentenceTransformer
-        # Use simple TF-IDF or vector dot product if MiniLM is available
         try:
-            model = SentenceTransformer("all-MiniLM-L6-v2", device="cpu")
+            model = self._get_st_model()
             q_emb = model.encode(query_text, normalize_embeddings=True)
             # Dot product with normalized embeddings = cosine similarity
             sims = np.dot(self.embeddings, q_emb)

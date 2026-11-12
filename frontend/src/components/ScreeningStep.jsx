@@ -2,7 +2,6 @@ import React from 'react'
 import {
   CheckCircle2,
   AlertTriangle,
-  XCircle,
   ArrowRight,
   RotateCcw,
   ShieldCheck,
@@ -10,6 +9,7 @@ import {
   X,
   FileCheck2,
 } from 'lucide-react'
+import { isScreeningApproved, normalizePassThresholdPct } from '../utils/screeningUtils'
 
 export function ScreeningStep({
   screeningResult,
@@ -23,7 +23,12 @@ export function ScreeningStep({
   if (!screeningResult) return null
 
   const { fit_score, status, gaps, parsed_profile } = screeningResult
-  const isPassed = status === 'PASSED' || fit_score >= (selectedJob?.pass_threshold || 60)
+  const thresholdPct = normalizePassThresholdPct(selectedJob?.pass_threshold)
+  const isPassed = isScreeningApproved({
+    status,
+    fit_score,
+    passThreshold: selectedJob?.pass_threshold,
+  })
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
@@ -44,7 +49,7 @@ export function ScreeningStep({
           <p className="text-xs sm:text-sm font-bold text-black/80 max-w-xl">
             {isPassed
               ? `Congratulations ${candidateName || 'Candidate'}! Your background demonstrates strong alignment with the ${selectedJob?.title} requirements.`
-              : `Your profile scored below the standard benchmark (${selectedJob?.pass_threshold}%). You may still choose to override and Proceed Anyway to demonstrate your capabilities in the live interview.`}
+              : `Your profile scored below the standard benchmark (${thresholdPct}%). You may still choose to override and Proceed Anyway to demonstrate your capabilities in the live interview.`}
           </p>
         </div>
 

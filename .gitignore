@@ -19,6 +19,7 @@ frontend/dist/
 # Project Storage & DB
 backend/app/pluto.db
 storage/
+backups/
 *.sqlite3
 
 # OS & IDE

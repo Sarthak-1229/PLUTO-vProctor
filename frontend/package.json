@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
+    "test": "node --test tests/test_interview_fsm.js tests/test_screening_threshold.js",
     "preview": "vite preview"
   },
   "dependencies": {

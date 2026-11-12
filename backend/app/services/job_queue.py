@@ -66,6 +66,7 @@ class JobQueue:
         self._queue: asyncio.Queue[str] = asyncio.Queue()
         self._max_concurrent = max_concurrent_jobs
         self._workers: List[asyncio.Task] = []
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._is_running = False
         self._lock = threading.Lock()
 
@@ -132,14 +133,34 @@ class JobQueue:
                 job.stage = stage
 
     def start_workers(self):
-        """Start asynchronous worker loop tasks."""
-        if self._is_running:
+        """Start asynchronous worker loop tasks safely bound to the active event loop."""
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
             return
+
+        if self._loop is not loop:
+            self.stop_workers()
+            self._queue = asyncio.Queue()
+            self._loop = loop
+
+        if self._is_running and self._workers and not all(w.done() for w in self._workers):
+            return
+
+        self._workers.clear()
         self._is_running = True
         for i in range(self._max_concurrent):
             t = asyncio.create_task(self._worker_loop(i))
             self._workers.append(t)
         logger.info(f"Started {self._max_concurrent} job queue workers.")
+
+    def stop_workers(self):
+        """Stop worker loop tasks cleanly on shutdown or loop teardown."""
+        self._is_running = False
+        for w in self._workers:
+            if not w.done():
+                w.cancel()
+        self._workers.clear()
 
     async def _worker_loop(self, worker_id: int):
         while self._is_running:

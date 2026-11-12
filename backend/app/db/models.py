@@ -19,6 +19,11 @@ from sqlalchemy.orm import relationship
 from backend.app.db.database import Base
 
 
+def _utcnow_naive() -> datetime.datetime:
+    """Return timezone-neutral UTC datetime compatible with existing SQLite & PG TIMESTAMP columns."""
+    return datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+
+
 class Company(Base):
     """Fictional hiring organization."""
     __tablename__ = "companies"
@@ -84,10 +89,10 @@ class InterviewSession(Base):
     screening_fit = Column(Float, default=0.0)
     screening_status = Column(String(32), default="PENDING")  # PASSED, REJECTED
     screening_details = Column(JSON, nullable=True)
-    interview_status = Column(String(32), default="CREATED")  # CREATED, IN_PROGRESS, RECORDED, ANALYZED
+    interview_status = Column(String(32), default="CREATED", index=True)  # CREATED, IN_PROGRESS, RECORDED, ANALYZED
     video_filename = Column(String(256), nullable=True)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow_naive)
+    updated_at = Column(DateTime, default=_utcnow_naive, onupdate=_utcnow_naive)
 
     job = relationship("Job", back_populates="sessions")
     questions = relationship("SessionQuestion", back_populates="session", cascade="all, delete-orphan", order_by="SessionQuestion.order_index")
@@ -100,9 +105,9 @@ class SessionQuestion(Base):
     __tablename__ = "session_questions"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    session_id = Column(String(64), ForeignKey("sessions.id"), nullable=False)
+    session_id = Column(String(64), ForeignKey("sessions.id"), nullable=False, index=True)
     question_id = Column(String(64), ForeignKey("questions.id"), nullable=True)
-    order_index = Column(Integer, nullable=False, default=0)
+    order_index = Column(Integer, nullable=False, default=0, index=True)
     is_warmup = Column(Boolean, default=False)
     is_follow_up = Column(Boolean, default=False)
     custom_question_text = Column(Text, nullable=True)
@@ -120,9 +125,9 @@ class ProctoringEvent(Base):
     __tablename__ = "proctoring_events"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    session_id = Column(String(64), ForeignKey("sessions.id"), nullable=False)
+    session_id = Column(String(64), ForeignKey("sessions.id"), nullable=False, index=True)
     question_id = Column(String(64), nullable=True)
-    t_start = Column(Float, nullable=False)
+    t_start = Column(Float, nullable=False, index=True)
     t_end = Column(Float, nullable=False)
     category = Column(String(64), nullable=False)  # Eye Contact, Motion, Fluency, etc.
     type = Column(String(64), nullable=False)      # LOOK_AWAY, EXCESSIVE_MOTION, FILLER_WORD, etc.
@@ -144,6 +149,6 @@ class InterviewReport(Base):
     readiness_label = Column(String(64), default="Ready with minor revision")
     category_scores = Column(JSON, default=dict)
     summary = Column(JSON, default=dict)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow_naive)
 
     session = relationship("InterviewSession", back_populates="report")

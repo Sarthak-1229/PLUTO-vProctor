@@ -22,15 +22,20 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
-# Override sqlalchemy.url with dynamic application setting
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+# Resolve target database URL: explicit override / ALEMBIC_DATABASE_URL beats settings.DATABASE_URL
+_PLACEHOLDER_URL = "driver://user:pass@localhost/dbname"
+_configured_url = config.get_main_option("sqlalchemy.url")
+_effective_url = (
+    os.environ.get("ALEMBIC_DATABASE_URL")
+    or (_configured_url if _configured_url and _configured_url != _PLACEHOLDER_URL else settings.DATABASE_URL)
+)
+config.set_main_option("sqlalchemy.url", _effective_url)
 
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""
-    url = settings.DATABASE_URL
     context.configure(
-        url=url,
+        url=_effective_url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
@@ -43,7 +48,7 @@ def run_migrations_offline() -> None:
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
     configuration = config.get_section(config.config_ini_section) or {}
-    configuration["sqlalchemy.url"] = settings.DATABASE_URL
+    configuration["sqlalchemy.url"] = _effective_url
 
     connectable = engine_from_config(
         configuration,
@@ -55,7 +60,7 @@ def run_migrations_online() -> None:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
-            render_as_batch=True if "sqlite" in settings.DATABASE_URL else False,
+            render_as_batch=True if "sqlite" in _effective_url else False,
         )
 
         with context.begin_transaction():

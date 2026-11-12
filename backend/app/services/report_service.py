@@ -5,7 +5,7 @@ Implements Section 5.8 of docs/spec/5c-scoring-report.md.
 from __future__ import annotations
 
 import io
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
@@ -222,7 +222,7 @@ class ReportService:
             "candidate_name": session.candidate_name,
             "job_title": session.job.title if session.job else "",
             "company": session.job.company if session.job else "",
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
             "overall_score": score_res["overall_score"],
             "grade": score_res["grade"],
             "readiness_label": score_res["readiness_label"],
@@ -246,7 +246,7 @@ class ReportService:
 
         text.setFont("Helvetica", 10)
         text.textLine(f"Candidate: {report_data.get('candidate_name', 'Candidate')} | Target: {report_data.get('job_title', '')} ({report_data.get('company', '')})")
-        text.textLine(f"Date: {datetime.utcnow().strftime('%B %d, %Y')} | Session ID: {report_data.get('session_id', '')}")
+        text.textLine(f"Date: {datetime.now(timezone.utc).strftime('%B %d, %Y')} | Session ID: {report_data.get('session_id', '')}")
         text.textLine("-" * 80)
 
         # Overall Score

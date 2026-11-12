@@ -71,3 +71,33 @@ This document records architectural decisions, defaults chosen during developmen
 - **Context:** Candidate privacy must be strictly protected; webcam and voice recordings are sensitive personal data.
 - **Decision:** Implemented explicit consent checkboxes prior to hardware activation, stored session data locally under `storage/`, and provided a one-click "Delete My Data" endpoint (`DELETE /api/interview/{sessionId}`) that removes all disk recordings and database records immediately.
 - **Rationale:** Compliance with privacy best practices and user data autonomy.
+
+### DECISION-012: Multi-User RBAC & Admin-Controlled Legacy Session Claim Workflow
+- **Date:** 2026-11-12 (v2 Phase 1)
+- **Context:** v1 has no authentication and stores `14` historical real sessions (`Sarthak Bhosale`) in `backend/app/pluto.db` without user ownership IDs. Automatically binding historical sessions by email or candidate name match on signup creates an account-takeover / PII exposure risk.
+- **Decision:** Introduce explicit roles (`candidate`, `admin`, `super_admin`) enforced at the FastAPI dependency layer, add nullable `candidate_user_id` + `interview_mode` + `room_id` to `sessions`, leave existing historical sessions unclaimed (`candidate_user_id IS NULL`), and implement an explicit admin-verified claim/linking audit workflow rather than automatic matching.
+- **Rationale:** Prevents unauthorized access to prior recordings/resumes/reports while preserving all historical evaluation records for the project owner.
+
+### DECISION-013: Hosted Interview Transport — WebRTC P2P + TURN + WebSocket Signaling with SFU Adapter Boundary
+- **Date:** 2026-11-12 (v2 Phase 1)
+- **Context:** v2 introduces admin-hosted live interviews alongside existing self-practice mode. High-bitrate video/audio payloads must never be relayed inside FastAPI REST/WebSocket control channels (`SECURITY_PRIVACY_AND_FAIRNESS.md`, `ARCHITECTURE_AND_DATA_MODEL.md`).
+- **Decision:** Use browser-to-browser WebRTC P2P media paired with authenticated FastAPI WebSocket signaling (`room_events`, room state sequence versions, question order) and configurable `STUN`/`TURN` servers for external NAT traversal. Server-side evaluation continues using uploaded recordings processed through the existing multimodal `VideoAnalysisPipeline` / `AudioAnalysisPipeline`. Isolate client/server signaling behind a `MediaTransportAdapter` interface extensible to an SFU (e.g., LiveKit) without rewriting room orchestration.
+- **Rationale:** Delivers low-latency NAT-resilient 1:1 hosted interviews in initial v2 releases with a clean upgrade path for multi-party/centralized SFU media later.
+
+### DECISION-014: Additive Dual-Database Migrations (SQLite Dev + PostgreSQL Prod via Alembic)
+- **Date:** 2026-11-12 (v2 Phase 1)
+- **Context:** `866ba5fa0eae_initial_schema.py` contained empty `pass` bodies while `pluto.db` was already stamped at `866ba5fa0eae`, causing `alembic upgrade head` on a fresh PostgreSQL or SQLite DB to create zero tables.
+- **Decision:** All schema changes must use idempotent, inspector-guarded Alembic migrations tested against (a) a fresh empty SQLite DB, (b) a copy of existing `pluto.db` preserving all rows, and (c) PostgreSQL DDL compilation (plus live PostgreSQL verification when Postgres is available / in CI). SQLite remains supported for local dev while PostgreSQL 16 + Redis remain the production source of truth.
+- **Rationale:** Prevents duplicate-table failures on existing databases and eliminates schema drift between dev and containerized deployments.
+
+### DECISION-015: Feature-Flagged Incremental Rollout & Backward-Compatible API Errors
+- **Date:** 2026-11-12 (v2 Phase 1)
+- **Context:** v2 adds auth, hosted rooms, and live WebRTC media while requiring 100% preservation of the offline AI self-practice interview workflow (`run_dev.bat`).
+- **Decision:** Gate v2 authentication, hosted rooms, and live media behind explicit configuration flags (`AUTH_ENABLED`, `HOSTED_ROOMS_ENABLED`, `LIVE_MEDIA_ENABLED`, `MEDIA_TRANSPORT_MODE`) defaulting safely until each module is verified, validate unsafe production settings on startup, and preserve top-level `"detail"` alongside structured `"error": {"code", "message", "request_id", "details"}` in API error responses.
+- **Rationale:** Zero disruption to working v1 UI/tests during incremental phases and deterministic error handling for v2 clients.
+
+### DECISION-016: Proctoring Fairness & System-Health Separation
+- **Date:** 2026-11-12 (v2 Phase 1)
+- **Context:** Browser camera drops, low FPS, temporary network glitches, or short blinks can resemble gaze loss or silence if telemetry lacks confidence/health context.
+- **Decision:** Separate system-health diagnostics (camera/mic availability, frame rate, calibration quality, ASR availability) from candidate behavior indicators, store consent/policy context explicitly, and never label automated gaze signals as definitive proof of misconduct without duration, confidence, and human-review affordances.
+- **Rationale:** Upholds accessibility, diagnostic clarity, and ethical AI proctoring requirements (`SECURITY_PRIVACY_AND_FAIRNESS.md`).

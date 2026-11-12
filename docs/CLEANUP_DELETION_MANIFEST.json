@@ -1,0 +1,1028 @@
+{
+  "generated_at": "2026-11-11T18:36:56.800410+00:00",
+  "backup_verified": {
+    "path": "backups/phase0_20261111_235506",
+    "db_sha256": "9953817cdabcd05f15c615ed7ffca7aee254f88337e76096c73fc6ca5e53ed3f",
+    "storage_files": 102,
+    "storage_bytes": 360192632
+  },
+  "approved_groups": {
+    "C1_orphan_resumes": {
+      "file_count": 13,
+      "total_bytes": 19958,
+      "files": [
+        {
+          "path": "storage/resumes/sess_12fbd9f19f18_resume.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_12fbd9f19f18"
+        },
+        {
+          "path": "storage/resumes/sess_1703ed97db36_resume.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_1703ed97db36"
+        },
+        {
+          "path": "storage/resumes/sess_476bee7de890_resume.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_476bee7de890"
+        },
+        {
+          "path": "storage/resumes/sess_4e7ecf0f75ea_resume.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_4e7ecf0f75ea"
+        },
+        {
+          "path": "storage/resumes/sess_567099cb96f8_resume.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_567099cb96f8"
+        },
+        {
+          "path": "storage/resumes/sess_57deb33609a8_resume.pdf",
+          "size_bytes": 98,
+          "sha256": "076fb50cd86bd9c66354a4f42eac1414f78a04dd3149c6751e077d399f336a56",
+          "session_id": "sess_57deb33609a8"
+        },
+        {
+          "path": "storage/resumes/sess_7ead33d63fe6_resume.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_7ead33d63fe6"
+        },
+        {
+          "path": "storage/resumes/sess_9dcd726b4fea_resume.pdf",
+          "size_bytes": 98,
+          "sha256": "076fb50cd86bd9c66354a4f42eac1414f78a04dd3149c6751e077d399f336a56",
+          "session_id": "sess_9dcd726b4fea"
+        },
+        {
+          "path": "storage/resumes/sess_9ef63e36a149_resume.pdf",
+          "size_bytes": 98,
+          "sha256": "076fb50cd86bd9c66354a4f42eac1414f78a04dd3149c6751e077d399f336a56",
+          "session_id": "sess_9ef63e36a149"
+        },
+        {
+          "path": "storage/resumes/sess_c38f5732cace_resume.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_c38f5732cace"
+        },
+        {
+          "path": "storage/resumes/sess_cd2ff98cb564_resume.pdf",
+          "size_bytes": 98,
+          "sha256": "076fb50cd86bd9c66354a4f42eac1414f78a04dd3149c6751e077d399f336a56",
+          "session_id": "sess_cd2ff98cb564"
+        },
+        {
+          "path": "storage/resumes/sess_e4a8ab72499a_resume.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_e4a8ab72499a"
+        },
+        {
+          "path": "storage/resumes/sess_f63a95c57e9a_resume.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_f63a95c57e9a"
+        }
+      ]
+    },
+    "C2_pytest_pollution": {
+      "db_rows": {
+        "sessions": {
+          "count": 64,
+          "ids": [
+            "sess_013804237ee9",
+            "sess_05b015bd2e0a",
+            "sess_07dabc6b1375",
+            "sess_0891b543e053",
+            "sess_0b4f8401db7a",
+            "sess_0cf69ba2002d",
+            "sess_1166572ae20c",
+            "sess_15097d187f16",
+            "sess_2164849aa12a",
+            "sess_22bcfc66134a",
+            "sess_2b579efa0e36",
+            "sess_325ba0ce4a91",
+            "sess_3530af7f658d",
+            "sess_3fb499a4c835",
+            "sess_40bfddbc6b00",
+            "sess_42aed19a8399",
+            "sess_449ff08d55a6",
+            "sess_4867edd9d843",
+            "sess_4b3abcc0b8e6",
+            "sess_59b54f7f4141",
+            "sess_60b85148e8e1",
+            "sess_618b1f59ae70",
+            "sess_624441c75def",
+            "sess_66e6de2ace7d",
+            "sess_6d40efaf3e72",
+            "sess_6e604d13ca5c",
+            "sess_770b5d8b6809",
+            "sess_78a489e56c33",
+            "sess_79940376cf2b",
+            "sess_86238c09300f",
+            "sess_8c61c0c50061",
+            "sess_907677b4189f",
+            "sess_937ef2da9edb",
+            "sess_97975f571a28",
+            "sess_9a5f176c82d0",
+            "sess_9b5e5edfb2c6",
+            "sess_9c0b6bfe9364",
+            "sess_9fcffd9dff41",
+            "sess_a0ac486e5e71",
+            "sess_a3c264fea0cb",
+            "sess_a59d3c5a1cae",
+            "sess_aa05d03101c3",
+            "sess_ac42d25f7fd9",
+            "sess_b1d099c97f9c",
+            "sess_b5a706418f48",
+            "sess_b5d43c36f53d",
+            "sess_bc1c3f1cdc13",
+            "sess_be5492be0cd9",
+            "sess_c2522800cd59",
+            "sess_c7c4a51e7787",
+            "sess_c9872dc36629",
+            "sess_ce090951be65",
+            "sess_cfff9a43843b",
+            "sess_d11ae8efc30f",
+            "sess_d30d079912e9",
+            "sess_dea75e4dd42b",
+            "sess_e5427e05b78b",
+            "sess_e5b8fc0da652",
+            "sess_e88adb14e9fd",
+            "sess_ecc56a5c733d",
+            "sess_f023a050133e",
+            "sess_fa19610d2a90",
+            "sess_fae28bd6af17",
+            "sess_fded7f96f65d"
+          ]
+        },
+        "session_questions": {
+          "count": 215,
+          "ids": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43,
+            44,
+            45,
+            46,
+            47,
+            48,
+            49,
+            50,
+            51,
+            52,
+            53,
+            54,
+            55,
+            56,
+            57,
+            58,
+            59,
+            60,
+            61,
+            62,
+            63,
+            64,
+            65,
+            66,
+            67,
+            68,
+            69,
+            70,
+            71,
+            72,
+            73,
+            74,
+            75,
+            76,
+            77,
+            78,
+            79,
+            80,
+            97,
+            98,
+            99,
+            100,
+            101,
+            102,
+            103,
+            104,
+            105,
+            106,
+            107,
+            108,
+            109,
+            110,
+            111,
+            112,
+            113,
+            114,
+            115,
+            116,
+            117,
+            118,
+            119,
+            137,
+            138,
+            139,
+            140,
+            141,
+            142,
+            143,
+            144,
+            145,
+            146,
+            147,
+            148,
+            149,
+            150,
+            151,
+            152,
+            162,
+            163,
+            164,
+            165,
+            166,
+            167,
+            168,
+            169,
+            170,
+            171,
+            172,
+            173,
+            174,
+            175,
+            176,
+            177,
+            178,
+            179,
+            180,
+            181,
+            182,
+            183,
+            184,
+            185,
+            186,
+            187,
+            188,
+            189,
+            190,
+            191,
+            192,
+            193,
+            194,
+            195,
+            196,
+            197,
+            198,
+            199,
+            200,
+            201,
+            218,
+            219,
+            220,
+            221,
+            222,
+            223,
+            224,
+            225,
+            226,
+            227,
+            228,
+            229,
+            230,
+            231,
+            232,
+            233,
+            234,
+            235,
+            236,
+            237,
+            238,
+            239,
+            240,
+            241,
+            242,
+            243,
+            244,
+            245,
+            246,
+            247,
+            248,
+            249,
+            250,
+            251,
+            252,
+            253,
+            254,
+            255,
+            256,
+            257,
+            258,
+            259,
+            260,
+            261,
+            262,
+            263,
+            264,
+            265,
+            266,
+            267,
+            268,
+            269,
+            270,
+            271,
+            272,
+            273
+          ]
+        },
+        "proctoring_events": {
+          "count": 0,
+          "ids": []
+        },
+        "reports": {
+          "count": 11,
+          "ids": [
+            1,
+            2,
+            3,
+            4,
+            6,
+            7,
+            8,
+            10,
+            11,
+            13,
+            14
+          ]
+        }
+      },
+      "files_count": 65,
+      "files_total_bytes": 136058,
+      "files": [
+        {
+          "path": "storage/resumes/sess_013804237ee9_resume_mismatched_unqualified.pdf",
+          "size_bytes": 1889,
+          "sha256": "d2a6c2207d817dae402ea64d9575c9d967190dc0e33ebf399f821ae5c178b7b0",
+          "session_id": "sess_013804237ee9"
+        },
+        {
+          "path": "storage/resumes/sess_05b015bd2e0a_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_05b015bd2e0a"
+        },
+        {
+          "path": "storage/resumes/sess_07dabc6b1375_resume.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_07dabc6b1375"
+        },
+        {
+          "path": "storage/recordings/sess_07dabc6b1375_interview.webm",
+          "size_bytes": 2052,
+          "sha256": "f7f8e14b117dfa6d1a8d82f4600294f1ea68ce875fed4d5002d3d8e112544928",
+          "session_id": "sess_07dabc6b1375"
+        },
+        {
+          "path": "storage/resumes/sess_0891b543e053_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_0891b543e053"
+        },
+        {
+          "path": "storage/resumes/sess_0b4f8401db7a_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_0b4f8401db7a"
+        },
+        {
+          "path": "storage/resumes/sess_0cf69ba2002d_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_0cf69ba2002d"
+        },
+        {
+          "path": "storage/resumes/sess_1166572ae20c_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_1166572ae20c"
+        },
+        {
+          "path": "storage/resumes/sess_15097d187f16_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_15097d187f16"
+        },
+        {
+          "path": "storage/resumes/sess_2164849aa12a_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_2164849aa12a"
+        },
+        {
+          "path": "storage/resumes/sess_22bcfc66134a_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_22bcfc66134a"
+        },
+        {
+          "path": "storage/resumes/sess_2b579efa0e36_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_2b579efa0e36"
+        },
+        {
+          "path": "storage/resumes/sess_325ba0ce4a91_resume_mismatched_unqualified.pdf",
+          "size_bytes": 1889,
+          "sha256": "d2a6c2207d817dae402ea64d9575c9d967190dc0e33ebf399f821ae5c178b7b0",
+          "session_id": "sess_325ba0ce4a91"
+        },
+        {
+          "path": "storage/resumes/sess_3530af7f658d_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_3530af7f658d"
+        },
+        {
+          "path": "storage/resumes/sess_3fb499a4c835_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_3fb499a4c835"
+        },
+        {
+          "path": "storage/resumes/sess_40bfddbc6b00_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_40bfddbc6b00"
+        },
+        {
+          "path": "storage/resumes/sess_42aed19a8399_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_42aed19a8399"
+        },
+        {
+          "path": "storage/resumes/sess_449ff08d55a6_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_449ff08d55a6"
+        },
+        {
+          "path": "storage/resumes/sess_4867edd9d843_resume_mismatched_unqualified.pdf",
+          "size_bytes": 1889,
+          "sha256": "d2a6c2207d817dae402ea64d9575c9d967190dc0e33ebf399f821ae5c178b7b0",
+          "session_id": "sess_4867edd9d843"
+        },
+        {
+          "path": "storage/resumes/sess_4b3abcc0b8e6_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_4b3abcc0b8e6"
+        },
+        {
+          "path": "storage/resumes/sess_59b54f7f4141_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_59b54f7f4141"
+        },
+        {
+          "path": "storage/resumes/sess_60b85148e8e1_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_60b85148e8e1"
+        },
+        {
+          "path": "storage/resumes/sess_618b1f59ae70_resume_mismatched_unqualified.pdf",
+          "size_bytes": 1889,
+          "sha256": "d2a6c2207d817dae402ea64d9575c9d967190dc0e33ebf399f821ae5c178b7b0",
+          "session_id": "sess_618b1f59ae70"
+        },
+        {
+          "path": "storage/resumes/sess_624441c75def_resume_mismatched_unqualified.pdf",
+          "size_bytes": 1889,
+          "sha256": "d2a6c2207d817dae402ea64d9575c9d967190dc0e33ebf399f821ae5c178b7b0",
+          "session_id": "sess_624441c75def"
+        },
+        {
+          "path": "storage/resumes/sess_66e6de2ace7d_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_66e6de2ace7d"
+        },
+        {
+          "path": "storage/resumes/sess_6d40efaf3e72_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_6d40efaf3e72"
+        },
+        {
+          "path": "storage/resumes/sess_6e604d13ca5c_resume_mismatched_unqualified.pdf",
+          "size_bytes": 1889,
+          "sha256": "d2a6c2207d817dae402ea64d9575c9d967190dc0e33ebf399f821ae5c178b7b0",
+          "session_id": "sess_6e604d13ca5c"
+        },
+        {
+          "path": "storage/resumes/sess_770b5d8b6809_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_770b5d8b6809"
+        },
+        {
+          "path": "storage/resumes/sess_78a489e56c33_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_78a489e56c33"
+        },
+        {
+          "path": "storage/resumes/sess_79940376cf2b_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_79940376cf2b"
+        },
+        {
+          "path": "storage/resumes/sess_86238c09300f_resume_mismatched_unqualified.pdf",
+          "size_bytes": 1889,
+          "sha256": "d2a6c2207d817dae402ea64d9575c9d967190dc0e33ebf399f821ae5c178b7b0",
+          "session_id": "sess_86238c09300f"
+        },
+        {
+          "path": "storage/resumes/sess_8c61c0c50061_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_8c61c0c50061"
+        },
+        {
+          "path": "storage/resumes/sess_907677b4189f_resume_mismatched_unqualified.pdf",
+          "size_bytes": 1889,
+          "sha256": "d2a6c2207d817dae402ea64d9575c9d967190dc0e33ebf399f821ae5c178b7b0",
+          "session_id": "sess_907677b4189f"
+        },
+        {
+          "path": "storage/resumes/sess_937ef2da9edb_resume_mismatched_unqualified.pdf",
+          "size_bytes": 1889,
+          "sha256": "d2a6c2207d817dae402ea64d9575c9d967190dc0e33ebf399f821ae5c178b7b0",
+          "session_id": "sess_937ef2da9edb"
+        },
+        {
+          "path": "storage/resumes/sess_97975f571a28_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_97975f571a28"
+        },
+        {
+          "path": "storage/resumes/sess_9a5f176c82d0_resume_mismatched_unqualified.pdf",
+          "size_bytes": 1889,
+          "sha256": "d2a6c2207d817dae402ea64d9575c9d967190dc0e33ebf399f821ae5c178b7b0",
+          "session_id": "sess_9a5f176c82d0"
+        },
+        {
+          "path": "storage/resumes/sess_9b5e5edfb2c6_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_9b5e5edfb2c6"
+        },
+        {
+          "path": "storage/resumes/sess_9c0b6bfe9364_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_9c0b6bfe9364"
+        },
+        {
+          "path": "storage/resumes/sess_9fcffd9dff41_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_9fcffd9dff41"
+        },
+        {
+          "path": "storage/resumes/sess_a0ac486e5e71_resume_mismatched_unqualified.pdf",
+          "size_bytes": 1889,
+          "sha256": "d2a6c2207d817dae402ea64d9575c9d967190dc0e33ebf399f821ae5c178b7b0",
+          "session_id": "sess_a0ac486e5e71"
+        },
+        {
+          "path": "storage/resumes/sess_a3c264fea0cb_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_a3c264fea0cb"
+        },
+        {
+          "path": "storage/resumes/sess_a59d3c5a1cae_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_a59d3c5a1cae"
+        },
+        {
+          "path": "storage/resumes/sess_aa05d03101c3_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_aa05d03101c3"
+        },
+        {
+          "path": "storage/resumes/sess_ac42d25f7fd9_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_ac42d25f7fd9"
+        },
+        {
+          "path": "storage/resumes/sess_b1d099c97f9c_resume.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_b1d099c97f9c"
+        },
+        {
+          "path": "storage/resumes/sess_b5a706418f48_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_b5a706418f48"
+        },
+        {
+          "path": "storage/resumes/sess_b5d43c36f53d_resume_mismatched_unqualified.pdf",
+          "size_bytes": 1889,
+          "sha256": "d2a6c2207d817dae402ea64d9575c9d967190dc0e33ebf399f821ae5c178b7b0",
+          "session_id": "sess_b5d43c36f53d"
+        },
+        {
+          "path": "storage/resumes/sess_bc1c3f1cdc13_resume_mismatched_unqualified.pdf",
+          "size_bytes": 1889,
+          "sha256": "d2a6c2207d817dae402ea64d9575c9d967190dc0e33ebf399f821ae5c178b7b0",
+          "session_id": "sess_bc1c3f1cdc13"
+        },
+        {
+          "path": "storage/resumes/sess_be5492be0cd9_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_be5492be0cd9"
+        },
+        {
+          "path": "storage/resumes/sess_c2522800cd59_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_c2522800cd59"
+        },
+        {
+          "path": "storage/resumes/sess_c7c4a51e7787_resume_mismatched_unqualified.pdf",
+          "size_bytes": 1889,
+          "sha256": "d2a6c2207d817dae402ea64d9575c9d967190dc0e33ebf399f821ae5c178b7b0",
+          "session_id": "sess_c7c4a51e7787"
+        },
+        {
+          "path": "storage/resumes/sess_c9872dc36629_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_c9872dc36629"
+        },
+        {
+          "path": "storage/resumes/sess_ce090951be65_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_ce090951be65"
+        },
+        {
+          "path": "storage/resumes/sess_cfff9a43843b_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_cfff9a43843b"
+        },
+        {
+          "path": "storage/resumes/sess_d11ae8efc30f_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_d11ae8efc30f"
+        },
+        {
+          "path": "storage/resumes/sess_d30d079912e9_resume_mismatched_unqualified.pdf",
+          "size_bytes": 1889,
+          "sha256": "d2a6c2207d817dae402ea64d9575c9d967190dc0e33ebf399f821ae5c178b7b0",
+          "session_id": "sess_d30d079912e9"
+        },
+        {
+          "path": "storage/resumes/sess_dea75e4dd42b_resume_mismatched_unqualified.pdf",
+          "size_bytes": 1889,
+          "sha256": "d2a6c2207d817dae402ea64d9575c9d967190dc0e33ebf399f821ae5c178b7b0",
+          "session_id": "sess_dea75e4dd42b"
+        },
+        {
+          "path": "storage/resumes/sess_e5427e05b78b_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_e5427e05b78b"
+        },
+        {
+          "path": "storage/resumes/sess_e5b8fc0da652_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_e5b8fc0da652"
+        },
+        {
+          "path": "storage/resumes/sess_e88adb14e9fd_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_e88adb14e9fd"
+        },
+        {
+          "path": "storage/resumes/sess_ecc56a5c733d_resume_mismatched_unqualified.pdf",
+          "size_bytes": 1889,
+          "sha256": "d2a6c2207d817dae402ea64d9575c9d967190dc0e33ebf399f821ae5c178b7b0",
+          "session_id": "sess_ecc56a5c733d"
+        },
+        {
+          "path": "storage/resumes/sess_f023a050133e_resume_mismatched_unqualified.pdf",
+          "size_bytes": 1889,
+          "sha256": "d2a6c2207d817dae402ea64d9575c9d967190dc0e33ebf399f821ae5c178b7b0",
+          "session_id": "sess_f023a050133e"
+        },
+        {
+          "path": "storage/resumes/sess_fa19610d2a90_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_fa19610d2a90"
+        },
+        {
+          "path": "storage/resumes/sess_fae28bd6af17_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_fae28bd6af17"
+        },
+        {
+          "path": "storage/resumes/sess_fded7f96f65d_resume_senior_sec_analyst.pdf",
+          "size_bytes": 2174,
+          "sha256": "bce0772e7a4eb3202c9f838523c14302d2b3a64802388f351a322bcfd799b963",
+          "session_id": "sess_fded7f96f65d"
+        }
+      ]
+    },
+    "C3_duplicate_root_data": {
+      "git_tracked": true,
+      "file_count": 6,
+      "total_bytes": 756076,
+      "files": [
+        {
+          "path": "data/test.jsonl",
+          "size_bytes": 57343,
+          "sha256": "2534d5d53bf85c92433b909368be839edec00c317f75682d0c9e71bc889928d0"
+        },
+        {
+          "path": "data/train.jsonl",
+          "size_bytes": 264733,
+          "sha256": "2d24c4666a7037d6f372a2a0191f21683e54c2589b0239e62c154d7a13ab515f"
+        },
+        {
+          "path": "data/val.jsonl",
+          "size_bytes": 55962,
+          "sha256": "cc9890716511384a7c7df80bd1eab1fe2d83f271c29258eeac61b583037e6d2c"
+        },
+        {
+          "path": "data1/test.jsonl",
+          "size_bytes": 57343,
+          "sha256": "2534d5d53bf85c92433b909368be839edec00c317f75682d0c9e71bc889928d0"
+        },
+        {
+          "path": "data1/train.jsonl",
+          "size_bytes": 264733,
+          "sha256": "2d24c4666a7037d6f372a2a0191f21683e54c2589b0239e62c154d7a13ab515f"
+        },
+        {
+          "path": "data1/val.jsonl",
+          "size_bytes": 55962,
+          "sha256": "cc9890716511384a7c7df80bd1eab1fe2d83f271c29258eeac61b583037e6d2c"
+        }
+      ]
+    },
+    "C4_datasets_rar": {
+      "git_tracked": true,
+      "file_count": 1,
+      "total_bytes": 202752,
+      "files": [
+        {
+          "path": "datasets.rar",
+          "size_bytes": 202752,
+          "sha256": "5ede2981598e05f2f696a44a96ac91eab900708cb5a80012c3e75e8ca079f496"
+        }
+      ]
+    },
+    "C5_duplicate_starter_pack": {
+      "git_tracked": true,
+      "file_count": 28,
+      "total_bytes": 50491,
+      "files": [
+        {
+          "path": "PLUTO_vProctor_Antigravity_Pack/.agent/rules/00-hardware-and-llm.md",
+          "size_bytes": 749,
+          "sha256": "cbb21debccaa9e514ff8f092e7eee520b56404b0fc6a221ef930309984049c84"
+        },
+        {
+          "path": "PLUTO_vProctor_Antigravity_Pack/.agent/rules/01-dataset-discipline.md",
+          "size_bytes": 860,
+          "sha256": "e9c47faa2406eb7afe6476a3b01f3a0bd0981c3c2d4000dd178d5ed0001d6ba8"
+        },
+        {
+          "path": "PLUTO_vProctor_Antigravity_Pack/.agent/rules/02-code-quality.md",
+          "size_bytes": 730,
+          "sha256": "c04bf0b9c6a184bd2f9b517ea94371a48c4232c88951c1f3f3f97319d4085a67"
+        },
+        {
+          "path": "PLUTO_vProctor_Antigravity_Pack/.agent/rules/03-antigravity-working-style.md",
+          "size_bytes": 1218,
+          "sha256": "f0bd5a10045b9859266a391f4a070011f4dae72e4a1e976ed93ab084b559413f"
+        },
+        {
+          "path": "PLUTO_vProctor_Antigravity_Pack/.agent/workflows/phase-0-setup.md",
+          "size_bytes": 1092,
+          "sha256": "cf53af2643af71234f429c3272374848d9ef3133564a2e057da0bc763c3e2f2c"
+        },
+        {
+          "path": "PLUTO_vProctor_Antigravity_Pack/.agent/workflows/phase-1-algorithms.md",
+          "size_bytes": 954,
+          "sha256": "17c56c1a4188ea5b643647150a4f8e8371551340d065627be6bb2895be649afc"
+        },
+        {
+          "path": "PLUTO_vProctor_Antigravity_Pack/.agent/workflows/phase-2-dataset.md",
+          "size_bytes": 1242,
+          "sha256": "9a097b332614c1eb952f67ef8b6c27ac5f6221fcccbdc0afe411a52486c5e3cd"
+        },
+        {
+          "path": "PLUTO_vProctor_Antigravity_Pack/.agent/workflows/phase-3-resume.md",
+          "size_bytes": 976,
+          "sha256": "220f098d045d2ec4ac5324904355c5f5f291044729a0f05a9b9def37e3e8f27a"
+        },
+        {
+          "path": "PLUTO_vProctor_Antigravity_Pack/.agent/workflows/phase-4-questions.md",
+          "size_bytes": 844,
+          "sha256": "367f77c9a31a55066d8366a3fe7744fe5da522c042b15ce47938c33a25a9fdb0"
+        },
+        {
+          "path": "PLUTO_vProctor_Antigravity_Pack/.agent/workflows/phase-5-frontend.md",
+          "size_bytes": 1014,
+          "sha256": "b05c45f064f905672b0558abe25f074cb258ed19981661d8bac626f78a7cc1f4"
+        },
+        {
+          "path": "PLUTO_vProctor_Antigravity_Pack/.agent/workflows/phase-6-analysis.md",
+          "size_bytes": 1028,
+          "sha256": "25404b882c2e3d7d71a3700d33516ed78d613d2caf674f6f1db31a6dbe2c2ce9"
+        },
+        {
+          "path": "PLUTO_vProctor_Antigravity_Pack/.agent/workflows/phase-7-scoring-report.md",
+          "size_bytes": 1049,
+          "sha256": "06842bbc5bb70f558ed7d74ae9b92175b9e2d4a1d96545959ee730f8b4a09af3"
+        },
+        {
+          "path": "PLUTO_vProctor_Antigravity_Pack/.agent/workflows/phase-8-polish.md",
+          "size_bytes": 573,
+          "sha256": "52d3976aa3f49bd22c4ad7c2e0d52c0a0c5009ee0b87064f7c31bc98a2ef1133"
+        },
+        {
+          "path": "PLUTO_vProctor_Antigravity_Pack/.agent/workflows/phase-9-project-report.md",
+          "size_bytes": 619,
+          "sha256": "64a6bfa5e6d26aef3e2865f3f0fc8b4c133d2cb2355e9da66aae7c4e31280f42"
+        },
+        {
+          "path": "PLUTO_vProctor_Antigravity_Pack/.agent/workflows/run-all-evals.md",
+          "size_bytes": 512,
+          "sha256": "0f7c1231d4b6f99866da641735451c3f378e7445289a4ee3158f1ef484e31beb"
+        },
+        {
+          "path": "PLUTO_vProctor_Antigravity_Pack/docs/spec/01-product.md",
+          "size_bytes": 1475,
+          "sha256": "0be3d14b9a80ead5538f6e62080a62717119ab708254298e52b99bc44e980eb5"
+        },
+        {
+          "path": "PLUTO_vProctor_Antigravity_Pack/docs/spec/02-constraints.md",
+          "size_bytes": 1761,
+          "sha256": "2aad4a356ccb71a3400bd57904aa79259e2b758c8947adca658be12f7caa3aad"
+        },
+        {
+          "path": "PLUTO_vProctor_Antigravity_Pack/docs/spec/03-architecture.md",
+          "size_bytes": 1422,
+          "sha256": "30df3c46151dad371de323603a8275cc94d94527dbaff360b31ca9d2733cd1c3"
+        },
+        {
+          "path": "PLUTO_vProctor_Antigravity_Pack/docs/spec/04-folder-structure.md",
+          "size_bytes": 2117,
+          "sha256": "ec77acc5324fb4bac748f13b872e72d4f7a2b7262c087c6a01d5a44211783e4e"
+        },
+        {
+          "path": "PLUTO_vProctor_Antigravity_Pack/docs/spec/06-algorithms.md",
+          "size_bytes": 2470,
+          "sha256": "50ab639bc953deaffa5d09fae41d899021c9c3e9c29668bc4605508ba3883058"
+        },
+        {
+          "path": "PLUTO_vProctor_Antigravity_Pack/docs/spec/07-api.md",
+          "size_bytes": 713,
+          "sha256": "656d927379c9a0de158e612fdb22c328b0806e83d259aa093ef92eea840f066c"
+        },
+        {
+          "path": "PLUTO_vProctor_Antigravity_Pack/docs/spec/08-quality-and-done.md",
+          "size_bytes": 1988,
+          "sha256": "e8c7310e46fb25f3c86ea3f9fa0ebeecfa2fe961388da2af5166a81e83d81af6"
+        },
+        {
+          "path": "PLUTO_vProctor_Antigravity_Pack/docs/spec/2B-dataset.md",
+          "size_bytes": 9242,
+          "sha256": "4e131a944aa5f94dd7285e5776fcd1a5eb3254bdce4189ee53fd5f0e4c26bbae"
+        },
+        {
+          "path": "PLUTO_vProctor_Antigravity_Pack/docs/spec/5a-jobs-resume-questions.md",
+          "size_bytes": 5757,
+          "sha256": "c2435df7da0e9293f906c1848f60efb1d7ec829bdc6d3034b17191d0ae73ac18"
+        },
+        {
+          "path": "PLUTO_vProctor_Antigravity_Pack/docs/spec/5b-interview-analysis.md",
+          "size_bytes": 3320,
+          "sha256": "a2555b47e868a74dc0ac673cf5b2160219fed3a6b182d2e71f00575264bada27"
+        },
+        {
+          "path": "PLUTO_vProctor_Antigravity_Pack/docs/spec/5c-scoring-report.md",
+          "size_bytes": 3177,
+          "sha256": "b29be7dbe5b150c466f4894d13d81418c41434212b5f7dfa4a77488c5bd25984"
+        },
+        {
+          "path": "PLUTO_vProctor_Antigravity_Pack/GEMINI.md",
+          "size_bytes": 1592,
+          "sha256": "5b7da8849aa84dc4ffa87eb536ce3d3218474aae3788ca7f1a1b36a63b5aed57"
+        },
+        {
+          "path": "PLUTO_vProctor_Antigravity_Pack/KICKOFF.md",
+          "size_bytes": 1997,
+          "sha256": "5edcb596b33a01df70582908d1c46f66adec1fc3507f0191ce259bc882c16e93"
+        }
+      ]
+    }
+  },
+  "explicitly_preserved": {
+    "C7_sess_ce7da3c8cfb1_sidecars": [
+      "storage/recordings/sess_ce7da3c8cfb1_interview.diag.16k.wav",
+      "storage/recordings/sess_ce7da3c8cfb1_interview.diagnostics.json",
+      "storage/recordings/sess_ce7da3c8cfb1_interview.plot.png",
+      "storage/recordings/sess_ce7da3c8cfb1_interview.trace.csv"
+    ],
+    "C8_sarthak_created_sessions": [
+      "sess_5db3615af446",
+      "sess_9ef445d97932",
+      "sess_aab1134a81ca",
+      "sess_e86a45419cdc"
+    ],
+    "real_sarthak_all_session_ids": [
+      "sess_305e6f6df1d8",
+      "sess_590c1ae11450",
+      "sess_5db3615af446",
+      "sess_668507482898",
+      "sess_8e09181852e5",
+      "sess_943976e7b33e",
+      "sess_9e2e13f7f701",
+      "sess_9ef445d97932",
+      "sess_aab1134a81ca",
+      "sess_ce7da3c8cfb1",
+      "sess_d4bc4191952f",
+      "sess_e21c4d5c2020",
+      "sess_e769caf89bc9",
+      "sess_e86a45419cdc"
+    ]
+  }
+}

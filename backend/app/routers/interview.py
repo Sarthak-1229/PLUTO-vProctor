@@ -1,6 +1,7 @@
 """API endpoints for mock interview execution, question delivery, and follow-ups."""
 from __future__ import annotations
 
+import json
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
