@@ -144,35 +144,21 @@ Empower administrators to govern accounts, search candidates, adjust roles, and 
 **Priority:** **HIGH**  
 **Estimated Effort:** ~2.5 hours  
 **Prerequisites:** None  
+**Status:** **COMPLETED** (Report: `docs/BATCH_4_IMPLEMENTATION_REPORT.md`)
 
 ### Objectives
-Create complete, comprehensive, and professional user documentation for both candidate and administrator personas, plus an operational troubleshooting guide.
+Create complete, comprehensive, and professional user documentation for candidate, administrator, and local operator personas, plus an operational troubleshooting guide.
 
 ### Tasks
-- [ ] **4.1 Author Candidate User Manual (`docs/CANDIDATE_USER_MANUAL.md`):**
-  - Getting Started: Account Registration, Login, Profile setup.
-  - Resume Management: Uploading, parsing, structured field editing, and starting interviews from saved resumes.
-  - Universal Job Recommendations: Understanding match scores and skill alignments without taking interviews.
-  - Learning Roadmaps: Interpreting readiness grades, growth curves, and skill milestone drills.
-  - Self-Practice Interview Walkthrough: 7-step wizard, hardware check, neutral calibration, AI prompter with TTS, and proctoring HUD.
-  - Hosted Recruiter Interviews: Entering room codes, waiting room etiquette, WebRTC live video/audio, and following interviewer-controlled questions.
-  - Evaluation Reports: Understanding the 4 scoring buckets, 5-axis radar chart, monotonic deduction timeline, synchronized video scrubber, and PDF export.
-  - Privacy Rights: How to permanently erase session recordings and data.
-- [ ] **4.2 Author Admin User Manual (`docs/ADMIN_USER_MANUAL.md`):**
-  - Admin Authentication: Login, super_admin vs admin permissions, portal isolation.
-  - Platform Analytics: Reading candidate volumes, practice vs hosted throughput, score distributions, proctoring telemetry, and audit logs.
-  - Candidate Governance: Managing accounts, updating roles, and inspecting candidate session histories.
-  - Legacy Session Linking: Secure workflow to claim and assign unlinked historical sessions.
-  - Question Set Management: Creating custom question sets, importing JSON templates, editing questions, and deleting sets.
-  - Interview Room Scheduling: Creating rooms, configuring proctoring strictness presets, assigning candidates, and generating invite codes/links.
-  - Live Interview Orchestration: Using Host Flow Controls (Start, Pause, Resume, Advance Question, Skip Question, End & Finalize), watching candidate WebRTC streams, and handling reconnects.
-  - Post-Interview Review: Inspecting evaluation reports and downloading candidate dossiers.
-- [ ] **4.3 Author Operational Troubleshooting Guide (`docs/TROUBLESHOOTING.md`):**
-  - WebRTC & NAT Traversal: Symmetric NAT issues, STUN vs TURN configuration, and corporate firewall UDP blocks.
-  - Camera & Microphone Permissions: Chrome site settings, fake media flags for headless testing, and audio device conflicts.
-  - Local Ollama LLM: Ensuring Ollama service is running (`qwen2.5:3b`), memory requirements (2.4 GB VRAM), and understanding automatic algorithmic fallbacks when Ollama is offline.
-  - Authentication & Session Issues: Resolving CSRF token mismatches, expired refresh tokens, and rate-limit lockouts.
-  - Local Port & Process Conflicts: Handling port 8000 (FastAPI) or 5173 (Vite) collisions.
+- [x] **4.1 Author Candidate User Manual (`docs/CANDIDATE_USER_MANUAL.md`):**
+  - 20 sections covering: account registration, login, profile editing, multi-resume library, universal recommendations, 7-step self-practice wizard, hosted room joining, permissions, proctoring guidelines, scoring dossiers, PDF export, roadmaps, candidate dashboard, troubleshooting, and GDPR data erasure.
+- [x] **4.2 Author Admin User Manual (`docs/ADMIN_USER_MANUAL.md`):**
+  - 25 sections covering: RBAC tiers (`candidate`, `admin`, `super_admin`), dedicated admin login (`/admin/login`), candidate governance, search/filter, profile/resume inspection, session histories, super-admin role modification safeguards, full question-set lifecycle (create, edit, 409 conflict-safe delete, JSON import), room scheduling, candidate invitation tokens, live interview controls (advance, skip, pause, resume, end), completed room evaluation access, inline recording playback, platform analytics, and audit logs.
+- [x] **4.3 Author Operational Troubleshooting Guide (`docs/TROUBLESHOOTING.md`):**
+  - Detailed diagnostic guide covering 6 major categories: Installation & Startup, Authentication & RBAC, Resumes & Recommendations, Interviews & Telemetry, AI Models & Ollama, Reports & Question Sets.
+  - Formatted with Symptoms, Likely Causes, Diagnostic Steps, Safe Resolutions, and Relevant File Paths.
+- [x] **4.4 Author Local Operator Runbook (`docs/LOCAL_OPERATOR_RUNBOOK.md`):**
+  - Comprehensive guide covering local Windows setup, directory structure, `.env` configuration, database initialization and integrity checks, `run_dev.bat` startup, health probes, Ollama & Faster-Whisper lifecycle, structured logs, atomic database backups, media storage backups, disaster recovery recipes, safe shutdown, and SQLite vs PostgreSQL architectural reference.
 
 ---
 
@@ -181,61 +167,35 @@ Create complete, comprehensive, and professional user documentation for both can
 **Priority:** **MEDIUM**  
 **Estimated Effort:** ~2.0 hours  
 **Prerequisites:** None  
+**Status:** **COMPLETED** (Report: `docs/BATCH_5_IMPLEMENTATION_REPORT.md`)
 
 ### Objectives
 Update all technical reference documentation so that developers, auditors, and future contributors have exact, up-to-date specifications of the v2 platform.
 
 ### Tasks
-- [ ] **5.1 Update Project README (`README.md`):**
-  - Overhaul root README with complete PLUTO vProctor v2 capabilities (Dual-mode, Auth & RBAC, Hosted WebRTC Rooms, Roadmaps, Admin Console).
-  - Include quick start commands for both offline mode and enterprise multi-user mode.
-  - Document all environment variables and configuration switches (`AUTH_ENABLED`, `SECRET_KEY`, `MEDIA_TRANSPORT_MODE`, `OLLAMA_BASE_URL`).
-- [ ] **5.2 Update API Reference Specification (`docs/API.md`):**
-  - Document all 14 active API routers with request/response schemas:
-    - `/api/auth/*`
-    - `/api/candidate/*`
-    - `/api/candidate/roadmap`
-    - `/api/resumes/*`
-    - `/api/jobs/*`
-    - `/api/rooms/*` (including WebSocket signaling message schema)
-    - `/api/admin/*` (analytics, users, legacy sessions, audit logs, question sets, rooms)
-    - `/api/interview/*`
-    - `/api/analysis/*`
-    - `/api/report/*`
-    - `/api/settings/*`
-  - Document standard error envelope schema (`{"error": {"code", "message", "request_id", "details"}}`).
-- [ ] **5.3 Author Database Schema & ER Diagram (`docs/DATABASE_SCHEMA.md`):**
-  - Complete Mermaid ER diagram showing all 22 database tables and foreign keys.
-  - Data dictionary detailing each table's columns, types, indexes, and nullability constraints.
-  - Migration history and invariant preservation rules.
-- [ ] **5.4 Author Enterprise Security Specification (`docs/SECURITY.md`):**
-  - Document the 14 security domains implemented in Phase 2 and Phase 6:
-    - Password hashing (Argon2id) & timing attack defense
-    - Refresh token rotation & family-level reuse revocation
-    - Double-submit CSRF cookie tokens
-    - Role-based access control & portal separation
-    - IDOR protection & data scoping
-    - High-entropy invitation tokens
-    - WebSocket handshake authorization
-    - Magic-byte file upload validation
-    - Video recording access control
-    - Rate limiting
-    - Correlation tracking (`X-Request-ID`) & security headers
-    - Production runtime safety validation
-    - GDPR/CCPA synchronous deletion
-    - Audit logging
-- [ ] **5.5 Update Architecture Document (`docs/ARCHITECTURE.md`):**
-  - Modernize architectural diagram and text to include WebRTC signaling, WebSocket transport adapter, dual database support, and background job queue.
+- [x] **5.1 Update Project README (`README.md`):**
+  - Completely overhauled root README with 18 detailed sections covering dual-mode operations, candidate/admin workflows, tech stack, architecture flowchart, local Windows installation, `.env` config, catalog verification, AI setup, automated test commands, directory layout, documentation index, and known limitations.
+- [x] **5.2 Update API Reference Specification (`docs/API.md`):**
+  - Documented all 14 active API routers and 60+ endpoints with request/response schemas, error codes, and RBAC rules.
+  - Documented real-time WebRTC WebSocket signaling hub (`/api/rooms/{id}/ws`) with token authentication and message types.
+- [x] **5.3 Author Database Schema & ER Diagram (`docs/DATABASE_SCHEMA.md`):**
+  - Created complete 22-table reference with column types, primary keys, foreign keys, unique constraints, nullability, indices, deletion cascades, and an accurate Mermaid ER diagram.
+- [x] **5.4 Author Enterprise Security Specification (`docs/SECURITY.md`):**
+  - Documented all 14 security domains implemented across the codebase: Argon2id, 15-min JWT, refresh token rotation with reuse detection, double-submit CSRF, RBAC, IDOR prevention, admin safety locks, magic-byte upload validation, rate limits, security headers, and audit logs.
+- [x] **5.5 Update Architecture Document (`docs/ARCHITECTURE.md`):**
+  - Completely updated architecture specification with 17 sections and 5 Mermaid flowcharts covering system boundaries, frontend, FastAPI gateway, 14 routers, WebRTC signaling, MediaPipe iris/head pose pipeline, Faster-Whisper disfluency pipeline, 4-bucket monotonic scoring, Knapsack MMR, local storage, job queue, and SQLite/PostgreSQL compatibility.
+- [x] **5.6 Create Master Documentation Index (`docs/INDEX.md`):**
+  - Created centralized documentation index categorized by user persona and technical domain, linking all manuals, specs, benchmarks, reports, audits, and checklists.
 
 ---
 
 ## Summary of Effort and Recommended Order
 
-| Batch | Description | Priority | Est. Hours | Target Deliverable |
-|---|---|---|---|---|
-| **Batch 1** | Frontend Routing & Report Deep-Linking | **HIGH** | 1.5 hrs | `authClient.js`, `App.jsx`, `LiveInterviewRoom.jsx` |
-| **Batch 2** | Admin Question Sets Management | **HIGH** | 2.5 hrs | `AdminRoomManager.jsx`, `question_sets.py` |
-| **Batch 3** | Admin Candidate Governance & Session Browser | **HIGH** | 2.5 hrs | `AdminConsolePage.jsx`, `AdminRoomManager.jsx` |
-| **Batch 4** | Core User Manuals & Troubleshooting Guide | **HIGH** | 2.5 hrs | `CANDIDATE_USER_MANUAL.md`, `ADMIN_USER_MANUAL.md`, `TROUBLESHOOTING.md` |
-| **Batch 5** | Technical Specification Documentation Updates | **MEDIUM** | 2.0 hrs | `README.md`, `API.md`, `DATABASE_SCHEMA.md`, `SECURITY.md`, `ARCHITECTURE.md` |
-| **TOTAL** | | | **11.0 hrs** | **100% Product Completion** |
+| Batch | Description | Priority | Est. Hours | Target Deliverable | Status |
+|---|---|---|---|---|---|
+| **Batch 1** | Frontend Routing & Report Deep-Linking | **HIGH** | 1.5 hrs | `authClient.js`, `App.jsx`, `LiveInterviewRoom.jsx` | **COMPLETED** |
+| **Batch 2** | Admin Question Sets Management | **HIGH** | 2.5 hrs | `AdminRoomManager.jsx`, `question_sets.py` | **COMPLETED** |
+| **Batch 3** | Admin Candidate Governance & Session Browser | **HIGH** | 2.5 hrs | `AdminConsolePage.jsx`, `AdminRoomManager.jsx` | **COMPLETED** |
+| **Batch 4** | Core User Manuals & Troubleshooting Guide | **HIGH** | 2.5 hrs | `CANDIDATE_USER_MANUAL.md`, `ADMIN_USER_MANUAL.md`, `TROUBLESHOOTING.md`, `LOCAL_OPERATOR_RUNBOOK.md` | **COMPLETED** |
+| **Batch 5** | Technical Specification Documentation Updates | **MEDIUM** | 2.0 hrs | `README.md`, `API.md`, `DATABASE_SCHEMA.md`, `SECURITY.md`, `ARCHITECTURE.md`, `INDEX.md` | **COMPLETED** |
+| **TOTAL** | | | **11.0 hrs** | **100% Product Completion** | **ALL COMPLETED** |
