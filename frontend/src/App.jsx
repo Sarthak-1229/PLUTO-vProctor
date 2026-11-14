@@ -24,7 +24,11 @@ import { CandidateAuthPage, AdminLoginPage } from './components/AuthPages'
 import { CandidateProfilePage } from './components/CandidateProfilePage'
 import { ResumeLibraryPage } from './components/ResumeLibraryPage'
 import { RecommendationsPage } from './components/RecommendationsPage'
+import { LearningRoadmapPage } from './components/LearningRoadmapPage'
 import { AdminConsolePage } from './components/AdminConsolePage'
+import { RoomJoinPage } from './components/RoomJoinPage'
+import { WaitingRoom } from './components/WaitingRoom'
+import { LiveInterviewRoom } from './components/LiveInterviewRoom'
 import RecordFixturePage from './RecordFixturePage'
 
 const STEPS = [
@@ -630,6 +634,27 @@ function MainApp() {
             />
           )}
 
+          {authReady && routeGuard.view === 'roadmap' && (
+            <LearningRoadmapPage
+              onNavigate={navigate}
+            />
+          )}
+
+          {authReady && routeGuard.view === 'rooms-join' && (
+            <RoomJoinPage
+              onJoinedRoom={(rId) => navigate(`/rooms/${rId}`)}
+              onNavigate={navigate}
+            />
+          )}
+
+          {authReady && routeGuard.view === 'live-room' && (
+            <HostedRoomContainer
+              roomId={pathname.split('/rooms/')[1]?.replace(/\/+$/, '')}
+              currentUser={currentUser}
+              onLeaveRoom={() => navigate('/')}
+            />
+          )}
+
           {authReady && routeGuard.view === 'practice' && (
             <>
               {/* STEP 1: Role Selection & Resume Upload */}
@@ -724,6 +749,7 @@ function MainApp() {
           onClose={() => setIsDashboardOpen(false)}
           currentUser={currentUser}
           authEnabled={authEnabled}
+          onNavigate={navigate}
           onLoadPastReport={async (pastSid) => {
             setSessionId(pastSid)
             setCurrentStep('processing')
@@ -750,5 +776,79 @@ function MainApp() {
         />
       </div>
     </ErrorBoundary>
+  )
+}
+
+function HostedRoomContainer({ roomId, currentUser, onLeaveRoom }) {
+  const [snapshot, setSnapshot] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [admitted, setAdmitted] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    async function load() {
+      try {
+        const res = await authFetch(`/api/rooms/${roomId}/snapshot`)
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          setError(body.detail || 'Access to room forbidden or room not found.')
+          return
+        }
+        const data = await res.json()
+        if (active) setSnapshot(data)
+      } catch {
+        if (active) setError('Network error fetching room state.')
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+    load()
+    return () => {
+      active = false
+    }
+  }, [roomId])
+
+  if (loading) {
+    return (
+      <div className="p-12 text-center font-black uppercase text-sm text-gray-500 animate-pulse">
+        Connecting to hosted room...
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-md mx-auto p-6 bg-[#FECDD3] border-2 border-black rounded-2xl text-center space-y-4 shadow-[4px_4px_0px_0px_#000]">
+        <h2 className="text-base font-black uppercase text-red-950">Room Access Blocked</h2>
+        <p className="text-xs font-bold text-red-900">{error}</p>
+        <button
+          type="button"
+          onClick={onLeaveRoom}
+          className="px-4 py-2 bg-black text-white rounded-xl text-xs font-black uppercase hover:bg-gray-800"
+        >
+          Return Home
+        </button>
+      </div>
+    )
+  }
+
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin'
+  if (snapshot?.status === 'LOBBY' && !isAdmin && !admitted) {
+    return (
+      <WaitingRoom
+        roomSnapshot={snapshot}
+        onAdmitted={() => setAdmitted(true)}
+        onLeave={onLeaveRoom}
+      />
+    )
+  }
+
+  return (
+    <LiveInterviewRoom
+      roomId={roomId}
+      currentUser={currentUser}
+      onLeaveRoom={onLeaveRoom}
+    />
   )
 }

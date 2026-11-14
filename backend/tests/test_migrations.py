@@ -37,6 +37,12 @@ EXPECTED_TABLES = {
     "refresh_tokens",
     "one_time_tokens",
     "audit_logs",
+    "question_sets",
+    "question_set_items",
+    "interview_rooms",
+    "room_participants",
+    "room_questions",
+    "room_events",
 }
 EXPECTED_INDEXES = {
     "sessions": {"ix_sessions_interview_status", "ix_sessions_candidate_user_id", "ix_sessions_room_id"},
@@ -49,6 +55,27 @@ EXPECTED_INDEXES = {
     "refresh_tokens": {"ix_refresh_tokens_user_id", "ix_refresh_tokens_rotation_family_id", "ix_refresh_tokens_expires_at"},
     "one_time_tokens": {"ix_one_time_tokens_user_id", "ix_one_time_tokens_purpose", "ix_one_time_tokens_expires_at"},
     "audit_logs": {"ix_audit_logs_actor_user_id", "ix_audit_logs_action", "ix_audit_logs_resource_type", "ix_audit_logs_resource_id", "ix_audit_logs_created_at"},
+    "question_sets": {"ix_question_sets_owner_admin_id", "ix_question_sets_status"},
+    "question_set_items": {"ix_question_set_items_question_set_id", "ix_question_set_items_ordinal"},
+    "interview_rooms": {
+        "ix_interview_rooms_created_by_admin_id",
+        "ix_interview_rooms_assigned_candidate_id",
+        "ix_interview_rooms_room_code_hash",
+        "ix_interview_rooms_invite_token_hash",
+        "ix_interview_rooms_status",
+        "ix_interview_rooms_scheduled_at",
+        "ix_interview_rooms_expires_at",
+        "ix_interview_rooms_active_session_id",
+    },
+    "room_participants": {"ix_room_participants_room_id", "ix_room_participants_user_id"},
+    "room_questions": {"ix_room_questions_room_id", "ix_room_questions_ordinal"},
+    "room_events": {
+        "ix_room_events_room_id",
+        "ix_room_events_actor_user_id",
+        "ix_room_events_event_type",
+        "ix_room_events_sequence_no",
+        "ix_room_events_created_at",
+    },
 }
 EXPECTED_SESSION_V2_COLUMNS = {"candidate_user_id", "interview_mode", "room_id"}
 

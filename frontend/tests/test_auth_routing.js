@@ -55,5 +55,29 @@ describe('Frontend auth & RBAC route guards', () => {
     assert.equal(readCookie('pluto_csrf_token', raw), 'abc+def_123')
     assert.equal(readCookie('missing', raw), null)
   })
+
+  it('protects hosted interview room routes according to authentication status', () => {
+    assert.deepEqual(
+      resolveRouteAccess({ pathname: '/rooms/join', authEnabled: true, user: null }),
+      { allowed: false, redirectTo: '/login', view: 'login' },
+    )
+    const candidate = { id: 'usr_cand', role: 'candidate' }
+    assert.deepEqual(
+      resolveRouteAccess({ pathname: '/rooms/join', authEnabled: true, user: candidate }),
+      { allowed: true, redirectTo: null, view: 'rooms-join' },
+    )
+    assert.deepEqual(
+      resolveRouteAccess({ pathname: '/rooms/room_12345', authEnabled: true, user: candidate }),
+      { allowed: true, redirectTo: null, view: 'live-room' },
+    )
+    assert.deepEqual(
+      resolveRouteAccess({ pathname: '/roadmap', authEnabled: true, user: null }),
+      { allowed: false, redirectTo: '/login', view: 'login' },
+    )
+    assert.deepEqual(
+      resolveRouteAccess({ pathname: '/roadmap', authEnabled: true, user: candidate }),
+      { allowed: true, redirectTo: null, view: 'roadmap' },
+    )
+  })
 })
 

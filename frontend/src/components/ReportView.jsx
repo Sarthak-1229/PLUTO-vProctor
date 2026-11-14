@@ -210,6 +210,43 @@ export function ReportView({
         </div>
       </div>
 
+      {/* Competency Overview */}
+      {reportData.radar_metrics && (
+        <div className="bg-white border-[3px] border-black rounded-2xl p-5 shadow-[5px_5px_0px_0px_#000] space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-black uppercase text-black tracking-wide">
+              Competency Radar & Skill Synthesis
+            </h3>
+            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-[#FFE600] border border-black">
+              Normalized 0-100
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+            {[
+              { label: 'Technical Accuracy', val: reportData.radar_metrics.technical_accuracy, color: 'bg-blue-400' },
+              { label: 'Problem Solving', val: reportData.radar_metrics.problem_solving_depth, color: 'bg-purple-400' },
+              { label: 'Communication', val: reportData.radar_metrics.communication_clarity, color: 'bg-green-400' },
+              { label: 'Integrity', val: reportData.radar_metrics.proctoring_integrity, color: 'bg-pink-400' },
+              { label: 'Role Fit', val: reportData.radar_metrics.role_relevance, color: 'bg-yellow-400' },
+            ].map((c) => (
+              <div key={c.label} className="p-3 bg-[#F4F0EA] border-2 border-black rounded-xl space-y-1.5">
+                <div className="flex justify-between text-[11px] font-bold">
+                  <span className="truncate">{c.label}</span>
+                  <span className="font-black">{Math.round(c.val || 0)}%</span>
+                </div>
+                <div className="w-full h-2.5 bg-gray-200 rounded-full border border-black overflow-hidden">
+                  <div
+                    className={`h-full ${c.color}`}
+                    style={{ width: `${Math.max(0, Math.min(100, c.val || 0))}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Synchronized Video Playback & Deduction Timeline */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left: Video Player */}
@@ -364,6 +401,21 @@ export function ReportView({
                         ))}
                       </div>
                     </div>
+
+                    {/* Rubric Breakdown Subscores */}
+                    {q.rubric_breakdown && (
+                      <div className="flex flex-wrap gap-2 pt-1 text-[11px] font-bold">
+                        <span className="px-2.5 py-1 rounded bg-[#E0E7FF] border border-black text-indigo-900">
+                          Accuracy: <strong>{q.rubric_breakdown.technical_accuracy ?? q.score}%</strong>
+                        </span>
+                        <span className="px-2.5 py-1 rounded bg-[#F3E8FF] border border-black text-purple-900">
+                          Depth: <strong>{q.rubric_breakdown.technical_depth ?? q.score}%</strong>
+                        </span>
+                        <span className="px-2.5 py-1 rounded bg-[#DCFCE7] border border-black text-emerald-900">
+                          Clarity: <strong>{q.rubric_breakdown.communication_clarity ?? 85}%</strong>
+                        </span>
+                      </div>
+                    )}
 
                     {/* Evaluator Feedback */}
                     <div className="text-slate-700 pt-1">

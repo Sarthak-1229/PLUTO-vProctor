@@ -1,0 +1,41 @@
+services:
+  # FastAPI Backend API with Local SQLite and In-Memory Queue
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: pluto-backend-sqlite
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=production
+      - LOG_LEVEL=INFO
+      - DATABASE_URL=sqlite:////app/storage/pluto.db
+      - REDIS_URL=
+      - ASR_PROVIDER=auto
+      - WHISPER_MODEL_SIZE=base.en
+      - WHISPER_DEVICE=cpu
+      - AUTH_ENABLED=true
+      - HOSTED_ROOMS_ENABLED=true
+      - LIVE_MEDIA_ENABLED=true
+      - MEDIA_TRANSPORT_MODE=p2p
+      - SECRET_KEY=${SECRET_KEY:-pluto_vproctor_secure_production_secret_key_minimum_32_chars_2026}
+      - COOKIE_SECURE=false
+    volumes:
+      - ./storage:/app/storage
+      - ./backend/app/pluto.db:/app/storage/pluto.db
+    ports:
+      - "8000:8000"
+
+  # React Frontend with Hardened Nginx
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: pluto-frontend-sqlite
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "5173:80"
+    depends_on:
+      - backend
+

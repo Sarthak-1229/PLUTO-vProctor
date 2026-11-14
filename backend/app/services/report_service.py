@@ -109,6 +109,13 @@ class ReportService:
 
             answer_scores.append(float(score_val))
 
+            rubric_bd = score_data.get("rubric_breakdown") or {
+                "technical_accuracy": round(float(score_val), 1),
+                "technical_depth": round(float(score_val), 1),
+                "communication_clarity": 85.0 if score_val > 50 else 40.0,
+                "keyword_recall": round(len(score_data.get("matched_keywords", [])) / max(len(exp_kw), 1), 2),
+            }
+
             q_breakdown.append({
                 "order_index": sq.order_index,
                 "question": q_text,
@@ -117,6 +124,7 @@ class ReportService:
                 "transcript": sq.transcript or "No candidate voice or transcript recorded for this question.",
                 "score": round(float(score_val), 1),
                 "feedback": score_data.get("feedback", "Technical response evaluated."),
+                "rubric_breakdown": rubric_bd,
                 "matched_keywords": score_data.get("matched_keywords", []),
                 "missed_keywords": score_data.get("missed_keywords", exp_kw),
             })
@@ -217,6 +225,24 @@ class ReportService:
 
         total_pts_deducted = round(sum(float(d.get("points_deducted", 0.0)) for d in normalized_timeline), 1)
 
+        avg_tech_accuracy = round(
+            sum(float(q.get("rubric_breakdown", {}).get("technical_accuracy", q["score"])) for q in q_breakdown) / max(len(q_breakdown), 1),
+            1,
+        ) if q_breakdown else score_res["overall_score"]
+
+        avg_depth = round(
+            sum(float(q.get("rubric_breakdown", {}).get("technical_depth", q["score"])) for q in q_breakdown) / max(len(q_breakdown), 1),
+            1,
+        ) if q_breakdown else score_res["overall_score"]
+
+        radar_metrics = {
+            "technical_accuracy": avg_tech_accuracy,
+            "problem_solving_depth": avg_depth,
+            "communication_clarity": cat_scores.get("confidence_fluency", 100.0),
+            "proctoring_integrity": cat_scores.get("proctoring_integrity", 100.0),
+            "role_relevance": cat_scores.get("resume_fit", 100.0),
+        }
+
         return {
             "session_id": session_id,
             "candidate_name": session.candidate_name,
@@ -227,6 +253,7 @@ class ReportService:
             "grade": score_res["grade"],
             "readiness_label": score_res["readiness_label"],
             "category_scores": cat_scores_normalized,
+            "radar_metrics": radar_metrics,
             "summary": summary_dict,
             "deductions_timeline": normalized_timeline,
             "deduction_timeline": normalized_timeline,

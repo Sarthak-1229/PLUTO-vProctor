@@ -118,6 +118,30 @@ class InterviewService:
         # Retrieve current question details
         curr_q = question_service.questions_by_id.get(current_question_id)
         if not curr_q:
+            db_q = db.query(Question).filter(Question.id == current_question_id).first()
+            if db_q:
+                curr_q = {
+                    "id": db_q.id,
+                    "question": db_q.question,
+                    "answer": db_q.answer,
+                    "domain": db_q.domain,
+                    "expected_keywords": db_q.expected_keywords or [],
+                }
+            else:
+                sq = (
+                    db.query(SessionQuestion)
+                    .filter(SessionQuestion.session_id == session_id, SessionQuestion.question_id == current_question_id)
+                    .first()
+                )
+                if sq and sq.custom_question_text:
+                    curr_q = {
+                        "id": current_question_id,
+                        "question": sq.custom_question_text,
+                        "answer": "",
+                        "domain": "General",
+                        "expected_keywords": [],
+                    }
+        if not curr_q:
             return None
 
         # If transcript is very detailed (> 120 words), candidate gave a full answer; no follow-up needed
@@ -131,21 +155,38 @@ class InterviewService:
             [f"- Related Q: {nn['question']}\n  Expected: {nn['answer']}" for nn in nearest_neighbors]
         )
 
+        # Check missed keywords from current question to target specific candidate skill gaps
+        exp_kw = curr_q.get("expected_keywords") or []
+        cand_tokens = set(w.strip(".,!?:;\"'()").lower() for w in transcript.split())
+        missed = [kw for kw in exp_kw if kw.lower() not in cand_tokens]
+        gap_context = (
+            f"Candidate missed these core concepts: {', '.join(missed[:3])}."
+            if missed
+            else "Candidate answered concisely. Probe practical implementation trade-offs or edge cases."
+        )
+
         system_prompt = (
-            "You are an expert technical interviewer. The candidate just gave a brief answer. "
-            "Based on the original question and the grounded domain context below, formulate ONE concise follow-up question "
+            "You are an expert technical interviewer. The candidate gave a brief answer. "
+            "Based on the original question, candidate gaps, and the domain reference knowledge below, formulate ONE concise follow-up question "
             "(maximum 20 words) to test deeper understanding. If the answer is already sufficient, set has_follow_up to false."
         )
 
         user_prompt = (
             f"Original Question: {curr_q['question']}\n"
             f"Candidate Answer: {transcript}\n\n"
+            f"Identified Skill Gaps:\n{gap_context}\n\n"
             f"Domain Reference Knowledge:\n{grounding_context}\n\n"
             'Respond in JSON: {"has_follow_up": true/false, "follow_up_question": "...", "reason": "..."}'
         )
 
         def fallback():
-            # Deterministic fallback
+            if missed:
+                probe_concept = missed[0]
+                return FollowUpResponse(
+                    has_follow_up=True,
+                    follow_up_question=f"Could you elaborate on how {probe_concept} applies here?",
+                    reason=f"Probing core concept '{probe_concept}' missing from answer.",
+                )
             return FollowUpResponse(
                 has_follow_up=False,
                 follow_up_question="",

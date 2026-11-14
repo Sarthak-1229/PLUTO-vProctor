@@ -68,3 +68,19 @@ All 5 non-mutating evaluation scripts ran live against the untouched Phase 0 wor
 | **Live SQLite DB & Legacy Preservation** | SQLite PRAGMA check on `backend/app/pluto.db` | **`PRAGMA integrity_check: ok`, `foreign_key_check: 0 errors`** | All `14` legacy real sessions preserved untouched and unclaimed (`candidate_user_id IS NULL`). `1,799` questions, `12` jobs, `24` storage files intact. |
 | **Security Code Review** | Independent whole-branch security audit | **`9/9 findings resolved & verified`** | 1 Critical, 2 High, 3 Medium, 3 Low findings resolved via TDD. |
 
+---
+
+## 6. Final Multi-Phase Verification Baseline (Phases 3–6 Complete — 2026-11-14)
+
+| Suite / Gate | Command | Final Verified Outcome | Detailed Verification Notes |
+|---|---|---|---|
+| **Full Backend Pytest Suite** | `backend\.venv\Scripts\python.exe -m pytest backend/tests/ -v` | **`179 passed, 1 skipped, 1 warning`** (`118.00s`) | Comprehensive coverage across all modules: algorithms, ASR, gaze, monotonic scoring, resume screening, auth/RBAC, rooms/signaling, intelligence, roadmap, deployment & hardening. Single skip is optional live PG test when `TEST_POSTGRES_URL` unset (offline PG DDL compilation passes). |
+| **Ground-Truth Proctoring CI Gate** | `backend\.venv\Scripts\python.exe backend/scripts/evaluate_fixtures.py --gate-check` | **`CI GATE PASSED`** | Look-away Recall: `100.0%`, Median Time Error: `2.07s` (threshold `<= 4.0s`), Zero regression in MediaPipe and audio proctoring metrics. |
+| **Frontend Unit Tests** | `npm --prefix frontend test -- --run` | **`10 passed, 0 failed`** (`107ms`) | Full verification of auth route guards, RBAC restrictions, CSRF parsing, room protection, InterviewFSM state transitions, and screening thresholds. |
+| **Frontend Lint** | `npm --prefix frontend run lint` (`oxlint`) | **`0 errors, 82 warnings`** (`78ms`) | Zero lint errors across 34 files. Legacy React Compiler warnings deferred safely. |
+| **Frontend Production Build** | `npm --prefix frontend run build` (`vite build`) | **`PASSED`** (`1960` modules, `667ms`) | Clean production SPA bundles emitted to `frontend/dist`. |
+| **Live SQLite Integrity & Schema** | `PRAGMA integrity_check`, `foreign_key_check` | **`integrity: ok`, `fk errors: 0`** | Live database at Alembic revision `0004_phase3_rooms_signaling`. All 22 tables and indexes intact. |
+| **Legacy Candidate Data Preservation** | Invariant check on `sessions` table | **`14 / 14 Intact`** | Exactly 14 original real sessions (`Sarthak Bhosale`) preserved untouched, unclaimed (`candidate_user_id IS NULL`), in `self_practice` mode. Question bank: `1,799` items intact. |
+| **Container & Reverse Proxy Hardening** | Docker & Nginx configuration inspection | **`Hardened`** | Multi-stage Dockerfile with non-root user `pluto`, Nginx reverse proxy with WebSocket upgrade support for realtime signaling, `/api/health` and `/api/ready` probes verified. |
+
+

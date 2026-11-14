@@ -181,6 +181,9 @@ class User(Base):
     sessions = relationship("InterviewSession", back_populates="candidate_user", foreign_keys=[InterviewSession.candidate_user_id])
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
     one_time_tokens = relationship("OneTimeToken", back_populates="user", cascade="all, delete-orphan")
+    created_rooms = relationship("InterviewRoom", back_populates="created_by_admin", foreign_keys="InterviewRoom.created_by_admin_id")
+    assigned_rooms = relationship("InterviewRoom", back_populates="assigned_candidate", foreign_keys="InterviewRoom.assigned_candidate_id")
+    room_participations = relationship("RoomParticipant", back_populates="user", cascade="all, delete-orphan")
 
 
 class CandidateProfile(Base):
@@ -328,3 +331,134 @@ class AuditLog(Base):
     details_json = Column(JSON, nullable=True)
     ip_address = Column(String(64), nullable=True)
     created_at = Column(DateTime, default=_utcnow_naive, index=True)
+
+
+class QuestionSet(Base):
+    """Admin-managed interview question collections and templates."""
+    __tablename__ = "question_sets"
+
+    id = Column(String(64), primary_key=True)
+    owner_admin_id = Column(String(64), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    name = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    source_filename = Column(String(255), nullable=True)
+    schema_version = Column(String(32), nullable=False, default="1.0")
+    version = Column(Integer, nullable=False, default=1)
+    status = Column(String(32), nullable=False, default="active", index=True)
+    checksum = Column(String(64), nullable=True)
+    created_at = Column(DateTime, nullable=False, default=_utcnow_naive)
+    updated_at = Column(DateTime, nullable=False, default=_utcnow_naive, onupdate=_utcnow_naive)
+
+    owner = relationship("User", foreign_keys=[owner_admin_id])
+    items = relationship("QuestionSetItem", back_populates="question_set", cascade="all, delete-orphan", order_by="QuestionSetItem.ordinal")
+
+
+class QuestionSetItem(Base):
+    """Individual question items within an admin question set."""
+    __tablename__ = "question_set_items"
+
+    id = Column(String(64), primary_key=True)
+    question_set_id = Column(String(64), ForeignKey("question_sets.id", ondelete="CASCADE"), nullable=False, index=True)
+    source_question_id = Column(String(64), nullable=True)
+    question_text = Column(Text, nullable=False)
+    domain = Column(String(128), nullable=False, default="General")
+    difficulty = Column(String(32), nullable=False, default="Intermediate")
+    target_skills_json = Column(JSON, nullable=False)
+    ideal_criteria_json = Column(JSON, nullable=False)
+    ordinal = Column(Integer, nullable=False, index=True)
+    metadata_json = Column(JSON, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=_utcnow_naive)
+
+    question_set = relationship("QuestionSet", back_populates="items")
+
+
+class InterviewRoom(Base):
+    """Admin-hosted collaborative interview room state and orchestration."""
+    __tablename__ = "interview_rooms"
+
+    id = Column(String(64), primary_key=True)
+    created_by_admin_id = Column(String(64), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
+    assigned_candidate_id = Column(String(64), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    room_code_hash = Column(String(64), nullable=False, index=True)
+    invite_token_hash = Column(String(64), nullable=False, index=True)
+    title = Column(String(255), nullable=False)
+    status = Column(String(32), nullable=False, default="DRAFT", index=True)
+    scheduled_at = Column(DateTime, nullable=True, index=True)
+    expires_at = Column(DateTime, nullable=True, index=True)
+    duration_seconds = Column(Integer, nullable=False, default=3600)
+    mode = Column(String(32), nullable=False, default="hosted")
+    proctoring_preset = Column(String(32), nullable=False, default="strict")
+    current_sequence_version = Column(Integer, nullable=False, default=0)
+    current_question_ordinal = Column(Integer, nullable=False, default=0)
+    question_set_id = Column(String(64), ForeignKey("question_sets.id", ondelete="SET NULL"), nullable=True)
+    active_session_id = Column(String(64), ForeignKey("sessions.id", ondelete="SET NULL"), nullable=True, index=True)
+    started_at = Column(DateTime, nullable=True)
+    ended_at = Column(DateTime, nullable=True)
+    timezone = Column(String(64), nullable=False, default="UTC")
+    metadata_json = Column(JSON, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=_utcnow_naive)
+    updated_at = Column(DateTime, nullable=False, default=_utcnow_naive, onupdate=_utcnow_naive)
+
+    created_by_admin = relationship("User", foreign_keys=[created_by_admin_id], back_populates="created_rooms")
+    assigned_candidate = relationship("User", foreign_keys=[assigned_candidate_id], back_populates="assigned_rooms")
+    question_set = relationship("QuestionSet")
+    session = relationship("InterviewSession", foreign_keys=[active_session_id])
+    questions = relationship("RoomQuestion", back_populates="room", cascade="all, delete-orphan", order_by="RoomQuestion.ordinal")
+    participants = relationship("RoomParticipant", back_populates="room", cascade="all, delete-orphan")
+    events = relationship("RoomEvent", back_populates="room", cascade="all, delete-orphan", order_by="RoomEvent.sequence_no")
+
+
+class RoomParticipant(Base):
+    """Candidates, admins, and observers associated with an interview room."""
+    __tablename__ = "room_participants"
+
+    id = Column(String(64), primary_key=True)
+    room_id = Column(String(64), ForeignKey("interview_rooms.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(String(64), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    role = Column(String(32), nullable=False, default="candidate")
+    status = Column(String(32), nullable=False, default="invited")
+    joined_at = Column(DateTime, nullable=True)
+    left_at = Column(DateTime, nullable=True)
+    reconnect_count = Column(Integer, nullable=False, default=0)
+    device_checks_json = Column(JSON, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=_utcnow_naive)
+    updated_at = Column(DateTime, nullable=False, default=_utcnow_naive, onupdate=_utcnow_naive)
+
+    room = relationship("InterviewRoom", back_populates="participants")
+    user = relationship("User", back_populates="room_participations")
+
+
+class RoomQuestion(Base):
+    """Server-synchronized questions planned or active in an interview room."""
+    __tablename__ = "room_questions"
+
+    id = Column(String(64), primary_key=True)
+    room_id = Column(String(64), ForeignKey("interview_rooms.id", ondelete="CASCADE"), nullable=False, index=True)
+    source_question_id = Column(String(64), nullable=True)
+    question_text = Column(Text, nullable=False)
+    domain = Column(String(128), nullable=False, default="General")
+    difficulty = Column(String(32), nullable=False, default="Intermediate")
+    target_skills_json = Column(JSON, nullable=False)
+    ideal_criteria_json = Column(JSON, nullable=False)
+    ordinal = Column(Integer, nullable=False, index=True)
+    status = Column(String(32), nullable=False, default="pending")
+    time_limit_seconds = Column(Integer, nullable=False, default=180)
+    asked_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+
+    room = relationship("InterviewRoom", back_populates="questions")
+
+
+class RoomEvent(Base):
+    """Append-only sequence-ordered room state and signaling audit event log."""
+    __tablename__ = "room_events"
+
+    id = Column(String(64), primary_key=True)
+    room_id = Column(String(64), ForeignKey("interview_rooms.id", ondelete="CASCADE"), nullable=False, index=True)
+    actor_user_id = Column(String(64), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    event_type = Column(String(64), nullable=False, index=True)
+    payload_json_redacted = Column(JSON, nullable=True)
+    sequence_no = Column(Integer, nullable=False, index=True)
+    created_at = Column(DateTime, nullable=False, default=_utcnow_naive, index=True)
+
+    room = relationship("InterviewRoom", back_populates="events")

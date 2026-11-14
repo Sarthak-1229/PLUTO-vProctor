@@ -1,26 +1,30 @@
 import React, { useEffect, useState } from 'react'
-import { Shield, Users, Link2, ScrollText } from 'lucide-react'
+import { Shield, Users, Link2, ScrollText, Video, Activity, TrendingUp } from 'lucide-react'
 import { authFetch } from '../utils/authClient'
+import { AdminRoomManager } from './AdminRoomManager'
 
 export function AdminConsolePage({ currentUser, onOpenSettings }) {
-  const [tab, setTab] = useState('legacy')
+  const [tab, setTab] = useState('analytics')
   const [legacySessions, setLegacySessions] = useState([])
   const [users, setUsers] = useState([])
   const [auditLogs, setAuditLogs] = useState([])
+  const [overview, setOverview] = useState(null)
   const [claimMap, setClaimMap] = useState({})
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
   const loadData = async () => {
     try {
-      const [legRes, usrRes, audRes] = await Promise.all([
+      const [legRes, usrRes, audRes, ovRes] = await Promise.all([
         authFetch('/api/admin/legacy-sessions'),
         authFetch('/api/admin/users'),
         authFetch('/api/admin/audit-logs?limit=50'),
+        authFetch('/api/admin/analytics/overview'),
       ])
       if (legRes.ok) setLegacySessions((await legRes.json()).sessions || [])
       if (usrRes.ok) setUsers((await usrRes.json()).users || [])
       if (audRes.ok) setAuditLogs((await audRes.json()).audit_logs || [])
+      if (ovRes.ok) setOverview(await ovRes.json())
     } catch {
       setError('Failed to load administrator console data.')
     }
@@ -82,6 +86,26 @@ export function AdminConsolePage({ currentUser, onOpenSettings }) {
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
+            onClick={() => setTab('analytics')}
+            className={`px-4 py-2 rounded-xl border-2 border-black text-xs font-black uppercase flex items-center space-x-1.5 ${
+              tab === 'analytics' ? 'bg-[#FFE600]' : 'bg-[#F4F0EA]'
+            }`}
+          >
+            <Activity className="w-3.5 h-3.5" />
+            <span>Platform Analytics</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('rooms')}
+            className={`px-4 py-2 rounded-xl border-2 border-black text-xs font-black uppercase flex items-center space-x-1.5 ${
+              tab === 'rooms' ? 'bg-[#FFE600]' : 'bg-[#F4F0EA]'
+            }`}
+          >
+            <Video className="w-3.5 h-3.5" />
+            <span>Hosted Interview Rooms</span>
+          </button>
+          <button
+            type="button"
             onClick={() => setTab('legacy')}
             className={`px-4 py-2 rounded-xl border-2 border-black text-xs font-black uppercase flex items-center space-x-1.5 ${
               tab === 'legacy' ? 'bg-[#FFE600]' : 'bg-[#F4F0EA]'
@@ -114,6 +138,54 @@ export function AdminConsolePage({ currentUser, onOpenSettings }) {
 
         {message && <div className="p-3 bg-[#DCFCE7] border-2 border-black rounded-xl text-xs font-bold">{message}</div>}
         {error && <div className="p-3 bg-[#FEE2E2] border-2 border-black rounded-xl text-xs font-bold">{error}</div>}
+
+        {tab === 'analytics' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+              <div className="p-4 bg-[#FFE600] border-2 border-black rounded-2xl shadow-[3px_3px_0px_0px_#000] space-y-1">
+                <span className="text-[10px] font-black uppercase text-gray-700">Total Candidates</span>
+                <p className="text-2xl font-black text-black font-mono">
+                  {overview?.users?.total_candidates || 0}
+                </p>
+              </div>
+              <div className="p-4 bg-[#DCFCE7] border-2 border-black rounded-2xl shadow-[3px_3px_0px_0px_#000] space-y-1">
+                <span className="text-[10px] font-black uppercase text-gray-700">Interviews Conducted</span>
+                <p className="text-2xl font-black text-black font-mono">
+                  {overview?.interviews?.total_sessions || 0}
+                </p>
+                <span className="text-[10px] text-gray-600 block">
+                  {overview?.interviews?.self_practice_count || 0} practice • {overview?.interviews?.hosted_count || 0} hosted
+                </span>
+              </div>
+              <div className="p-4 bg-[#E0E7FF] border-2 border-black rounded-2xl shadow-[3px_3px_0px_0px_#000] space-y-1">
+                <span className="text-[10px] font-black uppercase text-gray-700">Average Score</span>
+                <p className="text-2xl font-black text-black font-mono">
+                  {overview?.interviews?.average_overall_score ? `${overview.interviews.average_overall_score}%` : 'N/A'}
+                </p>
+              </div>
+              <div className="p-4 bg-[#FCE7F3] border-2 border-black rounded-2xl shadow-[3px_3px_0px_0px_#000] space-y-1">
+                <span className="text-[10px] font-black uppercase text-gray-700">Active Rooms</span>
+                <p className="text-2xl font-black text-black font-mono">
+                  {overview?.rooms?.active_now || 0}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-4 bg-[#F4F0EA] border-2 border-black rounded-2xl space-y-2">
+              <h3 className="text-xs font-black uppercase text-black">Proctoring Telemetry Infractions Logged</h3>
+              <p className="text-xl font-black font-mono">
+                {overview?.proctoring?.total_infractions_detected || 0} total events
+              </p>
+              <p className="text-xs text-gray-600">
+                Continuous gaze-tracking, posture monitoring, and Whisper acoustic flux analysis active across all sessions.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {tab === 'rooms' && (
+          <AdminRoomManager users={users} />
+        )}
 
         {tab === 'legacy' && (
           <div className="space-y-3">

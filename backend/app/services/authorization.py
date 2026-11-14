@@ -63,9 +63,15 @@ def get_user_when_auth_enabled(request: Request, db: Session = Depends(get_db)) 
     return get_optional_user(request, db)
 
 
-def require_roles(*allowed_roles: str) -> Callable[..., User]:
+def require_roles(*allowed_roles: Any) -> Callable[..., User]:
     """FastAPI dependency requiring authenticated user with one of allowed_roles."""
-    allowed = set(allowed_roles)
+    flat_roles = []
+    for r in allowed_roles:
+        if isinstance(r, (list, tuple, set)):
+            flat_roles.extend(r)
+        else:
+            flat_roles.append(r)
+    allowed = set(flat_roles)
 
     def _dependency(current_user: User = Depends(get_current_user)) -> User:
         if current_user.role not in allowed:

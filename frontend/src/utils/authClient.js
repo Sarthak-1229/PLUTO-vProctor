@@ -117,9 +117,19 @@ export function resolveRouteAccess({ pathname, authEnabled, user }) {
     return { allowed: true, redirectTo: null, view: cleanPath.slice(1) }
   }
 
-  if (cleanPath === '/profile' || cleanPath === '/resumes' || cleanPath === '/recommendations') {
+  if (cleanPath === '/profile' || cleanPath === '/resumes' || cleanPath === '/recommendations' || cleanPath === '/roadmap') {
     if (!user) return { allowed: false, redirectTo: '/login', view: 'login' }
     return { allowed: true, redirectTo: null, view: cleanPath.slice(1) }
+  }
+
+  if (cleanPath === '/rooms/join') {
+    if (authEnabled && !user) return { allowed: false, redirectTo: '/login', view: 'login' }
+    return { allowed: true, redirectTo: null, view: 'rooms-join' }
+  }
+
+  if (cleanPath.startsWith('/rooms/')) {
+    if (authEnabled && !user) return { allowed: false, redirectTo: '/login', view: 'login' }
+    return { allowed: true, redirectTo: null, view: 'live-room' }
   }
 
   if (authEnabled && !user) {

@@ -102,19 +102,29 @@ app.add_middleware(
 
 # 3. Route Registration
 from backend.app.routers.admin import router as admin_router
+from backend.app.routers.admin_analytics import router as admin_analytics_router
+from backend.app.routers.admin_rooms import router as admin_rooms_router
 from backend.app.routers.analysis import router as analysis_router
 from backend.app.routers.auth import router as auth_router
 from backend.app.routers.candidate import router as candidate_router
+from backend.app.routers.candidate_roadmap import router as candidate_roadmap_router
 from backend.app.routers.interview import router as interview_router
 from backend.app.routers.jobs import router as jobs_router
+from backend.app.routers.question_sets import router as question_sets_router
 from backend.app.routers.report import router as report_router
 from backend.app.routers.resume import router as resume_router
 from backend.app.routers.resumes import router as resumes_router
+from backend.app.routers.rooms import router as rooms_router
 from backend.app.routers.settings import router as settings_router
 
 app.include_router(auth_router)
 app.include_router(candidate_router)
+app.include_router(candidate_roadmap_router)
 app.include_router(admin_router)
+app.include_router(admin_analytics_router)
+app.include_router(admin_rooms_router)
+app.include_router(rooms_router)
+app.include_router(question_sets_router)
 app.include_router(jobs_router)
 app.include_router(resume_router)
 app.include_router(resumes_router)

@@ -8,6 +8,7 @@ export function CandidateDashboard({
   onLoadPastReport,
   currentUser,
   authEnabled,
+  onNavigate,
 }) {
   const [pastSessions, setPastSessions] = useState([])
   const [loading, setLoading] = useState(false)
@@ -142,7 +143,18 @@ export function CandidateDashboard({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t-2 border-black bg-[#F4F0EA] flex justify-end">
+        <div className="p-4 border-t-2 border-black bg-[#F4F0EA] flex items-center justify-between">
+          {onNavigate && (
+            <button
+              onClick={() => {
+                onClose()
+                onNavigate('/roadmap')
+              }}
+              className="px-4 py-2 rounded-xl bg-[#FFE600] hover:bg-yellow-400 border-2 border-black font-black text-xs uppercase shadow-[2px_2px_0px_0px_#000]"
+            >
+              Explore Learning Roadmap
+            </button>
+          )}
           <button
             onClick={onClose}
             className="px-5 py-2 rounded-xl bg-white hover:bg-slate-100 border-2 border-black font-black text-xs uppercase shadow-[2px_2px_0px_0px_#000]"

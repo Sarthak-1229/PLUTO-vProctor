@@ -131,3 +131,40 @@ This document records architectural decisions, defaults chosen during developmen
 - **Context:** In self-practice mode (`AUTH_ENABLED=False`), anonymous candidates can take practice interviews. However, account-linked sessions (`candidate_user_id IS NOT NULL`) must remain strictly private even if auth is disabled.
 - **Decision:** In `enforce_session_access()`, if `candidate_user_id` is set, strictly require authenticated caller matching the candidate ID or an administrator, raising 401 for anonymous callers and 403 for unauthorized users. Unclaimed legacy sessions (`candidate_user_id IS NULL`) remain accessible in offline mode.
 - **Rationale:** Eliminates IDOR cross-candidate data leakage while preserving offline self-practice compatibility.
+
+### DECISION-022: Sequence-Numbered Room State Machine with Reconnect Recovery
+- **Date:** 2026-11-13 (v2 Phase 3)
+- **Context:** Live admin-hosted interviews require reliable synchronization of room state, question progression, and proctoring events across admin and candidate browsers over unreliable network connections.
+- **Decision:** Implement a strict sequence-numbered state machine (`DRAFT -> SCHEDULED -> LOBBY -> LIVE <-> PAUSED -> PROCESSING -> COMPLETED`) with sequence versions (`sequence_version` monotonically incrementing). Broadcast state deltas over WebSocket and persist all room actions immutably into `room_events`. On client reconnect or browser refresh, the client fetches `/api/rooms/{room_id}/snapshot` and re-subscribes, restoring exact state without split-brain progression.
+- **Rationale:** Guarantees authoritative synchronization between admin and candidate and prevents duplicate or out-of-order state transitions.
+
+### DECISION-023: Reusable Question Sets and Live Question Sequence Manipulation
+- **Date:** 2026-11-13 (v2 Phase 3)
+- **Context:** Administrators need the ability to curate reusable interview question templates and reorder, skip, or inject questions dynamically during live interviews.
+- **Decision:** Introduce `question_sets` and `question_set_items` tables for curating static or domain-specific interview templates. When a room is scheduled or started, questions are copied into `room_questions` with ordering indexes. Administrators can reorder upcoming questions (`POST /api/admin/rooms/{room_id}/reorder`), skip, or advance questions in real time, with changes instantly reflected in candidate WebSocket feeds.
+- **Rationale:** Provides recruiter flexibility while maintaining immutable question assignment history.
+
+### DECISION-024: Multi-Word Keyword Match Provenance and 5-Axis Competency Radar Analytics
+- **Date:** 2026-11-13 (v2 Phase 4)
+- **Context:** Automated evaluation must provide explainable rubric scores and detailed keyword recall evidence without penalizing candidate domain terminology that spans multiple words (e.g., "write skew", "majority vote").
+- **Decision:** Enhance `answer_eval_service.py` with multi-word phrase matching and token-set checking. Provide structured rubric breakdowns (`technical_accuracy`, `technical_depth`, `communication_clarity`, `keyword_recall`) with concrete deduction line items. Compute a 5-axis competency radar metric across Technical Accuracy, Problem Solving, Communication, Proctoring Integrity, and Role Alignment displayed in the final report view.
+- **Rationale:** Transparent, explainable AI scoring adhering to non-negotiable principle #4: "The LLM never alone decides a score."
+
+### DECISION-025: Concept-Gap Adaptive Follow-Up Questioning
+- **Date:** 2026-11-13 (v2 Phase 4)
+- **Context:** In self-practice and hosted interviews, candidates who omit core concepts should be prompted with intelligent follow-up questions targeting the omitted knowledge areas rather than generic queries.
+- **Decision:** Implement concept-gap detection in `interview_service.py:generate_rag_followup` that identifies unmentioned expected keywords and prompts the LLM to generate targeted technical probes addressing the omitted concept. If the candidate already covered all core concepts, the follow-up dynamically probes edge cases and architectural trade-offs.
+- **Rationale:** Mimics a human senior engineering interviewer and accurately assesses technical depth.
+
+### DECISION-026: Candidate Learning Roadmap & Operational Analytics Dashboard
+- **Date:** 2026-11-14 (v2 Phase 5)
+- **Context:** Candidates need longitudinal visibility into their performance over time and a structured learning plan; administrators need centralized visibility into interview volume, scores, proctoring infractions, and audit feeds.
+- **Decision:** Implement `roadmap_service.py` to aggregate performance trends, compute readiness grades (A/B/C/D), and generate targeted milestones and practice drills. Implement `admin_analytics.py` to surface platform-wide throughput KPIs, room counts, and chronological audit trails.
+- **Rationale:** Completes candidate and administrator user journeys beyond standalone one-off interview sessions.
+
+### DECISION-027: Multi-Stage Production Containerization with Dedicated Nginx WebSocket Proxy
+- **Date:** 2026-11-14 (v2 Phase 6)
+- **Context:** Production deployment requires containerized services (FastAPI backend, background worker, PostgreSQL, Redis, React frontend) with secure defaults, non-root execution, and WebSocket proxying for WebRTC signaling.
+- **Decision:** Build multi-stage Dockerfiles with dedicated non-root application user `pluto` (UID 1000), pre-created storage directories, and automated health checks (`/api/health`, `/api/ready`). Configure Nginx reverse proxy with explicit WebSocket upgrade headers (`$http_upgrade`, `$connection_upgrade`) and long timeouts (86400s) to support real-time room signaling. Provide dual Docker Compose configurations (`docker-compose.yml` for PostgreSQL/Redis and `docker-compose.sqlite.yml` for standalone/local deployment).
+- **Rationale:** Ensures clean, secure, scalable deployment across staging and production environments without compromising local-first offline development.
+

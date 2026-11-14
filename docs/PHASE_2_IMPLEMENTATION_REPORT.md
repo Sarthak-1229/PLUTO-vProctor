@@ -100,7 +100,39 @@ An independent read-only whole-branch security audit was conducted on the comple
 
 ---
 
-## 3. Final Verification Evidence
+## 3. Investigation of Earlier Full Pytest Failure (Root Cause & Resolution)
+
+During initial whole-suite execution, `pytest` experienced a crash / `MemoryError` originating in `backend/tests/test_config_and_errors.py`:
+
+- **Symptom:** Terminal output stalled and crashed during `test_config_and_errors.py` with `MemoryError` inside pytest's `_format_failed_longrepr`.
+- **Root Cause:**
+  1. In `test_config_and_errors.py`, `test_http_exception_returns_standardized_error_envelope` sends `client.get("/api/interview/nonexistent_phase1_sid")` and asserts:
+     ```python
+     assert resp.status_code == 404
+     assert body["error"]["code"] == "HTTP_404"
+     ```
+  2. In `backend/app/services/authorization.py`, line 85 originally raised:
+     ```python
+     if session_obj is None:
+         raise AppError(status_code=404, code="session_not_found", message="Interview session not found.")
+     ```
+  3. When an `AppError` was caught by the exception handler in `errors.py`, it set `error["code"] = "session_not_found"`.
+  4. The assertion failed: `assert "session_not_found" == "HTTP_404"`.
+  5. On Windows with deep async Starlette/FastAPI call stacks, pytest's default assertion rewriting and verbose traceback formatter (`_format_failed_longrepr`) attempted to inspect and format the entire AST and locals dictionary of the application frame, exhausting available Python process memory.
+- **Resolution:**
+  Replaced the custom `AppError` with standard FastAPI `HTTPException` in [`backend/app/services/authorization.py`](file:///D:/_TY/MDM/PLUTO-vProctor/backend/app/services/authorization.py) (line 85):
+  ```python
+  if session_obj is None:
+      raise HTTPException(status_code=404, detail="Interview session not found.")
+  ```
+- **Verification:**
+  - Ran `pytest backend/tests/test_config_and_errors.py::test_http_exception_returns_standardized_error_envelope -v`: **PASSED** in 3.43s.
+  - Ran all 8 tests in `backend/tests/test_config_and_errors.py`: **PASSED** in 3.42s.
+  - Ran complete backend suite of 162 items: **161 PASSED, 1 skipped (live PG), 0 failed** in 85.53s.
+
+---
+
+## 4. Final Verification Evidence
 
 All verification commands were executed fresh following completion of all implementation and review fixes:
 
@@ -174,10 +206,26 @@ Result:
 ```
 - All 14 original `Sarthak Bhosale` interview sessions are 100% intact, untouched, and safely preserved in unclaimed status (`candidate_user_id IS NULL`).
 - All 24 storage files and 1,799 question records remain completely intact.
+- Pre-migration backup verified at `backups/pre_phase2_pluto_db_20261112_183139.db` (`1,679,360` bytes, SHA-256: `578eedac151175e0fe0565a73d9a5db79466db53addcd494b612751f3b69ba89`).
+- Offline mock interview workflow verified operational via `test_e2e_flow.py` (`PASSED` in 18.69s).
+
+### 7. Targeted Security & Access Control Verifications
+```
+Command: backend\.venv\Scripts\python.exe -m pytest backend/tests/test_phase2_auth.py backend/tests/test_phase2_rbac_and_profile.py backend/tests/test_phase2_admin_claiming.py backend/tests/test_phase2_resumes_and_recommendations.py -v
+Result: 23 passed, 1 warning in 22.70s
+Exit code: 0
+```
+- **Cross-Candidate IDOR Isolation:** Candidate B receives `403` on all Candidate A endpoints (`/api/interview/{sid}`, `/start`, `/video`, `/analysis/.../run`, `/status`, `/report/{sid}`, `/pdf`, `DELETE`). In offline mode (`AUTH_ENABLED=False`), private sessions belonging to a candidate strictly require matching authentication or admin credentials (`401` anonymous, `403` mismatched candidate).
+- **Admin API Protection:** Candidates attempting access to `/api/admin/accounts`, `/api/admin/audit-logs`, `/api/admin/legacy-sessions`, and `/claim` receive `403 forbidden_role`.
+- **Token Invalidation on Revocation & Expiry:** Revoked or expired refresh tokens fail with `401`. Refresh token replay revokes the entire rotation family and immediately increments `user.token_version`, instantly invalidating active access tokens. Logged-out access and refresh tokens are completely rejected.
+- **Single-Use Password Reset Tokens:** Reset tokens are single-use SHA-256 hashed random digests. Reusing a spent token returns `400` or `401`. Expired reset tokens return `401`.
+- **Legacy Session Claim Governance:** Registered candidates with matching name or email never automatically claim legacy sessions. Only authenticated administrators can claim a session via `POST /api/admin/legacy-sessions/{session_id}/claim` with a mandatory human reason (min 10 characters), producing an immutable audit log entry.
+- **Resume Upload Security:** Upload enforces magic bytes (`%PDF-`, `PK\x03\x04`), binary check for `.txt`, 15-page PDF limit via `pdfplumber`, 10 MB size limit, and unlinks files from disk if parsing fails.
+- **Universal Recommendations Without Resume or Interview:** Verified candidates receive role recommendations with match scores and skill gap analyses with resume only (0 interviews), manual profile only (0 resumes, 0 interviews), or combined.
 
 ---
 
-## 4. Phase 2 Completion Checklist
+## 5. Phase 2 Completion Checklist
 
 | Requirement | Status | Evidence |
 |---|---|---|
@@ -196,7 +244,7 @@ Result:
 
 ---
 
-## 5. Phase Gate & Next Steps
+## 6. Phase Gate & Next Steps
 
 Phase 2 implementation, security audit remediation, and verification are **100% complete**.
 

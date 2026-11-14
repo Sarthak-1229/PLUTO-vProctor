@@ -11,6 +11,8 @@ import {
   Shield,
   LogOut,
   LogIn,
+  Video,
+  TrendingUp,
 } from 'lucide-react'
 import plutoLogo from '../assets/logo.png'
 
@@ -107,6 +109,17 @@ export function Navbar({
             <>
               <button
                 type="button"
+                onClick={() => onNavigate('/rooms/join')}
+                className={`px-2.5 py-1.5 rounded-xl border-2 border-black text-xs font-black uppercase flex items-center space-x-1 ${
+                  currentPath === '/rooms/join' ? 'bg-[#FFE600]' : 'bg-white hover:bg-[#FFE600]'
+                }`}
+                title="Join Hosted Room"
+              >
+                <Video className="w-3.5 h-3.5" />
+                <span className="hidden md:inline text-[11px]">Join Room</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => onNavigate('/profile')}
                 className={`px-2.5 py-1.5 rounded-xl border-2 border-black text-xs font-black uppercase flex items-center space-x-1 ${
                   currentPath === '/profile' ? 'bg-[#FFE600]' : 'bg-white hover:bg-[#FFE600]'
@@ -137,6 +150,17 @@ export function Navbar({
               >
                 <Compass className="w-3.5 h-3.5" />
                 <span className="hidden lg:inline text-[11px]">Jobs</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigate('/roadmap')}
+                className={`px-2.5 py-1.5 rounded-xl border-2 border-black text-xs font-black uppercase flex items-center space-x-1 ${
+                  currentPath === '/roadmap' ? 'bg-[#FFE600]' : 'bg-white hover:bg-[#FFE600]'
+                }`}
+                title="Learning Roadmap"
+              >
+                <TrendingUp className="w-3.5 h-3.5" />
+                <span className="hidden lg:inline text-[11px]">Roadmap</span>
               </button>
             </>
           )}

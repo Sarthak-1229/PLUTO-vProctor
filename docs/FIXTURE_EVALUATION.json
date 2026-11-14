@@ -4,9 +4,9 @@
     "duration_sec": 15.0,
     "filler": {
       "gt_count": 1,
-      "det_count": 111,
+      "det_count": 2,
       "tp": 0,
-      "fp": 111,
+      "fp": 2,
       "fn": 1,
       "precision": 0.0,
       "recall": 0.0,
@@ -14,9 +14,9 @@
     },
     "pause": {
       "gt_count": 1,
-      "det_count": 3,
+      "det_count": 2,
       "tp": 0,
-      "fp": 3,
+      "fp": 2,
       "fn": 1,
       "precision": 0.0,
       "recall": 0.0
@@ -41,9 +41,9 @@
     },
     "asr": {
       "ref_words": 9,
-      "hyp_words": 111,
-      "wer": 2.0,
-      "hyp_transcript": "uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh uh"
+      "hyp_words": 4,
+      "wer": 1.0,
+      "hyp_transcript": "uh uh good game"
     }
   }
 ]

@@ -103,17 +103,27 @@ class AnswerEvaluationService:
             cv = self.tfidf.transform(candidate_transcript)
             tfidf_sim = float(cosine_similarity(qv, cv))
 
-        # Keyword recall with fuzzy tolerance
+        # Keyword recall with fuzzy tolerance and multi-word phrase support
+        cand_lower = candidate_transcript.lower()
         cand_tokens = set(tokenize(candidate_transcript))
         matched_kw = []
         missed_kw = []
 
         for kw in expected_keywords:
-            kw_clean = kw.lower()
-            if any(t == kw_clean or (len(t) > 3 and levenshtein(t, kw_clean) <= 1) for t in cand_tokens):
-                matched_kw.append(kw)
+            kw_clean = kw.lower().strip()
+            if not kw_clean:
+                continue
+            if " " in kw_clean:
+                # Multi-word phrase keyword match
+                if kw_clean in cand_lower or all(part in cand_tokens for part in kw_clean.split()):
+                    matched_kw.append(kw)
+                else:
+                    missed_kw.append(kw)
             else:
-                missed_kw.append(kw)
+                if any(t == kw_clean or (len(t) > 3 and levenshtein(t, kw_clean) <= 1) for t in cand_tokens):
+                    matched_kw.append(kw)
+                else:
+                    missed_kw.append(kw)
 
         kw_recall = len(matched_kw) / max(len(expected_keywords), 1)
 
@@ -201,6 +211,9 @@ class AnswerEvaluationService:
         )
 
         if llm_rubric:
+            tech_accuracy = round(0.6 * algo_res["algorithmic_score"] + 0.4 * (llm_rubric.relevance * 10.0), 1)
+            tech_depth = round(0.5 * (algo_res["keyword_recall"] * 100.0) + 0.5 * (llm_rubric.depth * 10.0), 1)
+            clarity = round(llm_rubric.clarity * 10.0, 1)
             llm_avg = (llm_rubric.relevance + llm_rubric.clarity + llm_rubric.depth) / 3.0
             llm_score = llm_avg * 10.0  # Scale 0-10 to 0-100
             # 60% algorithmic + 40% LLM
@@ -208,6 +221,9 @@ class AnswerEvaluationService:
             feedback = llm_rubric.one_line_feedback
         else:
             # Fallback: 100% algorithmic
+            tech_accuracy = algo_res["algorithmic_score"]
+            tech_depth = round(algo_res["keyword_recall"] * 100.0, 1)
+            clarity = round(min(100.0, max(20.0, algo_res["embedding_similarity"] * 100.0)), 1)
             combined_score = algorithmic_score
             llm_score = algorithmic_score
             feedback = f"Algorithmic evaluation: {len(algo_res['matched_keywords'])} of {len(expected_keywords)} core concepts mentioned."
@@ -216,6 +232,12 @@ class AnswerEvaluationService:
             "overall_answer_score": combined_score,
             "algorithmic_score": algorithmic_score,
             "llm_score": round(llm_score, 1),
+            "rubric_breakdown": {
+                "technical_accuracy": tech_accuracy,
+                "technical_depth": tech_depth,
+                "communication_clarity": clarity,
+                "keyword_recall": algo_res["keyword_recall"],
+            },
             "feedback": feedback,
             "reference_answer": reference_answer,
             "matched_keywords": algo_res["matched_keywords"],
