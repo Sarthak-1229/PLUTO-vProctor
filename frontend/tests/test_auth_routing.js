@@ -79,5 +79,50 @@ describe('Frontend auth & RBAC route guards', () => {
       { allowed: true, redirectTo: null, view: 'roadmap' },
     )
   })
+
+  it('resolves report deep-linking routes for candidates, admins, and offline mode', () => {
+    const candidate = { id: 'usr_cand', role: 'candidate' }
+    const admin = { id: 'usr_admin', role: 'admin' }
+
+    // 1. Unauthenticated access blocked when authEnabled is true
+    assert.deepEqual(
+      resolveRouteAccess({ pathname: '/report/sess_abc123', authEnabled: true, user: null }),
+      { allowed: false, redirectTo: '/login', view: 'login' },
+    )
+
+    // 2. Candidate access allowed with extracted sessionId
+    assert.deepEqual(
+      resolveRouteAccess({ pathname: '/report/sess_abc123', authEnabled: true, user: candidate }),
+      { allowed: true, redirectTo: null, view: 'report', sessionId: 'sess_abc123' },
+    )
+
+    // 3. Admin access allowed with extracted sessionId
+    assert.deepEqual(
+      resolveRouteAccess({ pathname: '/report/sess_abc123', authEnabled: true, user: admin }),
+      { allowed: true, redirectTo: null, view: 'report', sessionId: 'sess_abc123' },
+    )
+
+    // 4. Offline mode allows report access anonymously
+    assert.deepEqual(
+      resolveRouteAccess({ pathname: '/report/sess_abc123', authEnabled: false, user: null }),
+      { allowed: true, redirectTo: null, view: 'report', sessionId: 'sess_abc123' },
+    )
+
+    // 5. Handles trailing slash and complex session ID formatting
+    assert.deepEqual(
+      resolveRouteAccess({ pathname: '/report/sess_8f29-c1b3_021a/', authEnabled: true, user: candidate }),
+      { allowed: true, redirectTo: null, view: 'report', sessionId: 'sess_8f29-c1b3_021a' },
+    )
+
+    // 6. Bare /report without ID safely redirects to home
+    assert.deepEqual(
+      resolveRouteAccess({ pathname: '/report', authEnabled: false, user: null }),
+      { allowed: true, redirectTo: '/', view: 'practice' },
+    )
+    assert.deepEqual(
+      resolveRouteAccess({ pathname: '/report/', authEnabled: false, user: null }),
+      { allowed: true, redirectTo: '/', view: 'practice' },
+    )
+  })
 })
 

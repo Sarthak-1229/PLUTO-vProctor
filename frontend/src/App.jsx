@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { FileText, ShieldAlert } from 'lucide-react'
 import { LiveGazeDetector } from './utils/liveGazeDetector'
 import { InterviewFSM, INTERVIEW_STATES, saveSessionState, loadSessionState, clearSessionState } from './utils/interviewFSM'
 import {
@@ -99,6 +100,7 @@ function MainApp() {
     setQuestions([])
     setCurrentQuestionIndex(0)
     setCurrentStep('select')
+    navigate('/')
   }
 
   // Modals
@@ -496,6 +498,7 @@ function MainApp() {
         const data = await res.json()
         setReportData(data)
         setCurrentStep('report')
+        if (sessionId) navigate(`/report/${sessionId}`)
         return
       }
     } catch (e) {
@@ -506,6 +509,7 @@ function MainApp() {
       setTimeout(() => loadFinalReport(retries - 1), 2000)
     } else {
       setCurrentStep('report')
+      if (sessionId) navigate(`/report/${sessionId}`)
     }
   }
 
@@ -604,6 +608,7 @@ function MainApp() {
           {authReady && routeGuard.view === 'admin' && (
             <AdminConsolePage
               currentUser={currentUser}
+              onNavigate={navigate}
               onOpenSettings={() => setIsSettingsOpen(true)}
             />
           )}
@@ -652,6 +657,22 @@ function MainApp() {
               roomId={pathname.split('/rooms/')[1]?.replace(/\/+$/, '')}
               currentUser={currentUser}
               onLeaveRoom={() => navigate('/')}
+              onNavigate={navigate}
+            />
+          )}
+
+          {authReady && routeGuard.view === 'report' && (
+            <StandaloneReportContainer
+              sessionId={routeGuard.sessionId}
+              cachedReportData={sessionId === routeGuard.sessionId ? reportData : null}
+              onReportLoaded={(loaded) => {
+                setReportData(loaded)
+                setSessionId(routeGuard.sessionId)
+              }}
+              onDeleteData={handleDeleteData}
+              onResetSession={handleResetSession}
+              onRetryDifferentQuestions={handleRetryDifferentQuestions}
+              onNavigate={navigate}
             />
           )}
 
@@ -750,20 +771,10 @@ function MainApp() {
           currentUser={currentUser}
           authEnabled={authEnabled}
           onNavigate={navigate}
-          onLoadPastReport={async (pastSid) => {
+          onLoadPastReport={(pastSid) => {
             setSessionId(pastSid)
-            setCurrentStep('processing')
-            navigate('/')
-            try {
-              const res = await authFetch(`/api/report/${pastSid}`)
-              if (res.ok) {
-                const data = await res.json()
-                setReportData(data)
-                setCurrentStep('report')
-              }
-            } catch (e) {
-              console.warn('Failed to load past report:', e)
-            }
+            setIsDashboardOpen(false)
+            navigate(`/report/${pastSid}`)
           }}
         />
 
@@ -779,7 +790,7 @@ function MainApp() {
   )
 }
 
-function HostedRoomContainer({ roomId, currentUser, onLeaveRoom }) {
+function HostedRoomContainer({ roomId, currentUser, onLeaveRoom, onNavigate }) {
   const [snapshot, setSnapshot] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -849,6 +860,135 @@ function HostedRoomContainer({ roomId, currentUser, onLeaveRoom }) {
       roomId={roomId}
       currentUser={currentUser}
       onLeaveRoom={onLeaveRoom}
+      onNavigate={onNavigate}
+    />
+  )
+}
+
+function StandaloneReportContainer({
+  sessionId,
+  cachedReportData,
+  onReportLoaded,
+  onDeleteData,
+  onResetSession,
+  onRetryDifferentQuestions,
+  onNavigate,
+}) {
+  const [data, setData] = useState(
+    cachedReportData && (cachedReportData.session_id === sessionId || cachedReportData.id === sessionId)
+      ? cachedReportData
+      : null,
+  )
+  const [loading, setLoading] = useState(!data)
+  const [error, setError] = useState(null)
+  const [statusCode, setStatusCode] = useState(200)
+
+  useEffect(() => {
+    if (cachedReportData && (cachedReportData.session_id === sessionId || cachedReportData.id === sessionId)) {
+      setData(cachedReportData)
+      setLoading(false)
+      setError(null)
+      return undefined
+    }
+
+    let active = true
+    setLoading(true)
+    setError(null)
+
+    async function fetchReport() {
+      try {
+        const res = await authFetch(`/api/report/${sessionId}`)
+        if (!active) return
+
+        if (!res.ok) {
+          setStatusCode(res.status)
+          const body = await res.json().catch(() => ({}))
+          const detail = body.detail || body.error?.message
+          if (res.status === 403) {
+            setError(detail || 'Access Forbidden: You do not have permission to view this interview report.')
+          } else if (res.status === 404) {
+            setError(detail || `Report Not Found: No evaluation dossier was found for session "${sessionId}".`)
+          } else {
+            setError(detail || 'An unexpected error occurred loading the report dossier.')
+          }
+          return
+        }
+
+        const reportJson = await res.json()
+        if (active) {
+          setData(reportJson)
+          if (onReportLoaded) onReportLoaded(reportJson)
+        }
+      } catch (err) {
+        if (active) {
+          setError(err.message || 'Network error fetching interview evaluation report.')
+        }
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    fetchReport()
+    return () => {
+      active = false
+    }
+  }, [sessionId, cachedReportData, onReportLoaded])
+
+  if (loading) {
+    return (
+      <div className="max-w-md mx-auto text-center py-20 space-y-6">
+        <div className="w-16 h-16 bg-[#FFE600] border-[3px] border-black rounded-2xl text-black mx-auto flex items-center justify-center shadow-[5px_5px_0px_0px_#000] animate-bounce">
+          <FileText className="w-8 h-8 stroke-[2.5]" />
+        </div>
+        <h2 className="text-2xl font-black text-black uppercase tracking-tight">
+          Retrieving Forensic Dossier
+        </h2>
+        <p className="text-xs font-bold text-slate-600">
+          Loading evaluation telemetry and scoring records for session {sessionId}...
+        </p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-md mx-auto p-8 bg-[#FECDD3] border-[3px] border-black rounded-3xl text-center space-y-4 shadow-[6px_6px_0px_0px_#000]">
+        <div className="w-12 h-12 bg-white border-2 border-black rounded-2xl mx-auto flex items-center justify-center shadow-[2px_2px_0px_0px_#000]">
+          <ShieldAlert className="w-6 h-6 text-red-600 stroke-[2.5]" />
+        </div>
+        <h2 className="text-lg font-black uppercase text-red-950">
+          {statusCode === 403 ? 'Access Denied' : statusCode === 404 ? 'Report Not Found' : 'Error Loading Report'}
+        </h2>
+        <p className="text-xs font-bold text-red-900 leading-relaxed">{error}</p>
+        <div className="pt-2 flex justify-center space-x-3">
+          <button
+            type="button"
+            onClick={() => onNavigate('/')}
+            className="px-4 py-2 bg-black text-white border-2 border-black rounded-xl text-xs font-black uppercase shadow-[2px_2px_0px_0px_#000] hover:bg-gray-800"
+          >
+            Return to Home
+          </button>
+          {statusCode !== 403 && statusCode !== 404 && (
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-[#FFE600] text-black border-2 border-black rounded-xl text-xs font-black uppercase shadow-[2px_2px_0px_0px_#000] hover:bg-yellow-400"
+            >
+              Retry
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <ReportView
+      reportData={data}
+      sessionId={sessionId}
+      onDeleteData={onDeleteData}
+      onResetSession={onResetSession}
+      onRetryDifferentQuestions={onRetryDifferentQuestions}
     />
   )
 }

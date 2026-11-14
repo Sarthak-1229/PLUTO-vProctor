@@ -679,13 +679,45 @@ def serialize_room_summary(room: InterviewRoom, include_questions: bool = False)
         "current_sequence_version": room.current_sequence_version,
         "current_question_ordinal": room.current_question_ordinal,
         "assigned_candidate_id": room.assigned_candidate_id,
+        "assigned_candidate": (
+            {
+                "id": room.assigned_candidate.id,
+                "full_name": room.assigned_candidate.full_name,
+                "email": room.assigned_candidate.email,
+            }
+            if room.assigned_candidate
+            else None
+        ),
         "created_by_admin_id": room.created_by_admin_id,
+        "active_session_id": room.active_session_id,
         "started_at": room.started_at.isoformat() if room.started_at else None,
         "ended_at": room.ended_at.isoformat() if room.ended_at else None,
         "created_at": room.created_at.isoformat() if room.created_at else None,
         "question_count": len(room.questions) if room.questions else 0,
         "participant_count": len(room.participants) if room.participants else 0,
     }
+
+    if room.session:
+        rep = room.session.report
+        out["report"] = (
+            {
+                "overall_score": rep.overall_score,
+                "grade": rep.grade,
+                "readiness_label": rep.readiness_label,
+            }
+            if rep
+            else None
+        )
+        has_rec = False
+        if room.session.video_filename:
+            rec_path = settings.STORAGE_DIR / "recordings" / room.session.video_filename
+            has_rec = rec_path.exists()
+        out["has_recording"] = has_rec
+        out["recording_url"] = f"/api/interview/{room.session.id}/video" if has_rec else None
+    else:
+        out["report"] = None
+        out["has_recording"] = False
+        out["recording_url"] = None
     if include_questions and room.questions:
         out["questions"] = [
             {
@@ -761,6 +793,8 @@ def serialize_room_snapshot(db: Session, room: InterviewRoom, current_user: User
 
     return {
         "room_id": room.id,
+        "id": room.id,
+        "active_session_id": room.active_session_id,
         "title": room.title,
         "status": room.status,
         "current_sequence_version": room.current_sequence_version,

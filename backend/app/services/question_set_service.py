@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 
 from backend.app.core.errors import AppError
-from backend.app.db.models import Job, Question, QuestionSet, QuestionSetItem, RoomQuestion, User
+from backend.app.db.models import InterviewRoom, Job, Question, QuestionSet, QuestionSetItem, RoomQuestion, User
 from backend.app.services.security_service import record_audit_event
 
 
@@ -32,17 +32,23 @@ def validate_question_set_payload(data: Dict[str, Any]) -> None:
     name = (data.get("name") or "").strip()
     if not name or len(name) < 3:
         raise AppError(status_code=422, code="invalid_name", message="Question set name must be at least 3 characters.")
+    if len(name) > 255:
+        raise AppError(status_code=422, code="invalid_name", message="Question set name cannot exceed 255 characters.")
 
     items = data.get("items") or data.get("questions") or []
     if not isinstance(items, list) or len(items) == 0:
         raise AppError(status_code=422, code="empty_question_set", message="Question set must contain at least 1 question.")
+    if len(items) > 200:
+        raise AppError(status_code=422, code="too_many_questions", message="Question set cannot exceed 200 questions.")
 
     for idx, item in enumerate(items, start=1):
         if not isinstance(item, dict):
             raise AppError(status_code=422, code="invalid_item", message=f"Question item {idx} must be an object.")
-        text = (item.get("question_text") or item.get("text") or "").strip()
+        text = (item.get("question_text") or item.get("text") or item.get("question") or "").strip()
         if not text or len(text) < 5:
             raise AppError(status_code=422, code="invalid_question_text", message=f"Question {idx} text must be at least 5 characters.")
+        if len(text) > 2000:
+            raise AppError(status_code=422, code="question_text_too_long", message=f"Question {idx} text cannot exceed 2000 characters.")
 
 
 def create_question_set(
@@ -61,7 +67,7 @@ def create_question_set(
         id=qset_id,
         owner_admin_id=admin_user.id,
         name=str(data["name"]).strip(),
-        description=data.get("description", "").strip() or None,
+        description=(data.get("description") or "").strip() or None,
         source_filename=data.get("source_filename"),
         schema_version="1.0",
         version=1,
@@ -72,17 +78,21 @@ def create_question_set(
 
     for idx, item in enumerate(items, start=1):
         item_id = f"qitem_{uuid.uuid4().hex[:12]}"
-        target_skills = item.get("target_skills") or item.get("target_skills_json") or []
-        ideal_criteria = item.get("ideal_criteria") or item.get("ideal_criteria_json") or []
+        target_skills = item.get("target_skills") or item.get("target_skills_json") or item.get("skills") or []
+        if isinstance(target_skills, str):
+            target_skills = [s.strip() for s in target_skills.split(",") if s.strip()]
+        ideal_criteria = item.get("ideal_criteria") or item.get("ideal_criteria_json") or item.get("criteria") or []
+        if isinstance(ideal_criteria, str):
+            ideal_criteria = [c.strip() for c in ideal_criteria.split(",") if c.strip()]
         q_item = QuestionSetItem(
             id=item_id,
             question_set_id=qset_id,
             source_question_id=item.get("source_question_id") or item.get("question_id"),
-            question_text=(item.get("question_text") or item.get("text") or "").strip(),
+            question_text=(item.get("question_text") or item.get("text") or item.get("question") or "").strip(),
             domain=(item.get("domain") or "General").strip(),
             difficulty=(item.get("difficulty") or "Intermediate").strip(),
-            target_skills_json=target_skills if isinstance(target_skills, list) else [],
-            ideal_criteria_json=ideal_criteria if isinstance(ideal_criteria, list) else [],
+            target_skills_json=target_skills if isinstance(target_skills, list) else [target_skills],
+            ideal_criteria_json=ideal_criteria if isinstance(ideal_criteria, list) else [ideal_criteria],
             ordinal=idx,
             metadata_json=item.get("metadata") or {},
         )
@@ -136,12 +146,30 @@ def delete_question_set(
     *,
     admin_user: User,
 ) -> None:
-    """Delete a question set and its child items."""
+    """Delete a question set and its child items, safely preserving room references."""
     qset = db.query(QuestionSet).filter(QuestionSet.id == qset_id).first()
     if not qset:
         raise AppError(status_code=404, code="question_set_not_found", message="Question set not found.")
     if admin_user.role != "super_admin" and qset.owner_admin_id != admin_user.id:
         raise AppError(status_code=403, code="forbidden_question_set", message="You do not have permission to delete this question set.")
+
+    # Check for active rooms (LOBBY, LIVE, PAUSED) referencing this set
+    active_rooms = (
+        db.query(InterviewRoom)
+        .filter(InterviewRoom.question_set_id == qset_id, InterviewRoom.status.in_(["LOBBY", "LIVE", "PAUSED"]))
+        .count()
+    )
+    if active_rooms > 0:
+        raise AppError(
+            status_code=409,
+            code="question_set_in_use",
+            message=f"Cannot delete question set: it is currently referenced by {active_rooms} active interview room(s). Complete or cancel those rooms before deleting.",
+        )
+
+    # For non-active rooms (COMPLETED, CANCELLED, DRAFT), nullify FK reference so historical rooms and RoomQuestion records are preserved
+    db.query(InterviewRoom).filter(InterviewRoom.question_set_id == qset_id).update(
+        {InterviewRoom.question_set_id: None}, synchronize_session=False
+    )
 
     record_audit_event(
         db,
@@ -154,6 +182,155 @@ def delete_question_set(
     )
     db.delete(qset)
     db.commit()
+
+
+def update_question_set(
+    db: Session,
+    qset_id: str,
+    *,
+    admin_user: User,
+    data: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Update an existing question set and replace its items."""
+    qset = db.query(QuestionSet).filter(QuestionSet.id == qset_id).first()
+    if not qset:
+        raise AppError(status_code=404, code="question_set_not_found", message="Question set not found.")
+    if admin_user.role != "super_admin" and qset.owner_admin_id != admin_user.id:
+        raise AppError(status_code=403, code="forbidden_question_set", message="You do not have permission to edit this question set.")
+
+    if "name" in data and data["name"] is not None:
+        name = str(data["name"]).strip()
+        if len(name) < 3 or len(name) > 255:
+            raise AppError(status_code=422, code="invalid_name", message="Question set name must be between 3 and 255 characters.")
+        qset.name = name
+
+    if "description" in data:
+        desc = (data["description"] or "").strip()
+        qset.description = desc or None
+
+    items = data.get("items") or data.get("questions")
+    if items is not None:
+        if not isinstance(items, list) or len(items) == 0:
+            raise AppError(status_code=422, code="empty_question_set", message="Question set must contain at least 1 question.")
+        if len(items) > 200:
+            raise AppError(status_code=422, code="too_many_questions", message="Question set cannot exceed 200 questions.")
+
+        for idx, item in enumerate(items, start=1):
+            if not isinstance(item, dict):
+                raise AppError(status_code=422, code="invalid_item", message=f"Question item {idx} must be an object.")
+            text = (item.get("question_text") or item.get("text") or item.get("question") or "").strip()
+            if not text or len(text) < 5:
+                raise AppError(status_code=422, code="invalid_question_text", message=f"Question {idx} text must be at least 5 characters.")
+            if len(text) > 2000:
+                raise AppError(status_code=422, code="question_text_too_long", message=f"Question {idx} text cannot exceed 2000 characters.")
+
+        # Recompute checksum and bump version
+        checksum = _compute_checksum(items)
+        qset.checksum = checksum
+        qset.version = (qset.version or 1) + 1
+
+        # Delete existing items and insert new ones
+        db.query(QuestionSetItem).filter(QuestionSetItem.question_set_id == qset_id).delete(synchronize_session=False)
+
+        for idx, item in enumerate(items, start=1):
+            item_id = f"qitem_{uuid.uuid4().hex[:12]}"
+            target_skills = item.get("target_skills") or item.get("target_skills_json") or item.get("skills") or []
+            if isinstance(target_skills, str):
+                target_skills = [s.strip() for s in target_skills.split(",") if s.strip()]
+            ideal_criteria = item.get("ideal_criteria") or item.get("ideal_criteria_json") or item.get("criteria") or []
+            if isinstance(ideal_criteria, str):
+                ideal_criteria = [c.strip() for c in ideal_criteria.split(",") if c.strip()]
+
+            q_item = QuestionSetItem(
+                id=item_id,
+                question_set_id=qset_id,
+                source_question_id=item.get("source_question_id") or item.get("question_id"),
+                question_text=(item.get("question_text") or item.get("text") or item.get("question") or "").strip(),
+                domain=(item.get("domain") or "General").strip(),
+                difficulty=(item.get("difficulty") or "Intermediate").strip(),
+                target_skills_json=target_skills if isinstance(target_skills, list) else [target_skills],
+                ideal_criteria_json=ideal_criteria if isinstance(ideal_criteria, list) else [ideal_criteria],
+                ordinal=idx,
+                metadata_json=item.get("metadata") or {},
+            )
+            db.add(q_item)
+
+    record_audit_event(
+        db,
+        action="question_set.updated",
+        resource_type="question_set",
+        resource_id=qset_id,
+        actor_user_id=admin_user.id,
+        actor_role=admin_user.role,
+        details={"name": qset.name, "item_count": len(items) if items is not None else (len(qset.items) if qset.items else 0), "version": qset.version},
+    )
+    db.commit()
+    db.refresh(qset)
+    return serialize_question_set(qset, include_items=True)
+
+
+def import_question_set(
+    db: Session,
+    *,
+    admin_user: User,
+    raw_payload: Any,
+    filename: Optional[str] = None,
+    dry_run: bool = False,
+) -> Dict[str, Any]:
+    """Import and validate question set from parsed JSON payload with dry_run preview support."""
+    if isinstance(raw_payload, list):
+        base_name = (filename or "Imported Question Set").rsplit(".", 1)[0].replace("_", " ").title()
+        data = {
+            "name": base_name,
+            "description": f"Imported from {filename or 'JSON file'}",
+            "items": raw_payload,
+            "source_filename": filename,
+        }
+    elif isinstance(raw_payload, dict):
+        data = dict(raw_payload)
+        if "items" not in data and "questions" in data:
+            data["items"] = data["questions"]
+        if not data.get("name"):
+            base_name = (filename or "Imported Question Set").rsplit(".", 1)[0].replace("_", " ").title()
+            data["name"] = base_name
+        if filename and not data.get("source_filename"):
+            data["source_filename"] = filename
+    else:
+        raise AppError(status_code=422, code="invalid_json_format", message="Imported content must be a JSON object or array of questions.")
+
+    validate_question_set_payload(data)
+    items = data.get("items") or []
+
+    if dry_run:
+        return {
+            "status": "valid",
+            "name": data["name"],
+            "description": data.get("description"),
+            "source_filename": data.get("source_filename"),
+            "item_count": len(items),
+            "preview_items": [
+                {
+                    "ordinal": idx,
+                    "question_text": (it.get("question_text") or it.get("text") or it.get("question") or "").strip(),
+                    "domain": (it.get("domain") or "General").strip(),
+                    "difficulty": (it.get("difficulty") or "Intermediate").strip(),
+                    "target_skills": it.get("target_skills") or it.get("skills") or [],
+                }
+                for idx, it in enumerate(items[:5], start=1)
+            ],
+        }
+
+    created = create_question_set(db, admin_user=admin_user, data=data)
+    record_audit_event(
+        db,
+        action="question_set.imported",
+        resource_type="question_set",
+        resource_id=created["id"],
+        actor_user_id=admin_user.id,
+        actor_role=admin_user.role,
+        details={"name": created["name"], "source_filename": filename, "item_count": created["item_count"]},
+    )
+    return created
 
 
 def populate_room_questions(

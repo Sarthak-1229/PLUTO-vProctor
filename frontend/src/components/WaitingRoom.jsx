@@ -3,6 +3,7 @@ import { Camera, Mic, Wifi, CheckCircle2, AlertTriangle, Clock, ShieldCheck, Pla
 import { authFetch } from '../utils/authClient'
 
 export function WaitingRoom({ roomSnapshot, onAdmitted, onLeave }) {
+  const [currentSnapshot, setCurrentSnapshot] = useState(roomSnapshot)
   const [cameraOk, setCameraOk] = useState(false)
   const [micOk, setMicOk] = useState(false)
   const [latencyMs, setLatencyMs] = useState(null)
@@ -10,6 +11,30 @@ export function WaitingRoom({ roomSnapshot, onAdmitted, onLeave }) {
   const [error, setError] = useState('')
   const videoRef = useRef(null)
   const streamRef = useRef(null)
+
+  // Dynamic status polling while waiting in lobby
+  useEffect(() => {
+    let active = true
+    const roomId = roomSnapshot?.id || roomSnapshot?.room_id
+    if (!roomId) return undefined
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await authFetch(`/api/rooms/${roomId}/snapshot`)
+        if (res.ok && active) {
+          const fresh = await res.json()
+          setCurrentSnapshot(fresh)
+        }
+      } catch {
+        // silent retry
+      }
+    }, 2000)
+
+    return () => {
+      active = false
+      clearInterval(interval)
+    }
+  }, [roomSnapshot?.id, roomSnapshot?.room_id])
 
   useEffect(() => {
     let active = true
@@ -83,12 +108,12 @@ export function WaitingRoom({ roomSnapshot, onAdmitted, onLeave }) {
               Waiting Room & Pre-flight
             </span>
             <h1 className="text-2xl font-black uppercase text-black mt-1">
-              {roomSnapshot?.title || 'Hosted Technical Interview'}
+              {currentSnapshot?.title || 'Hosted Technical Interview'}
             </h1>
           </div>
           <div className="flex items-center space-x-2 text-xs font-bold text-gray-600">
             <Clock className="w-4 h-4" />
-            <span>Duration: {Math.round((roomSnapshot?.duration_seconds || 2700) / 60)} mins</span>
+            <span>Duration: {Math.round((currentSnapshot?.duration_seconds || 2700) / 60)} mins</span>
           </div>
         </div>
 
@@ -162,7 +187,7 @@ export function WaitingRoom({ roomSnapshot, onAdmitted, onLeave }) {
             <div className="p-3 bg-[#E0E7FF] border-2 border-black rounded-xl flex items-center space-x-2 text-xs font-bold text-indigo-900">
               <ShieldCheck className="w-4 h-4 flex-shrink-0" />
               <span>
-                Proctoring preset: <strong>{roomSnapshot?.proctoring_preset || 'strict'}</strong>. Gaze and motion monitoring will activate upon interview start.
+                Proctoring preset: <strong>{currentSnapshot?.proctoring_preset || 'strict'}</strong>. Gaze and motion monitoring will activate upon interview start.
               </span>
             </div>
           </div>
@@ -172,12 +197,12 @@ export function WaitingRoom({ roomSnapshot, onAdmitted, onLeave }) {
         <div className="p-4 bg-[#FFE600] border-2 border-black rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
             <h4 className="text-sm font-black uppercase text-black">
-              {roomSnapshot?.status === 'LIVE'
+              {currentSnapshot?.status === 'LIVE'
                 ? 'The interview has started!'
                 : 'Waiting for Host to Start Interview'}
             </h4>
             <p className="text-xs font-semibold text-gray-800 mt-0.5">
-              {roomSnapshot?.status === 'LIVE'
+              {currentSnapshot?.status === 'LIVE'
                 ? 'Your interviewer is ready. Click enter room to connect live.'
                 : 'Your equipment is verified. You will automatically be admitted when the interviewer begins.'}
             </p>
@@ -193,7 +218,7 @@ export function WaitingRoom({ roomSnapshot, onAdmitted, onLeave }) {
             </button>
             <button
               type="button"
-              disabled={!allChecksPassed || roomSnapshot?.status !== 'LIVE'}
+              disabled={!allChecksPassed || currentSnapshot?.status !== 'LIVE'}
               onClick={onAdmitted}
               className="px-5 py-2.5 bg-black text-white rounded-xl text-xs font-black uppercase border-2 border-black shadow-[2px_2px_0px_0px_#FFE600] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-800 flex items-center space-x-1.5"
             >

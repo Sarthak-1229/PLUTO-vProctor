@@ -132,6 +132,21 @@ export function resolveRouteAccess({ pathname, authEnabled, user }) {
     return { allowed: true, redirectTo: null, view: 'live-room' }
   }
 
+  if (cleanPath === '/report') {
+    return { allowed: true, redirectTo: '/', view: 'practice' }
+  }
+
+  if (cleanPath.startsWith('/report/')) {
+    const sessionId = cleanPath.slice('/report/'.length).trim()
+    if (!sessionId) {
+      return { allowed: true, redirectTo: '/', view: 'practice' }
+    }
+    if (authEnabled && !user) {
+      return { allowed: false, redirectTo: '/login', view: 'login' }
+    }
+    return { allowed: true, redirectTo: null, view: 'report', sessionId }
+  }
+
   if (authEnabled && !user) {
     return { allowed: false, redirectTo: '/login', view: 'login' }
   }

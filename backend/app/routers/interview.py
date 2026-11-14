@@ -260,6 +260,7 @@ async def upload_recording(
 
 
 @router.get("/{sid}/video")
+@router.get("/{sid}/recording")
 def get_session_video(
     sid: str,
     current_user: Optional[User] = Depends(get_user_when_auth_enabled),

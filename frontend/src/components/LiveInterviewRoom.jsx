@@ -1,8 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Mic, MicOff, Video, VideoOff, ScreenShare, PhoneOff, Clock, User, ShieldAlert, CheckCircle2, ChevronRight, AlertTriangle } from 'lucide-react'
+import {
+  Mic,
+  MicOff,
+  Video,
+  VideoOff,
+  ScreenShare,
+  PhoneOff,
+  Clock,
+  User,
+  ShieldAlert,
+  CheckCircle2,
+  AlertTriangle,
+  Play,
+  Pause,
+  FastForward,
+  SkipForward,
+  FileText,
+} from 'lucide-react'
 import { authFetch, getAccessToken } from '../utils/authClient'
 
-export function LiveInterviewRoom({ roomId, currentUser, onLeaveRoom }) {
+export function LiveInterviewRoom({ roomId, currentUser, onLeaveRoom, onNavigate }) {
   const [snapshot, setSnapshot] = useState(null)
   const [occupants, setOccupants] = useState([])
   const [micEnabled, setMicEnabled] = useState(true)
@@ -13,6 +30,8 @@ export function LiveInterviewRoom({ roomId, currentUser, onLeaveRoom }) {
   const [timeLeft, setTimeLeft] = useState(180)
   const [connectionMessage, setConnectionMessage] = useState('Connecting to live session...')
   const [error, setError] = useState('')
+  const [uploadStatus, setUploadStatus] = useState('')
+  const [actionLoading, setActionLoading] = useState(false)
 
   const localVideoRef = useRef(null)
   const remoteVideoRef = useRef(null)
@@ -21,6 +40,9 @@ export function LiveInterviewRoom({ roomId, currentUser, onLeaveRoom }) {
   const pcRef = useRef(null)
   const wsRef = useRef(null)
   const heartbeatTimerRef = useRef(null)
+  const pendingCandidatesRef = useRef([])
+  const mediaRecorderRef = useRef(null)
+  const recordedChunksRef = useRef([])
 
   const isHost = currentUser?.role === 'admin' || currentUser?.role === 'super_admin'
 
@@ -51,7 +73,71 @@ export function LiveInterviewRoom({ roomId, currentUser, onLeaveRoom }) {
     }
   }, [roomId])
 
-  // 2. Initialize WebRTC Peer Connection and Local Media Stream
+  // 2. Candidate Recording Management
+  const startCandidateRecording = () => {
+    if (isHost || !localStreamRef.current || mediaRecorderRef.current) return
+    recordedChunksRef.current = []
+    let mimeType = 'video/webm;codecs=vp9,opus'
+    if (!MediaRecorder.isTypeSupported(mimeType)) {
+      mimeType = 'video/webm;codecs=vp8,opus'
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'video/webm'
+      }
+    }
+    try {
+      const rec = new MediaRecorder(localStreamRef.current, { mimeType })
+      rec.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          recordedChunksRef.current.push(e.data)
+        }
+      }
+      rec.start(1000)
+      mediaRecorderRef.current = rec
+    } catch (e) {
+      console.warn('Candidate MediaRecorder start error:', e)
+    }
+  }
+
+  const stopAndUploadCandidateRecording = async (activeSessionId) => {
+    if (isHost) return
+    const rec = mediaRecorderRef.current
+    if (rec && rec.state !== 'inactive') {
+      rec.stop()
+      await new Promise((resolve) => {
+        rec.onstop = resolve
+      })
+    }
+    mediaRecorderRef.current = null
+
+    if (recordedChunksRef.current.length === 0 || !activeSessionId) return
+
+    const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' })
+    const fd = new FormData()
+    fd.append('file', blob, `${activeSessionId}_hosted.webm`)
+
+    try {
+      setUploadStatus('Uploading interview recording...')
+      await authFetch(`/api/interview/${activeSessionId}/recording`, {
+        method: 'POST',
+        body: fd,
+      })
+      setUploadStatus('Launching automated proctoring & scoring pipeline...')
+      await authFetch(`/api/analysis/${activeSessionId}/run`, { method: 'POST' })
+      setUploadStatus('Evaluation complete! Final report ready.')
+    } catch (err) {
+      console.warn('Recording upload or analysis error:', err)
+      setUploadStatus('Recording finalized.')
+    }
+  }
+
+  // Watch for LIVE status to start candidate recording
+  useEffect(() => {
+    if (!isHost && snapshot?.status === 'LIVE' && localStreamRef.current) {
+      startCandidateRecording()
+    }
+  }, [snapshot?.status, isHost])
+
+  // 3. Initialize WebRTC Peer Connection and Local Media Stream
   useEffect(() => {
     let active = true
 
@@ -91,7 +177,7 @@ export function LiveInterviewRoom({ roomId, currentUser, onLeaveRoom }) {
             wsRef.current.send(
               JSON.stringify({
                 type: 'webrtc.signal',
-                signal_type: 'ice-candidate',
+                signal_type: 'ice_candidate',
                 payload: event.candidate.toJSON(),
               })
             )
@@ -129,10 +215,13 @@ export function LiveInterviewRoom({ roomId, currentUser, onLeaveRoom }) {
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach((t) => t.stop())
       }
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop()
+      }
     }
   }, [snapshot, roomId])
 
-  // 3. WebSocket Signaling Setup
+  // 4. WebSocket Signaling Setup
   const setupWebSocket = (pc) => {
     const token = getAccessToken()
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -178,8 +267,27 @@ export function LiveInterviewRoom({ roomId, currentUser, onLeaveRoom }) {
         if (type === 'room.snapshot') {
           if (msg.snapshot) setSnapshot(msg.snapshot)
           if (msg.occupants) setOccupants(msg.occupants)
-        } else if (type === 'participant.joined' || type === 'participant.left') {
-          // Re-fetch snapshot or update occupants
+        } else if (type === 'participant.joined') {
+          // Peer arrived: update snapshot
+          const res = await authFetch(`/api/rooms/${roomId}/snapshot`)
+          if (res.ok) setSnapshot(await res.json())
+          // If host and peer joined, send fresh offer to negotiate connection
+          if (isHost && pc) {
+            try {
+              const offer = await pc.createOffer({ iceRestart: true })
+              await pc.setLocalDescription(offer)
+              ws.send(
+                JSON.stringify({
+                  type: 'webrtc.signal',
+                  signal_type: 'offer',
+                  payload: offer,
+                })
+              )
+            } catch (err) {
+              console.warn('Failed sending offer on participant join:', err)
+            }
+          }
+        } else if (type === 'participant.left') {
           const res = await authFetch(`/api/rooms/${roomId}/snapshot`)
           if (res.ok) setSnapshot(await res.json())
         } else if (type === 'question.active') {
@@ -187,12 +295,24 @@ export function LiveInterviewRoom({ roomId, currentUser, onLeaveRoom }) {
           setTimeLeft(msg.question?.time_limit_seconds || 180)
         } else if (type === 'room.state_changed') {
           setSnapshot((prev) => (prev ? { ...prev, status: msg.status } : prev))
+          if (msg.status === 'COMPLETED') {
+            await stopAndUploadCandidateRecording(snapshot?.active_session_id)
+          }
         } else if (type === 'room.ended') {
           setSnapshot((prev) => (prev ? { ...prev, status: 'COMPLETED' } : prev))
+          await stopAndUploadCandidateRecording(snapshot?.active_session_id)
         } else if (type === 'webrtc.signal' && pc) {
           const { signal_type, payload } = msg
           if (signal_type === 'offer') {
             await pc.setRemoteDescription(new RTCSessionDescription(payload))
+            // Flush queued ICE candidates
+            for (const cand of pendingCandidatesRef.current) {
+              try {
+                await pc.addIceCandidate(new RTCIceCandidate(cand))
+              } catch {}
+            }
+            pendingCandidatesRef.current = []
+
             const answer = await pc.createAnswer()
             await pc.setLocalDescription(answer)
             ws.send(
@@ -204,8 +324,23 @@ export function LiveInterviewRoom({ roomId, currentUser, onLeaveRoom }) {
             )
           } else if (signal_type === 'answer') {
             await pc.setRemoteDescription(new RTCSessionDescription(payload))
-          } else if (signal_type === 'ice-candidate') {
-            await pc.addIceCandidate(new RTCIceCandidate(payload))
+            // Flush queued ICE candidates
+            for (const cand of pendingCandidatesRef.current) {
+              try {
+                await pc.addIceCandidate(new RTCIceCandidate(cand))
+              } catch {}
+            }
+            pendingCandidatesRef.current = []
+          } else if (signal_type === 'ice_candidate' || signal_type === 'ice-candidate') {
+            if (pc.remoteDescription && pc.remoteDescription.type) {
+              try {
+                await pc.addIceCandidate(new RTCIceCandidate(payload))
+              } catch (e) {
+                console.warn('Failed adding ICE candidate:', e)
+              }
+            } else {
+              pendingCandidatesRef.current.push(payload)
+            }
           }
         }
       } catch (e) {
@@ -227,6 +362,32 @@ export function LiveInterviewRoom({ roomId, currentUser, onLeaveRoom }) {
     }, 1000)
     return () => clearInterval(timer)
   }, [snapshot?.status, snapshot?.current_question?.ordinal])
+
+  // Host Action Handler
+  const handleHostAction = async (action, body = {}) => {
+    setActionLoading(true)
+    setError('')
+    try {
+      const res = await authFetch(`/api/admin/rooms/${roomId}/${action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.detail || `Action ${action} failed.`)
+      } else {
+        setSnapshot(data)
+        if (action === 'end') {
+          await stopAndUploadCandidateRecording(data.active_session_id || snapshot?.active_session_id)
+        }
+      }
+    } catch {
+      setError(`Failed executing ${action}.`)
+    } finally {
+      setActionLoading(false)
+    }
+  }
 
   // Media Controls
   const toggleMic = () => {
@@ -335,6 +496,13 @@ export function LiveInterviewRoom({ roomId, currentUser, onLeaveRoom }) {
         </div>
       )}
 
+      {uploadStatus && (
+        <div className="p-3 bg-[#A7F3D0] border-2 border-black rounded-xl text-xs font-bold text-green-950 flex items-center space-x-2">
+          <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+          <span>{uploadStatus}</span>
+        </div>
+      )}
+
       {/* Main Video & Proctoring Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         {/* Videos Area (3 columns) */}
@@ -418,8 +586,97 @@ export function LiveInterviewRoom({ roomId, currentUser, onLeaveRoom }) {
           </div>
         </div>
 
-        {/* Live Synchronized Question & Proctoring Board (1 column) */}
+        {/* Live Synchronized Question, Host Controls & Proctoring (1 column) */}
         <div className="space-y-4">
+          {/* Host Flow Controls Bar (Visible only to Admin) */}
+          {isHost && (
+            <div className="bg-white border-2 border-black rounded-2xl p-4 shadow-[4px_4px_0px_0px_#000] space-y-3">
+              <span className="text-[10px] font-black uppercase text-gray-500 tracking-wider">
+                Host Orchestration Controls
+              </span>
+              <div className="flex flex-col gap-2">
+                {snapshot?.status === 'LOBBY' && (
+                  <button
+                    type="button"
+                    disabled={actionLoading}
+                    onClick={() => handleHostAction('start')}
+                    className="w-full py-2 bg-green-500 text-white border-2 border-black rounded-xl text-xs font-black uppercase shadow-[2px_2px_0px_0px_#000] flex items-center justify-center space-x-1 hover:bg-green-600"
+                  >
+                    <Play className="w-3.5 h-3.5" />
+                    <span>Start Interview</span>
+                  </button>
+                )}
+
+                {snapshot?.status === 'LIVE' && (
+                  <>
+                    <button
+                      type="button"
+                      disabled={actionLoading}
+                      onClick={() => handleHostAction('advance')}
+                      className="w-full py-2 bg-blue-400 text-black border-2 border-black rounded-xl text-xs font-black uppercase shadow-[2px_2px_0px_0px_#000] flex items-center justify-center space-x-1 hover:bg-blue-500"
+                    >
+                      <FastForward className="w-3.5 h-3.5" />
+                      <span>Next Question</span>
+                    </button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        disabled={actionLoading}
+                        onClick={() => handleHostAction('pause', { reason: 'Admin technical pause' })}
+                        className="py-1.5 bg-amber-400 text-black border-2 border-black rounded-xl text-xs font-black uppercase shadow-[2px_2px_0px_0px_#000] flex items-center justify-center space-x-1 hover:bg-amber-500"
+                      >
+                        <Pause className="w-3.5 h-3.5" />
+                        <span>Pause</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={actionLoading}
+                        onClick={() => handleHostAction('skip')}
+                        className="py-1.5 bg-yellow-200 text-black border-2 border-black rounded-xl text-xs font-black uppercase shadow-[2px_2px_0px_0px_#000] flex items-center justify-center space-x-1 hover:bg-yellow-300"
+                      >
+                        <SkipForward className="w-3.5 h-3.5" />
+                        <span>Skip</span>
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={actionLoading}
+                      onClick={() => handleHostAction('end')}
+                      className="w-full py-2 bg-red-500 text-white border-2 border-black rounded-xl text-xs font-black uppercase shadow-[2px_2px_0px_0px_#000] flex items-center justify-center space-x-1 hover:bg-red-600"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>End Interview</span>
+                    </button>
+                  </>
+                )}
+
+                {snapshot?.status === 'PAUSED' && (
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      disabled={actionLoading}
+                      onClick={() => handleHostAction('resume')}
+                      className="w-full py-2 bg-green-500 text-white border-2 border-black rounded-xl text-xs font-black uppercase shadow-[2px_2px_0px_0px_#000] flex items-center justify-center space-x-1 hover:bg-green-600"
+                    >
+                      <Play className="w-3.5 h-3.5" />
+                      <span>Resume Interview</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={actionLoading}
+                      onClick={() => handleHostAction('end')}
+                      className="w-full py-2 bg-red-500 text-white border-2 border-black rounded-xl text-xs font-black uppercase shadow-[2px_2px_0px_0px_#000] flex items-center justify-center space-x-1 hover:bg-red-600"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>End Interview</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Active Question Board */}
           <div className="bg-white border-2 border-black rounded-2xl p-4 shadow-[4px_4px_0px_0px_#000] space-y-3">
             <span className="text-[10px] font-black uppercase text-gray-500 tracking-wider">
               Active Question {activeQ?.ordinal ? `#${activeQ.ordinal}` : ''}
@@ -441,8 +698,30 @@ export function LiveInterviewRoom({ roomId, currentUser, onLeaveRoom }) {
               </div>
             ) : (
               <p className="text-xs font-semibold text-gray-500">
-                Waiting for the interviewer to present the next question...
+                {snapshot?.status === 'COMPLETED'
+                  ? 'The interview has ended.'
+                  : 'Waiting for the interviewer to present the next question...'}
               </p>
+            )}
+
+            {snapshot?.status === 'COMPLETED' && snapshot?.active_session_id && (
+              <div className="pt-2">
+                <a
+                  href={`/report/${snapshot.active_session_id}`}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    if (onNavigate) {
+                      onNavigate(`/report/${snapshot.active_session_id}`)
+                    } else {
+                      window.location.href = `/report/${snapshot.active_session_id}`
+                    }
+                  }}
+                  className="w-full py-2 bg-[#FFE600] border-2 border-black rounded-xl text-xs font-black uppercase shadow-[2px_2px_0px_0px_#000] flex items-center justify-center space-x-1 hover:bg-yellow-400 cursor-pointer"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>View Evaluation Report</span>
+                </a>
+              </div>
             )}
           </div>
 
@@ -461,4 +740,3 @@ export function LiveInterviewRoom({ roomId, currentUser, onLeaveRoom }) {
     </div>
   )
 }
-

@@ -83,7 +83,7 @@ class P2PMediaTransportAdapter(MediaTransportAdapter):
             sdp = payload.get("sdp")
             type_field = payload.get("type")
             return bool(sdp and type_field in ("offer", "answer"))
-        elif signal_type == "ice_candidate":
+        elif signal_type in ("ice_candidate", "ice-candidate"):
             candidate = payload.get("candidate")
             return bool(candidate is not None)
         return True
