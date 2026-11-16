@@ -115,6 +115,16 @@ class Settings(BaseSettings):
     LLM_TIMEOUT_SECONDS: float = Field(default=45.0, gt=0.0, le=600.0)
     LLM_MAX_RETRIES: int = 1
 
+    # Zoho Catalyst Cloud Adapters (QuickML & Stratus S3-compatible Object Storage)
+    QUICKML_ENDPOINT: str = ""
+    QUICKML_API_KEY: str = ""
+    QUICKML_MODEL: str = "qwen2.5:3b"
+    STRATUS_ENDPOINT: str = ""
+    STRATUS_BUCKET: str = ""
+    STRATUS_ACCESS_KEY: str = ""
+    STRATUS_SECRET_KEY: str = ""
+    STRATUS_REGION: str = "ap-south-1"
+
     # Embedding Settings (CPU-only to protect 6 GB VRAM)
     EMBEDDING_MODEL_NAME: str = "sentence-transformers/all-MiniLM-L6-v2"
     EMBEDDING_DEVICE: str = "cpu"

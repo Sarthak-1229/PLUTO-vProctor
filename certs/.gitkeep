@@ -1,0 +1,2 @@
+# Keep certs directory tracked in git.
+# Place fullchain.pem and privkey.pem here or mount from Certbot.

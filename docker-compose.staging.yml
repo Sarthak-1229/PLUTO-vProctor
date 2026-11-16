@@ -1,0 +1,168 @@
+# =============================================================================
+# PLUTO vProctor — Staging Environment Docker Compose Specification
+# Target Topology: Option A (Single EC2 g4dn.xlarge, In-Process Job Processing)
+# =============================================================================
+
+services:
+  # 1. PostgreSQL 16 Database (Isolated Internal Service)
+  postgres:
+    image: postgres:16-alpine
+    container_name: pluto-staging-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-pluto_user}
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Error: POSTGRES_PASSWORD environment variable must be set}"
+      POSTGRES_DB: ${POSTGRES_DB:-pluto_db}
+    ports:
+      # Bound strictly to loopback interface on host (never 0.0.0.0)
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pluto_user} -d ${POSTGRES_DB:-pluto_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # 2. Ollama AI Inference Daemon (Dedicated GPU Workload)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: pluto-staging-ollama
+    restart: unless-stopped
+    ports:
+      # Bound strictly to loopback interface on host
+      - "127.0.0.1:11434:11434"
+    volumes:
+      - ollamadata:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+
+  # 3. One-Shot Alembic Database Migration Runner
+  # Automatically migrates PostgreSQL schema to HEAD prior to backend API startup
+  migration:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: pluto-staging-migration
+    restart: "no"
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql+psycopg://${POSTGRES_USER:-pluto_user}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-pluto_db}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # 4. FastAPI Backend API & In-Process Analysis Worker
+  # Process-local architecture requires exactly 1 Uvicorn worker process
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: pluto-staging-backend
+    restart: unless-stopped
+    command: ["python", "-m", "uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+    environment:
+      - ENVIRONMENT=production
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - DATABASE_URL=postgresql+psycopg://${POSTGRES_USER:-pluto_user}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-pluto_db}
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5:3b}
+      - ASR_PROVIDER=${ASR_PROVIDER:-faster_whisper}
+      - WHISPER_MODEL_SIZE=${WHISPER_MODEL_SIZE:-base.en}
+      - WHISPER_DEVICE=${WHISPER_DEVICE:-cpu}
+      - AUTH_ENABLED=true
+      - HOSTED_ROOMS_ENABLED=true
+      - LIVE_MEDIA_ENABLED=true
+      - MEDIA_TRANSPORT_MODE=p2p
+      - COOKIE_SECURE=true
+      - SECRET_KEY=${SECRET_KEY}
+      - STUN_SERVERS=${STUN_SERVERS:-stun:stun.l.google.com:19302}
+      - TURN_SERVER_URLS=${TURN_SERVER_URLS:-}
+      - TURN_USERNAME=${TURN_USERNAME:-}
+      - TURN_CREDENTIAL=${TURN_CREDENTIAL:-}
+    volumes:
+      - storage_data:/app/storage
+    depends_on:
+      migration:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    ports:
+      # Bound strictly to loopback interface on host; traffic routes via Nginx proxy
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # 5. Background Worker Service (Explicitly Disabled for Staging)
+  # JobQueue uses in-process asyncio.Queue; running an isolated worker container
+  # is redundant and consumes ~2.5 GiB RAM without receiving jobs.
+  worker:
+    profiles: ["disabled"]
+    image: hello-world
+    entrypoint: ["echo", "worker service disabled in staging; jobs processed in-process inside backend container"]
+
+  # 6. Redis Task Queue Broker (Optional / Disabled by Default in Staging)
+  # Full repository audit confirmed Redis is not utilized by in-process JobQueue
+  # or RoomConnectionManager. Activate with '--profile optional-redis' if desired.
+  redis:
+    profiles: ["optional-redis"]
+    image: redis:7-alpine
+    container_name: pluto-staging-redis
+    restart: unless-stopped
+    ports:
+      # Bound strictly to loopback interface on host
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 7. React Frontend & Hardened Nginx Reverse Proxy
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: pluto-staging-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./frontend/nginx.staging.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  # Persistent EBS-backed Docker volumes (host location: /var/lib/docker/volumes/)
+  pgdata:
+    driver: local
+  ollamadata:
+    driver: local
+  storage_data:
+    driver: local
+  redisdata:
+    driver: local

@@ -370,6 +370,13 @@ D:\_TY\MDM\PLUTO-vProctor\
 
 Detailed documentation is available in the [`docs/`](file:///D:/_TY/MDM/PLUTO-vProctor/docs/) directory:
 
+- **[Master Completion Tracker (`docs/MASTER_COMPLETION_TRACKER.md`)](file:///D:/_TY/MDM/PLUTO-vProctor/docs/MASTER_COMPLETION_TRACKER.md):** Complete phase-by-phase tracker covering Phases 0–9, Batches 1–5, and Zoho Cloud Staging.
+- **[Final Product Audit (`docs/FINAL_PRODUCT_AUDIT.md`)](file:///D:/_TY/MDM/PLUTO-vProctor/docs/FINAL_PRODUCT_AUDIT.md):** Formal release candidate verification certifying all 62 original product requirements.
+- **[Final Test Execution Report (`docs/FINAL_TEST_REPORT.md`)](file:///D:/_TY/MDM/PLUTO-vProctor/docs/FINAL_TEST_REPORT.md):** Automated test suite results: 198 pytest tests, 21 vitest tests, 0 lint errors, and 6 ML benchmark evaluations.
+- **[Security Verification Report (`docs/SECURITY_VERIFICATION_REPORT.md`)](file:///D:/_TY/MDM/PLUTO-vProctor/docs/SECURITY_VERIFICATION_REPORT.md):** Threat modeling, Argon2id dummy verify, CSRF double-submit, GDPR erasure, and 0 hardcoded secrets.
+- **[Deployment Execution Report (`docs/DEPLOYMENT_EXECUTION_REPORT.md`)](file:///D:/_TY/MDM/PLUTO-vProctor/docs/DEPLOYMENT_EXECUTION_REPORT.md):** Staging deployment configuration, Zoho Catalyst package, and one-click dispatch launchers.
+- **[Post-Deployment Acceptance Report (`docs/POST_DEPLOYMENT_ACCEPTANCE_REPORT.md`)](file:///D:/_TY/MDM/PLUTO-vProctor/docs/POST_DEPLOYMENT_ACCEPTANCE_REPORT.md):** 15-point acceptance criteria matrix certifying end-to-end user journeys.
+- **[Zoho Catalyst Deployment Guide (`deploy/zoho/README.md`)](file:///D:/_TY/MDM/PLUTO-vProctor/deploy/zoho/README.md):** Deployment runbook for Zoho Catalyst AppSail and Web Client Hosting.
 - **[Documentation Index (`docs/INDEX.md`)](file:///D:/_TY/MDM/PLUTO-vProctor/docs/INDEX.md):** Complete master index of all project manuals, reports, and technical specifications.
 - **[Candidate User Manual (`docs/CANDIDATE_USER_MANUAL.md`)](file:///D:/_TY/MDM/PLUTO-vProctor/docs/CANDIDATE_USER_MANUAL.md):** Comprehensive candidate guide covering registration, resumes, recommendations, self-practice, hosted rooms, scoring dossiers, and privacy.
 - **[Administrator User Manual (`docs/ADMIN_USER_MANUAL.md`)](file:///D:/_TY/MDM/PLUTO-vProctor/docs/ADMIN_USER_MANUAL.md):** Recruiter guide covering admin login, candidate governance, super-admin safeguards, question sets, room scheduling, and live controls.
@@ -382,7 +389,7 @@ Detailed documentation is available in the [`docs/`](file:///D:/_TY/MDM/PLUTO-vP
 
 ---
 
-## 18. Implementation Status & Known Limitations
+## 18. Implementation Status & Deployment Readiness
 
 ### Verified Capabilities
 - All Core ML/CV Proctoring Pipelines (MediaPipe, iris divergence, Faster-Whisper, disfluencies).
@@ -394,9 +401,10 @@ Detailed documentation is available in the [`docs/`](file:///D:/_TY/MDM/PLUTO-vP
 - Database Invariants & Migrations (1,799 questions intact, 14 legacy sessions preserved).
 - Report Deep-Linking & PDF Dossier export (`/report/:sessionId`).
 - Full Admin Question-Set Lifecycle & Candidate Governance.
+- Zoho Catalyst Cloud Adapters (QuickML Foundation Models & Stratus S3 Object Storage with multi-layer offline fallback).
+- Zero-Error Deployment Validation (`scripts/validate_deployment_package.py` passes 24/24 checks).
 
-### Current Known Limitations
-- **Local Development Environment:** The application currently runs in a local development environment on Windows using SQLite (`pluto.db`). Cloud hosting, AWS/Docker deployment, and PostgreSQL deployment are future phases.
-- **Mobile Browsers:** Mobile devices (iOS Safari, Android Chrome) are not supported for live proctored sessions. Candidates must use desktop Chrome or Edge.
-- **In-Memory Rate Limiting:** The auth rate limiter uses in-memory token buckets, which reset when the backend process restarts.
-- **Symmetric NAT / Strict Firewalls:** In corporate environments with restrictive UDP blocking, peer-to-peer WebRTC requires configuring an external TURN server in `.env`.
+### Operational Environments
+- **Local Workstation (Offline):** 100% operational on Windows 11 with SQLite (`pluto.db`) and local Ollama (`qwen2.5:3b`).
+- **Cloud Staging (Zoho Catalyst):** Configured and packaged for AppSail (FastAPI) and Web Client Hosting (Vite SPA) under an ~$80/month budget envelope (8h/day schedule), supported by external RDS PostgreSQL and Coturn in `ap-south-1`. Launchable via `scripts/deploy_zoho_catalyst.bat` or `.sh`.
+- **Desktop Browser Requirement:** Desktop Google Chrome or Microsoft Edge is required for MediaPipe camera proctoring and WebRTC media streaming. Mobile devices are not supported for proctored sessions.

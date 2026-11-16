@@ -1,0 +1,23 @@
+{
+  "appsail": [
+    {
+      "name": "pluto-backend",
+      "source": "backend",
+      "build_path": ".",
+      "command": "uvicorn backend.app.main:app --host 0.0.0.0 --port $X_ZOHO_CATALYST_LISTEN_PORT",
+      "stack": "python_3_10",
+      "memory": 2048,
+      "env_variables": {
+        "ENVIRONMENT": "staging",
+        "DEBUG": "false",
+        "AUTH_ENABLED": "true",
+        "HOSTED_ROOMS_ENABLED": "true",
+        "LIVE_MEDIA_ENABLED": "true",
+        "MEDIA_TRANSPORT_MODE": "p2p"
+      }
+    }
+  ],
+  "client": {
+    "source": "frontend/dist"
+  }
+}

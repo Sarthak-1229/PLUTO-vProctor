@@ -1,0 +1,29 @@
+{
+  "defaults": {
+    "project": 1
+  },
+  "actives": {
+    "project": 1,
+    "env": 1
+  },
+  "projects": [
+    {
+      "idx": 1,
+      "id": "73453000000046001",
+      "name": "PLUTO-vProctor",
+      "domain": {
+        "id": "50047678584",
+        "name": "pluto-vproctor-60088200944.development"
+      },
+      "timezone": "Asia/Kolkata",
+      "env": [
+        {
+          "idx": 1,
+          "id": "60088200944",
+          "name": "Development",
+          "type": 3
+        }
+      ]
+    }
+  ]
+}

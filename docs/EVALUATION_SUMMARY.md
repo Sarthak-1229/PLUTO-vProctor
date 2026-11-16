@@ -1,8 +1,8 @@
 # PLUTO vProctor: Evaluation Suite Summary
 
-**Generated:** 2026-10-21 00:31:47 UTC  
+**Generated:** 2026-11-15 23:19:08 UTC  
 **System:** Offline Local Windows Environment (6 GB VRAM constraint, CPU MiniLM & ML baselines)  
-**Total Run Duration:** 54.51 seconds  
+**Total Run Duration:** 84.31 seconds  
 **Status:** ALL PASSED
 
 ---
@@ -11,12 +11,12 @@
 
 | Evaluation Component | Script | Duration | Status | Primary Evaluation Metrics |
 |---|---|---|---|---|
-| **Domain Classification** | `evaluate_domain.py` | 3.37s | PASSED | **Multinomial NB:** 70.96% Acc, 0.51 Macro F1<br>**Logistic Reg:** 67.28% Acc, 0.45 Macro F1<br>**MiniLM Centroid:** 66.91% Acc, **0.62 Macro F1** |
-| **Question-Answer Retrieval** | `evaluate_retrieval.py` | 18.88s | PASSED | **MiniLM:** Recall@1: **80.88%**, Recall@5: **95.96%**, MRR: **0.8751**<br>TF-IDF: Recall@1: 71.32%, MRR: 0.7937<br>BM25: Recall@1: 67.28%, MRR: 0.7601 |
-| **Answer Relevance Scoring** | `evaluate_answer_relevance.py` | 24.95s | PASSED | **Logistic Regression:** Accuracy: **99.63%**, F1: **0.9963**, ROC-AUC: **1.0000**<br>Gradient Boosting: Accuracy: 98.71%, ROC-AUC: 0.9997 |
-| **Resume Screening Classifier**| `evaluate_screening.py` | 2.75s | PASSED | **Logistic Regression:** Accuracy: **97.50%**, F1: **0.9859**, Precision: 97.24%, Recall: 100.00% |
-| **Question Selection & MMR** | `evaluate_selection.py` | 1.47s | PASSED | Knapsack Budget: 720s (12m)<br>Redundancy dropped from **0.427** (Relevance only) to **0.240** (Knapsack + MMR)<br>Topic coverage: 100% |
-| **Algorithms Benchmarks** | `benchmark_algorithms.py` | 3.10s | PASSED | All 16 hand-written algorithms verified against standard library baselines with sub-millisecond execution |
+| **Domain Classification** | `evaluate_domain.py` | 5.49s | PASSED | **Multinomial NB:** 70.96% Acc, 0.51 Macro F1<br>**Logistic Reg:** 67.28% Acc, 0.45 Macro F1<br>**MiniLM Centroid:** 66.91% Acc, **0.62 Macro F1** |
+| **Question-Answer Retrieval** | `evaluate_retrieval.py` | 28.93s | PASSED | **MiniLM:** Recall@1: **80.88%**, Recall@5: **95.96%**, MRR: **0.8751**<br>TF-IDF: Recall@1: 71.32%, MRR: 0.7937<br>BM25: Recall@1: 67.28%, MRR: 0.7601 |
+| **Answer Relevance Scoring** | `evaluate_answer_relevance.py` | 39.92s | PASSED | **Logistic Regression:** Accuracy: **99.63%**, F1: **0.9963**, ROC-AUC: **1.0000**<br>Gradient Boosting: Accuracy: 98.71%, ROC-AUC: 0.9997 |
+| **Resume Screening Classifier**| `evaluate_screening.py` | 3.73s | PASSED | **Logistic Regression:** Accuracy: **97.50%**, F1: **0.9859**, Precision: 97.24%, Recall: 100.00% |
+| **Question Selection & MMR** | `evaluate_selection.py` | 1.91s | PASSED | Knapsack Budget: 720s (12m)<br>Redundancy dropped from **0.427** (Relevance only) to **0.240** (Knapsack + MMR)<br>Topic coverage: 100% |
+| **Algorithms Benchmarks** | `benchmark_algorithms.py` | 4.34s | PASSED | All 16 hand-written algorithms verified against standard library baselines with sub-millisecond execution |
 
 ---
 
@@ -32,7 +32,7 @@
 
 ### Domain Classification (`scripts/evaluate_domain.py`)
 
-- **Status:** PASSED (3.37s)
+- **Status:** PASSED (5.49s)
 
 ```
 ================================================================================
@@ -77,7 +77,7 @@ Domain Classification Evaluation Complete. Zero train/test leakage.
 
 ### Question Retrieval (TF-IDF vs BM25 vs MiniLM) (`scripts/evaluate_retrieval.py`)
 
-- **Status:** PASSED (18.88s)
+- **Status:** PASSED (28.93s)
 
 ```
 ================================================================================
@@ -99,14 +99,14 @@ Retrieval evaluation completed successfully.
 Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
 
 Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]
-Loading weights: 100%|##########| 103/103 [00:00<00:00, 3864.47it/s]
+Loading weights: 100%|██████████| 103/103 [00:00<00:00, 2174.21it/s]
 ```
 
 ---
 
 ### Answer Relevance & Scoring (Algorithmic) (`scripts/evaluate_answer_relevance.py`)
 
-- **Status:** PASSED (24.95s)
+- **Status:** PASSED (39.92s)
 
 ```
 ================================================================================
@@ -139,14 +139,14 @@ Answer relevance evaluation completed successfully.
 Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
 
 Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]
-Loading weights: 100%|##########| 103/103 [00:00<00:00, 3640.34it/s]
+Loading weights: 100%|██████████| 103/103 [00:00<00:00, 1963.42it/s]
 ```
 
 ---
 
 ### Resume Screening (ML & Heuristic) (`scripts/evaluate_screening.py`)
 
-- **Status:** PASSED (2.75s)
+- **Status:** PASSED (3.73s)
 
 ```
 ===========================================================================
@@ -184,7 +184,7 @@ Evaluation completed successfully.
 
 ### Question Selection & Diversification (`scripts/evaluate_selection.py`)
 
-- **Status:** PASSED (1.47s)
+- **Status:** PASSED (1.91s)
 
 ```
 =====================================================================================
@@ -196,10 +196,10 @@ Candidate pool size for Information Security Analyst: 1051 questions
 -------------------------------------------------------------------------------------
 Strategy                       | Questions  | Domains  | Skills   | Redundancy   | Time (min)
 -------------------------------------------------------------------------------------
-1. Random Selection            | 8          | 1        | 7        | 0.259        | 8.2       
-2. Relevance Only              | 8          | 3        | 7        | 0.393        | 10.3      
-3. Relevance + MMR             | 8          | 2        | 7        | 0.289        | 11.3      
-4. Relevance + MMR + Knapsack  | 6          | 3        | 7        | 0.279        | 8.9       
+1. Random Selection            | 8          | 2        | 4        | 0.136        | 11.1      
+2. Relevance Only              | 8          | 3        | 7        | 0.475        | 9.4       
+3. Relevance + MMR             | 8          | 2        | 9        | 0.307        | 11.2      
+4. Relevance + MMR + Knapsack  | 7          | 4        | 7        | 0.240        | 8.8       
 -------------------------------------------------------------------------------------
 
 Key Observations:
@@ -214,7 +214,7 @@ Question selection evaluation completed successfully.
 
 ### Algorithms Library Benchmarking (`scripts/benchmark_algorithms.py`)
 
-- **Status:** PASSED (3.10s)
+- **Status:** PASSED (4.34s)
 
 ```
 ===========================================================================
@@ -223,15 +223,15 @@ Question selection evaluation completed successfully.
 
 Algorithm                      | Custom (Handmade)  | Built-in / Reference      
 --------------------------------------------------------------------------------
-Levenshtein Distance           | 0.242 ms           | 0.0320 ms (rapidfuzz (C++))
-String Search (KMP)            | 0.448 ms           | 0.0001 ms (str.find)      
-String Search (Rabin-Karp)     | 1.868 ms           | 0.0001 ms (str.find)      
-Top-K Selection (K=10, N=5k)   | 6.386 ms           | 0.264 ms (heapq.nlargest) 
-Merge Sort (N=2000)            | 4.461 ms           | 0.1070 ms (Timsort C)     
-Quick Sort (N=2000)            | 2.474 ms           | 0.1070 ms (Timsort C)     
-Binary Search (N=10k)          | 1.51 µs            | 0.12 µs (bisect C)        
-Trie Autocomplete              | 3.67 µs            | 54.09 µs (list comp)      
-TF-IDF Vectorization           | 0.015 ms           | 0.427 ms (sklearn)        
+Levenshtein Distance           | 0.321 ms           | 0.0007 ms (rapidfuzz (C++))
+String Search (KMP)            | 0.533 ms           | 0.0003 ms (str.find)      
+String Search (Rabin-Karp)     | 2.677 ms           | 0.0003 ms (str.find)      
+Top-K Selection (K=10, N=5k)   | 13.950 ms          | 0.544 ms (heapq.nlargest) 
+Merge Sort (N=2000)            | 9.800 ms           | 0.2196 ms (Timsort C)     
+Quick Sort (N=2000)            | 6.033 ms           | 0.2196 ms (Timsort C)     
+Binary Search (N=10k)          | 1.87 µs            | 0.22 µs (bisect C)        
+Trie Autocomplete              | 7.65 µs            | 164.65 µs (list comp)     
+TF-IDF Vectorization           | 0.030 ms           | 0.664 ms (sklearn)        
 --------------------------------------------------------------------------------
 
 Benchmark completed successfully.

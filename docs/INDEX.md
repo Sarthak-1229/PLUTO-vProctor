@@ -1,4 +1,4 @@
-# PLUTO vProctor — Master Documentation Index & Knowledge Map
+# PLUTO vProctor — Master Documentation Index & Knowledge Mapy
 
 **Document Version:** 1.0  
 **Product Version:** 0.1.0  
@@ -18,7 +18,8 @@ PLUTO vProctor's documentation suite is organized by user persona and technical 
 ├── 3. Scientific Benchmarks & AI Methodology (Algorithms, Scoring, Gaze, ASR)
 ├── 4. Quality Gates & Implementation History (Phases 1-6 & Batches 1-5 Reports)
 ├── 5. Audits, Limitations & Release Verification (Checklist, Audit, Backlog)
-└── 6. Deployment Readiness & Cloud Architecture (Secret Scan, Dependency Inventory, Config, Readiness)
+├── 6. Deployment Readiness & Cloud Architecture (Secret Scan, Dependency Inventory, Config, Readiness)
+└── 7. Staging Deployment Phase 1 (Preparation Report, Guide, Env, Security Groups, Backups, Checklist)
 ```
 
 ---
@@ -98,12 +99,86 @@ Historical development records and autonomous verification logs:
 
 ## 7. Deployment Readiness & Cloud Architecture
 
-Pre-deployment verification, runtime dependencies, configuration references, and cloud feasibility assessments:
+Pre-deployment verification, runtime dependencies, architecture options, capacity assessments, and cloud feasibility specifications:
 
 | Document | Target Audience | Primary Focus & Description |
 |---|---|---|
-| **[Secret Scanning Report](file:///D:/_TY/MDM/PLUTO-vProctor/docs/SECRET_SCAN_REPORT.md)** | Security Engineers, DevOps, Compliance | Investigation of previous exit code 1 (PowerShell parser error), deep scan of 824 files via [scripts/scan_secrets.py](file:///D:/_TY/MDM/PLUTO-vProctor/scripts/scan_secrets.py), classification of 2 synthetic test fixtures, confirmation of 0 live secrets, and cloud secret injection guidelines. |
+| **[Architecture Review Report](file:///D:/_TY/MDM/PLUTO-vProctor/docs/DEPLOYMENT_ARCHITECTURE_REVIEW_REPORT.md)** | Engineering Leadership, Cloud Architects, SRE | Master architecture review decision document: compute placement validation (Fargate CPU vs. EC2 GPU), GPU sizing and concurrency constraints, topology options overview, capacity assessment summary, operational security, and decision register submitted for stakeholder approval. |
+| **[Architecture Options Specification](file:///D:/_TY/MDM/PLUTO-vProctor/docs/DEPLOYMENT_ARCHITECTURE_OPTIONS.md)** | Infrastructure Engineers, DevOps, Architects | Formal specification of three deployment topologies: Option A (Single EC2 Docker Compose for Staging), Option B (Split AWS Architecture with Fargate + RDS + ElastiCache + Dedicated EC2 GPU for Production), and Option C (Enterprise Auto-Scaling with SFU and Aurora Serverless v2), including Mermaid diagrams, network boundaries, and security group rules. |
+| **[Workload & Capacity Assessment](file:///D:/_TY/MDM/PLUTO-vProctor/docs/DEPLOYMENT_CAPACITY_ASSESSMENT.md)** | Performance Engineers, Capacity Planners | Rigorous capacity modeling separating measured empirical baselines (ASR RTF ~0.25x-0.35x, MediaPipe $\ge$ 15 FPS client-side) from assumed metrics; concurrency demand profiles across 1, 5, 10, and 20 simultaneous rooms; and structured 4-phase pre-deployment load testing plan. |
+| **[Pre-Deployment Readiness Report](file:///D:/_TY/MDM/PLUTO-vProctor/docs/PRE_DEPLOYMENT_READINESS_REPORT.md)** | Cloud Architects, Technical Product Managers | Cloud compatibility assessment across AWS, Zoho Catalyst, and Hybrid AWS + Zoho; subsystem classification (managed vs. dedicated vs. persistent); justified staging vs. production recommendations; operational complexity; and cost drivers breakdown. |
+| **[Deployment Configuration Reference](file:///D:/_TY/MDM/PLUTO-vProctor/docs/DEPLOYMENT_CONFIGURATION_REFERENCE.md)** | System Administrators, Site Reliability Engineers | Exhaustive reference of all environment variables from `Settings` and `.env.example`, categorized by Mandatory, Feature Flags, Optional, and Dev-only, plus production `.env` template, CSPRNG secret generation, and fail-fast validation behavior. |
 | **[Deployment Dependency Inventory](file:///D:/_TY/MDM/PLUTO-vProctor/docs/DEPLOYMENT_DEPENDENCY_INVENTORY.md)** | Infrastructure Engineers, Cloud Architects | Complete technical breakdown of all 14 runtime components (Frontend, FastAPI, PostgreSQL, Redis, Worker, Ollama, Qwen2.5:3b, Faster-Whisper, MediaPipe, FFmpeg, Recording Storage, Resume Storage, WebRTC Signaling, STUN/TURN) with compute, storage, network boundaries, and failure impacts. |
-| **[Deployment Configuration Reference](file:///D:/_TY/MDM/PLUTO-vProctor/docs/DEPLOYMENT_CONFIGURATION_REFERENCE.md)** | System Administrators, Site Reliability Engineers | Exhaustive reference of all environment variables from `Settings` and `.env.example`, categorized by Mandatory, Feature Flags, Optional, and Dev-only, plus production `.env` template and fail-fast validation behavior. |
-| **[Pre-Deployment Readiness Report](file:///D:/_TY/MDM/PLUTO-vProctor/docs/PRE_DEPLOYMENT_READINESS_REPORT.md)** | Engineering Leadership, Cloud Architects | Cloud compatibility assessment across AWS (100% native), Zoho Catalyst (severe ORM/GPU constraints), and Hybrid AWS + Zoho; subsystem classification (managed vs. dedicated vs. persistent); and recommended 2-phase AWS rollout architecture. |
+| **[Secret Scanning Report](file:///D:/_TY/MDM/PLUTO-vProctor/docs/SECRET_SCAN_REPORT.md)** | Security Engineers, DevOps, Compliance | Investigation of previous exit code 1 (PowerShell parser error), deep scan of 828 files via [scripts/scan_secrets.py](file:///D:/_TY/MDM/PLUTO-vProctor/scripts/scan_secrets.py), classification of 2 synthetic test fixtures, confirmation of 0 live secrets, and scanner boundary/limitation analysis. |
+
+---
+
+## 8. Staging Deployment (Phase 1 — Option A: Single EC2 Docker Compose)
+
+Complete operational guides, security groups, disaster recovery, environment variables, and execution checklists for the Option A controlled staging environment:
+
+| Document | Target Audience | Primary Focus & Description |
+|---|---|---|
+| **[Staging Final Approval Report](file:///D:/_TY/MDM/PLUTO-vProctor/docs/STAGING_FINAL_APPROVAL_REPORT.md)** | Engineering Leadership, Stakeholders, Cloud Architects | Definitive Phase 1 pre-deployment gate document clearly categorizing Verified Facts, Projections & Assumptions, 4 Unresolved Blockers, Multi-Region Pricing (us-east-1 vs ap-south-1), Storage Tiers, and Decisions Submitted for Stakeholder Sign-off. |
+| **[Staging Preparation Report](file:///D:/_TY/MDM/PLUTO-vProctor/docs/STAGING_PREPARATION_REPORT.md)** | Cloud Architects, Engineering Leadership, SRE | Master Phase 1 report: implementation audit, identification of 4 deployment blockers, architecture clarifications, hardware sizing, confirmed AWS cost models ($101/mo for 8h/day, $401/mo for 24/7), test regression evidence, and stakeholder approval gate. |
+| **[Staging Deployment Guide](file:///D:/_TY/MDM/PLUTO-vProctor/docs/STAGING_DEPLOYMENT_GUIDE.md)** | DevOps, Infrastructure Engineers | Step-by-step deployment guide for Option A on AWS EC2 `g4dn.xlarge`: host setup, NVIDIA Container Toolkit, Ollama GPU service, Alembic migrations, initial database seeding, smoke testing, and rollback runbooks. |
+| **[Staging Environment Reference](file:///D:/_TY/MDM/PLUTO-vProctor/docs/STAGING_ENVIRONMENT_REFERENCE.md)** | System Administrators, Site Reliability Engineers | Exhaustive staging variable reference, resolution of the production `COOKIE_SECURE` contradiction, and sanitized `.env` template. |
+| **[Staging Security Groups](file:///D:/_TY/MDM/PLUTO-vProctor/docs/STAGING_SECURITY_GROUPS.md)** | Network & Security Engineers | Ingress/egress rules for `sg-pluto-staging` (TCP 80, 443 public; TCP 22 restricted to admin `/32`; internal ports 5432, 6379, 8000, and 11434 strictly blocked). |
+| **[Staging Backup & Recovery](file:///D:/_TY/MDM/PLUTO-vProctor/docs/STAGING_BACKUP_AND_RECOVERY.md)** | Operations, SRE | Disaster recovery runbooks: automated daily `pg_dump` S3 sync, media volume S3 sync, EBS DLM snapshot policies, and step-by-step restoration procedures (RTO $\le$ 2h, RPO $\le$ 24h). |
+| **[Staging Deployment Checklist](file:///D:/_TY/MDM/PLUTO-vProctor/docs/STAGING_DEPLOYMENT_CHECKLIST.md)** | Deploying Engineers | Chronological verification checklist across 6 phases: pre-deployment cloud setup, host hardware, secret injection, container build, smoke testing, and rollback protocol. |
+
+---
+
+## 9. Staging Deployment (Phase 2 — Configuration Implementation)
+
+Implementation reports, configuration templates, reverse proxy specifications, and verification tooling for the staging environment:
+
+| Document / Asset | Target Audience | Primary Focus & Description |
+|---|---|---|
+| **[Staging Configuration Implementation Report](file:///D:/_TY/MDM/PLUTO-vProctor/docs/STAGING_CONFIGURATION_IMPLEMENTATION_REPORT.md)** | Engineering Leadership, Cloud Architects, SRE | Master Phase 2 implementation report: resolution of all 4 pre-deployment blockers, process-local architecture verification, persistent EBS storage mapping, WebRTC and Coturn compatibility audit, static validation results, and regression test evidence. |
+| **[docker-compose.staging.yml](file:///D:/_TY/MDM/PLUTO-vProctor/docker-compose.staging.yml)** | DevOps, Platform Engineers | Dedicated staging Docker Compose specification: one-shot Alembic migration container (`migration`), GPU-accelerated Ollama container (`ollama`), single Uvicorn worker process (`backend`), disabled decoupled worker container (`worker`), loopback port restrictions, and persistent volume definitions. |
+| **[frontend/nginx.staging.conf](file:///D:/_TY/MDM/PLUTO-vProctor/frontend/nginx.staging.conf)** | DevOps, Security Engineers | Production-grade Nginx configuration with TLS termination on port 443, HTTP-to-HTTPS redirect on port 80, ACME challenge support, and WebSocket proxying (`/api/rooms/{id}/ws`). |
+| **[deploy/staging/turnserver.conf](file:///D:/_TY/MDM/PLUTO-vProctor/deploy/staging/turnserver.conf)** | Network Engineers, WebRTC Engineers | Production-ready Coturn configuration template with restricted UDP relay port range (`49160–49200`) and long-term static credential authentication compatible with `transport_adapter.py`. |
+| **[scripts/monitor_disk_capacity.sh](file:///D:/_TY/MDM/PLUTO-vProctor/scripts/monitor_disk_capacity.sh)** | SRE, Operations | EBS volume filesystem utilization checker with 80% warning and 90% critical alert thresholds. |
+| **[scripts/setup_staging_ssl.sh](file:///D:/_TY/MDM/PLUTO-vProctor/scripts/setup_staging_ssl.sh)** | DevOps, Infrastructure Engineers | Helper script to bootstrap staging TLS certificates (self-signed fallback or Let's Encrypt Certbot preparation). |
+| **[Staging Final Technical Verification](file:///D:/_TY/MDM/PLUTO-vProctor/docs/STAGING_FINAL_TECHNICAL_VERIFICATION.md)** | Engineering Leadership, Cloud Architects, Security | Master technical verification gate document: rigorous reassessment of Coturn concurrency (1-3 rooms realistic), external IP binding on EC2, static credential exposure risks, Ollama daemon vs. model readiness separation, documented inference smoke test, 100% deterministic algorithmic fallback audit, W3C Secure Context HTTPS requirements, 0-byte database investigation, and static vs. runtime validation boundary. |
+| **[scripts/verify_ollama_readiness.sh](file:///D:/_TY/MDM/PLUTO-vProctor/scripts/verify_ollama_readiness.sh)** | SRE, Infrastructure Engineers | Automated verification utility executing Ollama daemon liveness check, local model availability check (`qwen2.5:3b`), and forward tensor inference smoke test with timing metrics. |
+
+---
+
+## 10. Zoho-First Staging Deployment Strategy
+
+Technical compatibility audits, AI and storage assessments, live WebRTC topologies, and financial models for deploying PLUTO vProctor on Zoho Catalyst:
+
+| Document | Target Audience | Primary Focus & Description |
+|---|---|---|
+| **[Zoho Catalyst Compatibility Audit](file:///D:/_TY/MDM/PLUTO-vProctor/docs/ZOHO_CATALYST_COMPATIBILITY_AUDIT.md)** | Cloud Architects, Engineering Leadership | Comprehensive review of existing AWS staging artifacts, 14-subsystem compatibility matrix, and deep-dive evaluation of native Catalyst primitives (AppSail, Functions, Web Client Hosting, Data Store, Stratus, Cache, Signals, QuickML). |
+| **[Zoho AI Integration Assessment](file:///D:/_TY/MDM/PLUTO-vProctor/docs/ZOHO_AI_INTEGRATION_ASSESSMENT.md)** | Machine Learning Engineers, Architects | Assessment of replacing local GPU Ollama with Catalyst QuickML Foundation Models (Qwen 2.5), pluggable dual-mode LLM adapter design, Faster-Whisper ASR execution options, MediaPipe browser execution, and Stratus zero-egress media storage. |
+| **[Zoho Database & Storage Assessment](file:///D:/_TY/MDM/PLUTO-vProctor/docs/ZOHO_DATABASE_AND_STORAGE_ASSESSMENT.md)** | Database Engineers, DevOps | Detailed analysis of Catalyst Data Store wire-protocol disconnect, justification for external managed PostgreSQL 16 (AWS RDS `ap-south-1` / Supabase), SQLAlchemy connection pooling for AppSail, and Catalyst Stratus S3 integration. |
+| **[Zoho Live Interview Architecture](file:///D:/_TY/MDM/PLUTO-vProctor/docs/ZOHO_LIVE_INTERVIEW_ARCHITECTURE.md)** | WebRTC Engineers, SRE | Analysis of WebSockets on AppSail, process-local state boundaries, WebRTC media relay plane, evaluation of three candidate topologies, and sequence diagram for room lifecycle and proctoring telemetry. |
+| **[Zoho Staging Cost Model](file:///D:/_TY/MDM/PLUTO-vProctor/docs/ZOHO_STAGING_COST_MODEL.md)** | Financial Stakeholders, Product Managers | Granular unit pricing for Catalyst and AWS `ap-south-1`, schedule-based cost modeling (8h/day = $14.28/mo with credits, $36.83/mo ongoing cash burn), credit burn timeline, and Catalyst credit balance verification protocol. |
+| **[Zoho-First Staging Recommendation](file:///D:/_TY/MDM/PLUTO-vProctor/docs/ZOHO_FIRST_STAGING_RECOMMENDATION.md)** | Executive Leadership, Engineering Team | Definitive staging recommendation (Topology 2), concrete component mapping, compatibility gap resolutions, required future code adaptations, and phased implementation roadmap. |
+
+---
+
+## 11. Final Product Verification & Release Candidate (RC1) Sign-Off
+
+The master verification, audit, and deployment execution reports certifying PLUTO vProctor for release:
+
+| Document | Target Audience | Primary Focus & Description |
+|---|---|---|
+| **[Master Completion Tracker](file:///D:/_TY/MDM/PLUTO-vProctor/docs/MASTER_COMPLETION_TRACKER.md)** | Project Leads, Evaluators | Comprehensive phase-by-phase requirements matrix covering Phases 0–9, Product Batches 1–5, and Zoho Cloud Staging with test evidence and completion statuses. |
+| **[Final Product Audit](file:///D:/_TY/MDM/PLUTO-vProctor/docs/FINAL_PRODUCT_AUDIT.md)** | Product Owners, Auditors | Definitive release-readiness review certifying 100% completion of all 62 original product requirements, data integrity preservation, and cloud adapter implementation. |
+| **[Final Test Report](file:///D:/_TY/MDM/PLUTO-vProctor/docs/FINAL_TEST_REPORT.md)** | QA Engineers, Developers | Exhaustive report of all test runs: 207 backend pytest tests, 21 frontend unit tests, 0 lint errors, 6 ML benchmark evaluations, live HTTP 200 client check, and real-browser WebRTC packet metrics. |
+| **[Security Verification Report](file:///D:/_TY/MDM/PLUTO-vProctor/docs/SECURITY_VERIFICATION_REPORT.md)** | Security Officers, Compliance Leads | Security assessment covering Argon2id dummy hashing, token rotation, CSRF defense, magic-byte file upload validation, GDPR Article 17 erasure, and 0 hardcoded secrets across 869 files. |
+| **[Deployment Execution Report](file:///D:/_TY/MDM/PLUTO-vProctor/docs/DEPLOYMENT_EXECUTION_REPORT.md)** | DevOps, Cloud Engineers | Records the Zoho Catalyst staging deployment execution, live Web Client (`https://pluto-vproctor-60088200944.development.catalystserverless.in/app/index.html`), AppSail registration, and cost reconciliation. |
+| **[Post-Deployment Acceptance Report](file:///D:/_TY/MDM/PLUTO-vProctor/docs/POST_DEPLOYMENT_ACCEPTANCE_REPORT.md)** | Product Managers, Stakeholders | 15-point pre-deployment acceptance criteria matrix and 17-point live cloud post-deployment test protocol validating end-to-end workflows. |
+| **[Zoho Staging Cost Model](file:///D:/_TY/MDM/PLUTO-vProctor/docs/ZOHO_STAGING_COST_MODEL.md)** | Financial Stakeholders, Product Managers | Complete financial model reconciling AppSail 24/7 ($179.79/mo gross) vs 160h/176h schedule ($53.51–$57.29/mo gross) vs persistent 24/7 Option A alternative ($24.14/mo gross). |
+| **[Zoho Catalyst Deployment Guide](file:///D:/_TY/MDM/PLUTO-vProctor/deploy/zoho/README.md)** | Infrastructure Operators | Step-by-step deployment guide and runbook for Zoho Catalyst AppSail and Web Client Hosting. |
+
+
+
+
+
+
 
