@@ -54,13 +54,17 @@ class Settings(BaseSettings):
             return False
         return False
 
-    # Base Paths (Relative to project root)
-    BASE_DIR: Path = Path(__file__).resolve().parent.parent.parent
+    # Base Paths (Self-resolving for both monorepo root and isolated AppSail container)
+    BASE_DIR: Path = (
+        Path(__file__).resolve().parent.parent.parent
+        if (Path(__file__).resolve().parent.parent.parent / "backend").exists()
+        else Path(__file__).resolve().parent.parent
+    )
     DATASETS_DIR: Path = BASE_DIR / "datasets"
     DATASET_DATA_DIR: Path = DATASETS_DIR / "data"
     DATASET_DATA1_DIR: Path = DATASETS_DIR / "data1"
     STORAGE_DIR: Path = BASE_DIR / "storage"
-    PROCESSED_DATA_DIR: Path = BASE_DIR / "backend" / "app" / "data" / "processed"
+    PROCESSED_DATA_DIR: Path = Path(__file__).resolve().parent / "data" / "processed"
 
     # Observability & Infrastructure
     LOG_LEVEL: str = "INFO"
@@ -104,7 +108,7 @@ class Settings(BaseSettings):
     TURN_CREDENTIAL: str = ""
 
     # Database Configuration
-    DATABASE_URL: str = f"sqlite:///{BASE_DIR / 'backend' / 'app' / 'pluto.db'}"
+    DATABASE_URL: str = f"sqlite:///{Path(__file__).resolve().parent / 'pluto.db'}"
 
     # LLM Settings (Ollama - Local Offline Inference)
     OLLAMA_BASE_URL: str = "http://localhost:11434"
