@@ -12,7 +12,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-import cv2
 import numpy as np
 
 from backend.app.algorithms.one_euro_filter import OneEuroFilterVector
@@ -163,6 +162,7 @@ class GazeTracker:
     @staticmethod
     def _extract_euler_angles(transformation_matrix: np.ndarray) -> Tuple[float, float, float]:
         """Extract pitch, yaw, roll in degrees from a 4x4 facial transformation matrix."""
+        import cv2
         R = transformation_matrix[:3, :3]
         angles, _, _, _, _, _ = cv2.RQDecomp3x3(R)
         # angles are in degrees: [pitch, yaw, roll]
@@ -208,6 +208,7 @@ class GazeTracker:
         timestamp: float,
     ) -> FrameGazeResult:
         """Run landmark, head pose and iris analysis on a single video frame."""
+        import cv2
         import mediapipe as mp
 
         rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)

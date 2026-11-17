@@ -7,9 +7,9 @@ Fallback: 100% algorithmic if LLM is unavailable.
 from __future__ import annotations
 
 import json
+import threading
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-import joblib
 import numpy as np
 from pydantic import BaseModel, Field
 
@@ -34,16 +34,59 @@ class AnswerEvaluationService:
     """Evaluates candidate answers against gold dataset references using hybrid algorithmic + LLM scoring."""
 
     def __init__(self):
-        self.model = None
-        self.tfidf = None
-        self.bm25 = None
+        self._components_lock = threading.Lock()
+        self._components_loaded = False
+        self._model = None
+        self._tfidf = None
+        self._bm25 = None
         self.st_model = None
-        self._load_components()
+
+    def _ensure_components_loaded(self):
+        """Thread-safe lazy initialization of retrieval and classification baselines."""
+        if not self._components_loaded:
+            with self._components_lock:
+                if not self._components_loaded:
+                    self._load_components()
+                    self._components_loaded = True
+
+    @property
+    def model(self):
+        self._ensure_components_loaded()
+        return self._model
+
+    @model.setter
+    def model(self, val):
+        with self._components_lock:
+            self._model = val
+            self._components_loaded = True
+
+    @property
+    def tfidf(self):
+        self._ensure_components_loaded()
+        return self._tfidf
+
+    @tfidf.setter
+    def tfidf(self, val):
+        with self._components_lock:
+            self._tfidf = val
+            self._components_loaded = True
+
+    @property
+    def bm25(self):
+        self._ensure_components_loaded()
+        return self._bm25
+
+    @bm25.setter
+    def bm25(self, val):
+        with self._components_lock:
+            self._bm25 = val
+            self._components_loaded = True
 
     def _load_components(self):
         if MODEL_PATH.exists():
             try:
-                self.model = joblib.load(MODEL_PATH)
+                import joblib
+                self._model = joblib.load(MODEL_PATH)
             except Exception as e:
                 print(f"Warning: Could not load answer relevance model: {e}")
 
@@ -51,8 +94,8 @@ class AnswerEvaluationService:
             try:
                 with open(QUESTIONS_JSON, "r", encoding="utf-8") as f:
                     corpus = [q["answer"] for q in json.load(f) if q.get("split") == "train"]
-                self.tfidf = TFIDFVectorizer().fit(corpus)
-                self.bm25 = BM25().fit(corpus)
+                self._tfidf = TFIDFVectorizer().fit(corpus)
+                self._bm25 = BM25().fit(corpus)
             except Exception as e:
                 print(f"Warning: Could not fit answer retrieval baselines: {e}")
 

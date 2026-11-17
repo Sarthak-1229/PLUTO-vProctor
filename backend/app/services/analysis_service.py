@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -10,8 +11,6 @@ from sqlalchemy.orm import Session
 from backend.app.config import settings
 from backend.app.db.database import SessionLocal
 from backend.app.db.models import InterviewSession, ProctoringEvent, SessionQuestion
-from backend.app.pipelines.audio_pipeline import audio_pipeline
-from backend.app.pipelines.video_pipeline import video_pipeline
 
 _executor = ThreadPoolExecutor(max_workers=2)
 
@@ -21,6 +20,31 @@ _analysis_status: Dict[str, Dict[str, Any]] = {}
 
 class AnalysisService:
     """Orchestrates parallel execution of video and audio processing pipelines."""
+
+    def __init__(self):
+        self._pipeline_lock = threading.Lock()
+        self._video_pipeline = None
+        self._audio_pipeline = None
+
+    @property
+    def video_pipeline(self):
+        """Thread-safe lazy initialization for video pipeline."""
+        if self._video_pipeline is None:
+            with self._pipeline_lock:
+                if self._video_pipeline is None:
+                    from backend.app.pipelines.video_pipeline import video_pipeline
+                    self._video_pipeline = video_pipeline
+        return self._video_pipeline
+
+    @property
+    def audio_pipeline(self):
+        """Thread-safe lazy initialization for audio pipeline."""
+        if self._audio_pipeline is None:
+            with self._pipeline_lock:
+                if self._audio_pipeline is None:
+                    from backend.app.pipelines.audio_pipeline import audio_pipeline
+                    self._audio_pipeline = audio_pipeline
+        return self._audio_pipeline
 
     def get_status(self, session_id: str) -> Dict[str, Any]:
         """Retrieve current analysis execution progress matching all consumer schemas."""
@@ -129,7 +153,7 @@ class AnalysisService:
                     preset_name = session.screening_details.get("preset_name")
 
                 def _run_video():
-                    return video_pipeline.analyze_video(
+                    return self.video_pipeline.analyze_video(
                         video_path,
                         calibration=calib_data,
                         preset_name=preset_name,
@@ -137,7 +161,7 @@ class AnalysisService:
                     )
 
                 def _run_audio():
-                    return audio_pipeline.analyze_audio(
+                    return self.audio_pipeline.analyze_audio(
                         video_path,
                         tts_windows=tts_windows_collected if tts_windows_collected else None,
                         keywords=domain_keywords if domain_keywords else None,

@@ -8,7 +8,6 @@ import zipfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import pdfplumber
 from sqlalchemy.orm import Session
 
 from backend.app.config import settings
@@ -75,6 +74,7 @@ def _validate_and_inspect_upload(
         if not file_bytes.startswith(b"%PDF-"):
             raise AppError(status_code=400, code="invalid_pdf_magic", message="Invalid or spoofed PDF file header.")
         try:
+            import pdfplumber
             with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
                 if len(pdf.pages) > MAX_PDF_PAGES:
                     raise AppError(

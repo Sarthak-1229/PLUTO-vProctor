@@ -6,19 +6,19 @@ from __future__ import annotations
 
 import io
 import json
+import logging
 import re
+import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
-
-import docx
-import joblib
-import pdfplumber
 
 from backend.app.algorithms.edit_distance import is_fuzzy_match
 from backend.app.algorithms.interval_ops import merge_intervals, total_duration
 from backend.app.algorithms.trie import Trie
 from backend.app.config import settings
+
+logger = logging.getLogger("pluto.resume_service")
 
 TAXONOMY_FILE = settings.BASE_DIR / "backend" / "app" / "data" / "skills_taxonomy.json"
 MODEL_PATH = settings.PROCESSED_DATA_DIR / "models" / "screening_model.joblib"
@@ -54,9 +54,43 @@ class ResumeService:
         self.taxonomy: List[Dict[str, Any]] = []
         self.skill_trie = Trie()
         self.canonical_skills: Dict[str, str] = {}  # alias/kw -> canonical name
-        self.screening_model = None
+        self._model_lock = threading.Lock()
+        self._model_loaded = False
+        self._screening_model = None
         self._load_taxonomy()
-        self._load_model()
+
+    @property
+    def screening_model(self) -> Any:
+        """Thread-safe on-demand accessor for the screening model."""
+        return self.get_screening_model()
+
+    @screening_model.setter
+    def screening_model(self, model: Any) -> None:
+        with self._model_lock:
+            self._screening_model = model
+            self._model_loaded = True
+
+    def get_screening_model(self) -> Any:
+        """Thread-safely load screening model on first demand."""
+        if not self._model_loaded:
+            with self._model_lock:
+                if not self._model_loaded:
+                    if MODEL_PATH.exists():
+                        try:
+                            import joblib
+                            self._screening_model = joblib.load(MODEL_PATH)
+                            logger.info("Successfully loaded screening model from %s", MODEL_PATH)
+                        except Exception as e:
+                            logger.warning("Could not load screening model from %s: %s", MODEL_PATH, e)
+                            self._screening_model = None
+                    else:
+                        self._screening_model = None
+                    self._model_loaded = True
+        return self._screening_model
+
+    def _load_model(self):
+        """Backward-compatible hook that triggers screening model loading."""
+        return self.get_screening_model()
 
     def _load_taxonomy(self):
         if TAXONOMY_FILE.exists():
@@ -80,23 +114,18 @@ class ResumeService:
                     self.skill_trie.insert(kw.lower())
                     self.canonical_skills[kw.lower()] = canonical
 
-    def _load_model(self):
-        if MODEL_PATH.exists():
-            try:
-                self.screening_model = joblib.load(MODEL_PATH)
-            except Exception as e:
-                print(f"Warning: Could not load screening model from {MODEL_PATH}: {e}")
-
     def extract_text(self, file_bytes: bytes, filename: str) -> str:
         """Extract clean text from PDF, DOCX, or plain text bytes."""
         fn_low = filename.lower()
         text = ""
 
         if fn_low.endswith(".pdf"):
+            import pdfplumber
             with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
                 pages_text = [page.extract_text() or "" for page in pdf.pages]
                 text = "\n".join(pages_text)
         elif fn_low.endswith(".docx"):
+            import docx
             doc = docx.Document(io.BytesIO(file_bytes))
             paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
             for table in doc.tables:
@@ -351,9 +380,10 @@ class ResumeService:
 
         status = "PASSED" if (deterministic_fit >= pass_threshold and not missing_required) else "REJECTED"
 
-        # ML Model screening prediction
+        # ML Model screening prediction (with deterministic fallback)
         ml_probability = deterministic_fit
-        if self.screening_model:
+        model = self.get_screening_model()
+        if model is not None:
             try:
                 features = [
                     skill_score,
@@ -363,10 +393,10 @@ class ResumeService:
                     len(matched_required),
                     len(missing_required),
                 ]
-                ml_prob = self.screening_model.predict_proba([features])[0][1]
+                ml_prob = model.predict_proba([features])[0][1]
                 ml_probability = round(float(ml_prob), 3)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Screening model inference fallback to deterministic fit: %s", e)
 
         return {
             "fit_score": deterministic_fit,

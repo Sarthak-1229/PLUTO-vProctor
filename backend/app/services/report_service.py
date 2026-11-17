@@ -9,8 +9,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
 from sqlalchemy.orm import Session
 
 from backend.app.config import settings
@@ -263,6 +261,9 @@ class ReportService:
 
     def generate_pdf_report(self, report_data: Dict[str, Any]) -> bytes:
         """Generate a formatted evaluation report PDF using ReportLab."""
+        from reportlab.lib.pagesizes import letter
+        from reportlab.pdfgen import canvas
+
         buffer = io.BytesIO()
         c = canvas.Canvas(buffer, pagesize=letter)
         w, h = letter

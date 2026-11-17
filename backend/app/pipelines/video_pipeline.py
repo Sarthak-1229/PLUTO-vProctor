@@ -15,7 +15,6 @@ import uuid
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-import cv2
 import numpy as np
 
 from backend.app.algorithms.interval_ops import merge_intervals, total_duration
@@ -56,6 +55,7 @@ class VideoAnalysisPipeline:
             print(f"PyAV decoding notice, falling back to OpenCV: {e}")
 
         # Fallback to OpenCV
+        import cv2
         cap = cv2.VideoCapture(str(video_path))
         if not cap.isOpened():
             return
