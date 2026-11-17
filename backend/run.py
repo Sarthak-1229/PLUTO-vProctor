@@ -26,12 +26,15 @@ if str(_here) not in sys.path:
 try:
     import uvicorn
     import fastapi
+    import sqlalchemy
 except ImportError:
-    print("[PLUTO AppSail] Installing core dependencies from requirements.txt...")
+    print("[PLUTO AppSail] Installing core dependencies from requirements-hosted.txt...", flush=True)
     import subprocess
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", str(_here / "requirements.txt")])
+    req_file = _here / "requirements-hosted.txt" if (_here / "requirements-hosted.txt").exists() else _here / "requirements.txt"
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", str(req_file)])
     import uvicorn
     import fastapi
+    import sqlalchemy
 
 # Step 3: Import FastAPI application
 from backend.app.main import app
