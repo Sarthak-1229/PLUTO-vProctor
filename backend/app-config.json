@@ -1,5 +1,5 @@
 {
-  "command": "python run.py",
+  "command": "python3 -u run.py",
   "stack": "python_3_10",
   "build_path": ".",
   "memory": 2048,

@@ -4,7 +4,7 @@
       "name": "pluto-backend",
       "source": "backend",
       "build_path": ".",
-      "command": "python run.py",
+      "command": "python3 -u run.py",
       "stack": "python_3_10",
       "memory": 2048,
       "env_variables": {
