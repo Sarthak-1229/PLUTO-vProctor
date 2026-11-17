@@ -21,6 +21,7 @@ backend/app/pluto.db
 storage/
 backups/
 *.sqlite3
+deploy/packages/*.zip
 
 # Environment secrets — NEVER commit real .env files
 .env

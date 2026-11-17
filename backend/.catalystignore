@@ -12,3 +12,8 @@ tests
 tests/**
 .git
 .git/**
+app/pluto.db
+*.db
+*.sqlite3
+storage
+storage/**

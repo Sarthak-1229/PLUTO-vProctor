@@ -12,3 +12,8 @@ __pycache__/**
 .pytest_cache/**
 .git
 .git/**
+backend/app/pluto.db
+*.db
+*.sqlite3
+storage
+storage/**

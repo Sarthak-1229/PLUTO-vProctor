@@ -8,6 +8,24 @@
   },
   "projects": [
     {
+      "idx": 2,
+      "id": "73453000000013024",
+      "name": "Project-Rainfall",
+      "domain": {
+        "id": "50045994255",
+        "name": "project-rainfall-60088200944.development"
+      },
+      "timezone": "Asia/Kolkata",
+      "env": [
+        {
+          "idx": 1,
+          "id": "60088200944",
+          "name": "Development",
+          "type": 3
+        }
+      ]
+    },
+    {
       "idx": 1,
       "id": "73453000000046001",
       "name": "PLUTO-vProctor",
@@ -21,7 +39,15 @@
           "idx": 1,
           "id": "60088200944",
           "name": "Development",
-          "type": 3
+          "type": 3,
+          "env_status": "Active",
+          "project_details": {
+            "project_name": "PLUTO-vProctor",
+            "id": "73453000000046001",
+            "project_type": "Live"
+          },
+          "is_default": true,
+          "action_required": false
         }
       ]
     }
