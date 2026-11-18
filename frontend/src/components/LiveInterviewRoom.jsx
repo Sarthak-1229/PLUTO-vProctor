@@ -224,8 +224,15 @@ export function LiveInterviewRoom({ roomId, currentUser, onLeaveRoom, onNavigate
   // 4. WebSocket Signaling Setup
   const setupWebSocket = (pc) => {
     const token = getAccessToken()
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const wsUrl = `${protocol}//${window.location.host}/api/rooms/${roomId}/ws?token=${token}`
+    const apiBase = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '')
+    let wsBase
+    if (apiBase) {
+      wsBase = apiBase.replace(/^https:/i, 'wss:').replace(/^http:/i, 'ws:')
+    } else {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+      wsBase = `${protocol}//${window.location.host}`
+    }
+    const wsUrl = `${wsBase}/api/rooms/${roomId}/ws?token=${token}`
 
     const ws = new WebSocket(wsUrl)
     wsRef.current = ws

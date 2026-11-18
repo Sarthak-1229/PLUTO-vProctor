@@ -4,6 +4,15 @@
   "build_path": ".",
   "memory": 2048,
   "env_variables": {
-    "PYTHONPATH": "."
+    "PYTHONPATH": ".",
+    "ENVIRONMENT": "staging",
+    "DEBUG": "false",
+    "AUTH_ENABLED": "true",
+    "HOSTED_ROOMS_ENABLED": "true",
+    "LIVE_MEDIA_ENABLED": "true",
+    "MEDIA_TRANSPORT_MODE": "p2p",
+    "DATABASE_URL": "sqlite:////tmp/pluto.db",
+    "STORAGE_DIR": "/tmp/pluto_storage",
+    "CORS_ORIGINS": "[\"https://pluto-vproctor-60088200944.development.catalystserverless.in\", \"http://localhost:5173\", \"http://127.0.0.1:5173\"]"
   }
 }

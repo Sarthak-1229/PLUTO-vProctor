@@ -91,7 +91,11 @@ export async function authFetch(url, options = {}) {
  * Pure SPA route guard returning { allowed, redirectTo, view }.
  */
 export function resolveRouteAccess({ pathname, authEnabled, user }) {
-  const cleanPath = (pathname || '/').replace(/\/+$/, '') || '/'
+  const cleanPath =
+    (pathname || '/')
+      .replace(/^\/app(?=\/|$)/, '')
+      .replace(/\/index\.html$/, '')
+      .replace(/\/+$/, '') || '/'
   const role = user?.role || null
   const isAdmin = role === 'admin' || role === 'super_admin'
 

@@ -53,6 +53,10 @@ def _load_application() -> None:
         from backend.app.services.job_queue import job_queue
 
         settings.validate_runtime_safety()
+        try:
+            settings.STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+        except Exception as storage_exc:
+            print(f"[PLUTO AppSail] Storage dir init warning: {storage_exc}", flush=True)
         if "sqlite" in settings.DATABASE_URL:
             from backend.app.db.database import Base, engine
             from backend.app.db import models as _models  # noqa: F401

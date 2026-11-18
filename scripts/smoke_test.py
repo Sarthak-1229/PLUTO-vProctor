@@ -77,11 +77,11 @@ def main():
     # ── API availability ──────────────────────────────────────────
     print("\nAPI Endpoints:")
     results.append(check("GET /api/jobs",       f"{BASE_URL}/api/jobs"))
-    results.append(check("GET /api/questions (sample set)", f"{BASE_URL}/api/questions/sets"))
+    results.append(check("GET /api/auth/config", f"{BASE_URL}/api/auth/config"))
 
     # ── Auth routes exist (expect 401/403 without token) ─────────
-    print("\nAuth Guards (expect 401/403):")
-    results.append(check("GET /api/sessions (unauthenticated)", f"{BASE_URL}/api/sessions", expected_status=401))
+    print("\nAuth Guards (expect 401):")
+    results.append(check("GET /api/auth/me (unauthenticated)", f"{BASE_URL}/api/auth/me", expected_status=401))
 
     # ── Frontend static assets served? ───────────────────────────
     # Only meaningful when frontend is served by the same host (local dev).
