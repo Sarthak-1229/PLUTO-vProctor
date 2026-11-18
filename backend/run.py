@@ -49,19 +49,13 @@ def _load_application() -> None:
     global _real_app, _job_queue, _boot_error, _boot_error_type
     try:
         from backend.app.config import settings
+        from backend.app.db.bootstrap import ensure_database_ready
         from backend.app.main import app as fastapi_app
         from backend.app.services.job_queue import job_queue
 
         settings.validate_runtime_safety()
-        try:
-            settings.STORAGE_DIR.mkdir(parents=True, exist_ok=True)
-        except Exception as storage_exc:
-            print(f"[PLUTO AppSail] Storage dir init warning: {storage_exc}", flush=True)
-        if "sqlite" in settings.DATABASE_URL:
-            from backend.app.db.database import Base, engine
-            from backend.app.db import models as _models  # noqa: F401
-
-            Base.metadata.create_all(bind=engine)
+        bootstrap_summary = ensure_database_ready()
+        print(f"[PLUTO AppSail] DB bootstrap summary: {bootstrap_summary}", flush=True)
         job_queue.start_workers()
 
         _real_app = fastapi_app
@@ -89,6 +83,11 @@ async def asgi_bootstrap(scope, receive, send):
                         _job_queue.stop_workers()
                     except Exception:
                         pass
+                try:
+                    from backend.app.db.bootstrap import sync_sqlite_to_stratus
+                    sync_sqlite_to_stratus()
+                except Exception:
+                    pass
                 await send({"type": "lifespan.shutdown.complete"})
                 return
 

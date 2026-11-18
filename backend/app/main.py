@@ -45,18 +45,21 @@ async def lifespan(app: FastAPI):  # noqa: ARG001
     """Manage application startup and shutdown lifecycle cleanly."""
     logger.info(f"Starting {settings.APP_NAME} in {settings.ENVIRONMENT} mode...")
     settings.validate_runtime_safety()
-    if "sqlite" in settings.DATABASE_URL:
-        try:
-            from backend.app.db.database import Base, engine
-            from backend.app.db import models as _models  # noqa: F401
-            Base.metadata.create_all(bind=engine)
-        except Exception as exc:
-            logger.warning(f"SQLite schema auto-init warning: {exc}")
+    try:
+        from backend.app.db.bootstrap import ensure_database_ready
+        ensure_database_ready()
+    except Exception as exc:
+        logger.warning(f"Database bootstrap warning: {exc}")
     job_queue.start_workers()
     try:
         yield
     finally:
         job_queue.stop_workers()
+        try:
+            from backend.app.db.bootstrap import sync_sqlite_to_stratus
+            sync_sqlite_to_stratus()
+        except Exception as exc:
+            logger.warning(f"Shutdown Stratus DB sync warning: {exc}")
 
 
 app = FastAPI(
@@ -179,14 +182,21 @@ def health_check():
 @app.get("/ready")
 @app.get("/api/ready")
 def readiness_check():
-    """System readiness check verifying database and storage availability."""
+    """System readiness check verifying database, seed data, and storage availability."""
     db_ok = True
+    jobs_count = 0
+    questions_count = 0
     try:
         from sqlalchemy import text
         from backend.app.db.database import SessionLocal
+        from backend.app.db.models import Job, Question
         db = SessionLocal()
-        db.execute(text("SELECT 1"))
-        db.close()
+        try:
+            db.execute(text("SELECT 1"))
+            jobs_count = db.query(Job).count()
+            questions_count = db.query(Question).count()
+        finally:
+            db.close()
     except Exception:
         db_ok = False
 
@@ -196,15 +206,64 @@ def readiness_check():
         "status": "ready" if (db_ok and storage_ok) else "degraded",
         "database": "connected" if db_ok else "unreachable",
         "storage": "available" if storage_ok else "missing",
+        "jobs_count": jobs_count,
+        "questions_count": questions_count,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
 
+def _resolve_spa_dir():
+    """Return compiled SPA static directory when single-origin SPA serving is enabled."""
+    import os
+    if not settings.SERVE_SPA or os.environ.get("PYTEST_CURRENT_TEST"):
+        return None
+    for candidate in (
+        settings.APP_DIR.parent / "static_dist",
+        settings.BASE_DIR / "frontend" / "dist",
+    ):
+        if (candidate / "index.html").is_file():
+            return candidate.resolve()
+    return None
+
+
 @app.get("/")
 def root():
-    """Root redirect / index information."""
+    """Serve SPA entry page in single-origin hosted mode, or API welcome JSON otherwise."""
+    spa_dir = _resolve_spa_dir()
+    if spa_dir is not None:
+        from fastapi.responses import FileResponse
+        return FileResponse(spa_dir / "index.html", media_type="text/html")
     return {
         "message": f"Welcome to {settings.APP_NAME} API. Visit /docs for OpenAPI documentation.",
         "health": "/api/health",
         "ready": "/api/ready",
     }
+
+
+@app.get("/{full_path:path}", include_in_schema=False)
+def spa_fallback(full_path: str):
+    """Serve built SPA assets and client-side routes without intercepting API or health paths."""
+    from fastapi import HTTPException
+    from fastapi.responses import FileResponse
+
+    clean = full_path.lstrip("/")
+    if (
+        clean == "api"
+        or clean.startswith("api/")
+        or clean in {"health", "ready", "docs", "redoc", "openapi.json"}
+    ):
+        raise HTTPException(status_code=404, detail="Not Found")
+
+    spa_dir = _resolve_spa_dir()
+    if spa_dir is None:
+        raise HTTPException(status_code=404, detail="Not Found")
+
+    if clean:
+        candidate = (spa_dir / clean).resolve()
+        try:
+            if candidate.is_relative_to(spa_dir) and candidate.is_file():
+                return FileResponse(candidate)
+        except ValueError:
+            raise HTTPException(status_code=404, detail="Not Found")
+
+    return FileResponse(spa_dir / "index.html", media_type="text/html")

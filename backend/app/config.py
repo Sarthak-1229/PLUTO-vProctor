@@ -88,6 +88,13 @@ class Settings(BaseSettings):
     LIVE_MEDIA_ENABLED: bool = False
     MEDIA_TRANSPORT_MODE: Literal["none", "p2p", "sfu"] = "p2p"
     SFU_URL: str = ""
+    SERVE_SPA: bool = False
+    AUTO_SEED_DB: bool = True
+
+    # Optional Environment-Driven Admin Bootstrap (never hardcode secrets in repo)
+    BOOTSTRAP_ADMIN_EMAIL: str = ""
+    BOOTSTRAP_ADMIN_PASSWORD: str = ""
+    BOOTSTRAP_ADMIN_NAME: str = "PLUTO Administrator"
 
     # Auth, Token & Cookie Configuration
     SECRET_KEY: str = ""
