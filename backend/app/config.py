@@ -135,12 +135,14 @@ class Settings(BaseSettings):
     LLM_TIMEOUT_SECONDS: float = Field(default=45.0, gt=0.0, le=600.0)
     LLM_MAX_RETRIES: int = 1
 
-    # Zoho Catalyst Cloud Adapters (QuickML, Stratus Object Storage & Catalyst Mail)
+    # Cloud LLM Adapters (Zoho QuickML SDK/REST, or OpenAI-compatible Groq/Together/OpenAI)
     QUICKML_ENDPOINT: str = ""
     QUICKML_ENDPOINT_KEY: str = ""
     QUICKML_API_KEY: str = ""
     QUICKML_MODEL: str = "qwen2.5:3b"
     QUICKML_AUTH_SCHEME: Literal["auto", "bearer", "zoho"] = "auto"
+    LLM_API_KEY: str = ""
+    LLM_ENDPOINT: str = ""
     STRATUS_ENDPOINT: str = ""
     STRATUS_BUCKET: str = ""
     STRATUS_ACCESS_KEY: str = ""
@@ -148,6 +150,11 @@ class Settings(BaseSettings):
     STRATUS_REGION: str = "ap-south-1"
     CATALYST_MAIL_FROM: str = ""
     APP_PUBLIC_URL: str = ""
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM: str = ""
 
     # Embedding Settings (CPU-only to protect 6 GB VRAM)
     EMBEDDING_MODEL_NAME: str = "sentence-transformers/all-MiniLM-L6-v2"

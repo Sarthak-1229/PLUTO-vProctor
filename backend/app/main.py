@@ -108,7 +108,11 @@ class CatalystContextMiddleware(BaseHTTPMiddleware):
             from backend.app.services.catalyst_context import capture_catalyst_headers
             from backend.app.db.bootstrap import ensure_stratus_db_restored_once, schedule_stratus_sync
 
-            origin = f"{request.url.scheme}://{request.url.netloc}" if request.url.netloc else ""
+            fwd_host = request.headers.get("x-forwarded-host") or request.headers.get("host") or request.url.netloc
+            fwd_proto = request.headers.get("x-forwarded-proto") or request.url.scheme or "https"
+            if fwd_host and (".catalystappsail." in fwd_host or ".catalystserverless." in fwd_host):
+                fwd_proto = "https"
+            origin = f"{fwd_proto}://{fwd_host}" if fwd_host else ""
             if capture_catalyst_headers(request.headers, origin_url=origin):
                 ensure_stratus_db_restored_once()
         except Exception:
@@ -238,6 +242,7 @@ def readiness_check():
     try:
         from backend.app.services.catalyst_context import get_catalyst_status
         from backend.app.services.catalyst_cloud_db import get_cloud_db_status
+        from backend.app.services.catalyst_mail import get_mail_metrics
         from backend.app.services.catalyst_zia import get_zia_metrics
         from backend.app.db.bootstrap import get_stratus_db_state
 
@@ -246,6 +251,7 @@ def readiness_check():
             "cloud_db": get_cloud_db_status(),
             "stratus_db": get_stratus_db_state(),
             "zia_ai": get_zia_metrics(),
+            "mail": get_mail_metrics(),
         }
     except Exception:
         catalyst_info = {}

@@ -91,19 +91,27 @@ class LLMClient:
             print(f"QuickML SDK invocation skipped/error (falling back): {exc}")
         return None
 
+    @classmethod
+    def _resolve_cloud_llm_config(cls) -> tuple[str, str, str]:
+        endpoint = (settings.LLM_ENDPOINT or settings.QUICKML_ENDPOINT or "").strip()
+        api_key = (settings.LLM_API_KEY or settings.QUICKML_API_KEY or "").strip()
+        model = (settings.QUICKML_MODEL or settings.LLM_MODEL or "qwen2.5:3b").strip()
+        if endpoint and not endpoint.endswith("/chat/completions") and "/v1" in endpoint:
+            endpoint = endpoint.rstrip("/") + "/chat/completions"
+        return endpoint, api_key, model
+
     async def _try_quickml_async(
         self,
         system_prompt: str,
         user_prompt: str,
         response_model: Optional[Type[T]] = None,
     ) -> Optional[Any]:
-        """Attempt completion using Zoho Catalyst QuickML (SDK or REST endpoint) if configured."""
+        """Attempt completion using Zoho Catalyst QuickML (SDK or REST) or OpenAI-compatible cloud LLM."""
         sdk_res = self._try_quickml_sdk(system_prompt, user_prompt, response_model)
         if sdk_res is not None:
             return sdk_res
 
-        endpoint = settings.QUICKML_ENDPOINT.strip()
-        api_key = settings.QUICKML_API_KEY.strip()
+        endpoint, api_key, model_name = self._resolve_cloud_llm_config()
         if not endpoint or not api_key:
             return None
 
@@ -113,7 +121,7 @@ class LLMClient:
             "X-Catalyst-Client": "PLUTO-vProctor",
         }
         payload = {
-            "model": settings.QUICKML_MODEL or self.model,
+            "model": model_name,
             "messages": [
                 {"role": "system", "content": system_prompt + "\nOUTPUT ONLY VALID RAW JSON. NO MARKDOWN, NO COMMENTARY."},
                 {"role": "user", "content": user_prompt},
@@ -156,8 +164,7 @@ class LLMClient:
         if sdk_res is not None:
             return sdk_res
 
-        endpoint = settings.QUICKML_ENDPOINT.strip()
-        api_key = settings.QUICKML_API_KEY.strip()
+        endpoint, api_key, model_name = self._resolve_cloud_llm_config()
         if not endpoint or not api_key:
             return None
 
@@ -167,7 +174,7 @@ class LLMClient:
             "X-Catalyst-Client": "PLUTO-vProctor",
         }
         payload = {
-            "model": settings.QUICKML_MODEL or self.model,
+            "model": model_name,
             "messages": [
                 {"role": "system", "content": system_prompt + "\nOUTPUT ONLY VALID RAW JSON. NO MARKDOWN, NO COMMENTARY."},
                 {"role": "user", "content": user_prompt},
