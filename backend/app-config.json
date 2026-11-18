@@ -11,8 +11,12 @@
     "HOSTED_ROOMS_ENABLED": "true",
     "LIVE_MEDIA_ENABLED": "true",
     "MEDIA_TRANSPORT_MODE": "p2p",
+    "SERVE_SPA": "true",
+    "AUTO_SEED_DB": "true",
+    "COOKIE_SECURE": "true",
+    "COOKIE_SAMESITE": "lax",
     "DATABASE_URL": "sqlite:////tmp/pluto.db",
     "STORAGE_DIR": "/tmp/pluto_storage",
-    "CORS_ORIGINS": "[\"https://pluto-vproctor-60088200944.development.catalystserverless.in\", \"http://localhost:5173\", \"http://127.0.0.1:5173\"]"
+    "CORS_ORIGINS": "[\"https://pluto-backend-50047678584.development.catalystappsail.in\", \"https://pluto-vproctor-60088200944.development.catalystserverless.in\", \"http://localhost:5173\", \"http://127.0.0.1:5173\"]"
   }
 }

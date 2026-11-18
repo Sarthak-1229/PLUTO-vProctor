@@ -97,6 +97,9 @@ class JobQueue:
             self._jobs[job_id] = job
             self._session_to_job[session_id] = job_id
 
+        # Ensure workers and queue are bound to the active event loop BEFORE enqueuing
+        self.start_workers()
+
         # Put into queue
         try:
             loop = asyncio.get_running_loop()
@@ -143,6 +146,10 @@ class JobQueue:
             self.stop_workers()
             self._queue = asyncio.Queue()
             self._loop = loop
+            # Re-queue any pending jobs that were created before the event loop bound
+            for pending_id, pending_job in list(self._jobs.items()):
+                if pending_job.status == JobStatus.PENDING:
+                    self._queue.put_nowait(pending_id)
 
         if self._is_running and self._workers and not all(w.done() for w in self._workers):
             return
@@ -167,7 +174,7 @@ class JobQueue:
             try:
                 job_id = await self._queue.get()
                 job = self._jobs.get(job_id)
-                if not job:
+                if not job or job.status != JobStatus.PENDING:
                     self._queue.task_done()
                     continue
 

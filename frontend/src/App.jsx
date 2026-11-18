@@ -117,16 +117,28 @@ function MainApp() {
   // 0. Bootstrap auth flags and restore refresh session cleanly on boot
   useEffect(() => {
     let active = true
+    const isHostedOrigin =
+      typeof window !== 'undefined' &&
+      Boolean(window.location?.hostname) &&
+      !['localhost', '127.0.0.1', '::1'].includes(window.location.hostname)
+
     async function initAuth() {
-      let enabled = false
-      try {
-        const cfgRes = await fetch('/api/auth/config')
-        if (cfgRes.ok) {
-          const cfg = await cfgRes.json()
-          enabled = Boolean(cfg.auth_enabled)
+      let enabled = isHostedOrigin
+      const maxAttempts = isHostedOrigin ? 4 : 1
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        try {
+          const cfgRes = await fetch('/api/auth/config')
+          if (cfgRes.ok) {
+            const cfg = await cfgRes.json()
+            enabled = Boolean(cfg.auth_enabled)
+            break
+          }
+        } catch {
+          // Retry briefly on hosted cold starts; fail closed to auth enabled on hosted origins
         }
-      } catch {
-        enabled = false
+        if (attempt + 1 < maxAttempts) {
+          await new Promise((resolve) => setTimeout(resolve, 1200 * (attempt + 1)))
+        }
       }
       if (active) setAuthEnabled(enabled)
 
@@ -174,7 +186,10 @@ function MainApp() {
   // 1. Fetch available jobs on mount
   useEffect(() => {
     async function fetchJobs() {
-      const endpoints = ['/api/jobs', '/api/jobs/', 'http://127.0.0.1:8000/api/jobs']
+      const isLocal =
+        typeof window === 'undefined' ||
+        ['localhost', '127.0.0.1', '::1', ''].includes(window.location?.hostname || '')
+      const endpoints = isLocal ? ['/api/jobs', '/api/jobs/', 'http://127.0.0.1:8000/api/jobs'] : ['/api/jobs']
       for (const ep of endpoints) {
         try {
           const res = await fetch(ep)

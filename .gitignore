@@ -2,6 +2,7 @@
 .venv/
 backend/.venv/
 backend/catalyst_libs/
+backend/static_dist/
 __pycache__/
 *.py[cod]
 *$py.class

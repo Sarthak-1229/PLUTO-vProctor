@@ -108,7 +108,7 @@ def sync_sqlite_to_stratus() -> bool:
                 return ok
             finally:
                 tmp_path.unlink(missing_ok=True)
-        except Exception as exc:
+    except Exception as exc:
         logger.warning("Stratus SQLite snapshot sync skipped: %s", exc)
         return False
 

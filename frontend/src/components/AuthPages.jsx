@@ -2,6 +2,16 @@ import React, { useState } from 'react'
 import { Lock, Mail, User as UserIcon, ShieldAlert, ArrowRight, KeyRound } from 'lucide-react'
 import { setAccessToken } from '../utils/authClient'
 
+async function safeParseJson(res) {
+  const text = await res.text()
+  if (!text) return {}
+  try {
+    return JSON.parse(text)
+  } catch {
+    return { detail: `Server returned HTTP ${res.status}. Please retry in a moment.` }
+  }
+}
+
 export function CandidateAuthPage({ mode = 'login', onNavigate, onAuthSuccess }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -28,7 +38,7 @@ export function CandidateAuthPage({ mode = 'login', onNavigate, onAuthSuccess })
           credentials: 'include',
           body: JSON.stringify({ email, password }),
         })
-        const data = await res.json()
+        const data = await safeParseJson(res)
         if (!res.ok) throw new Error(data.detail || 'Sign in failed.')
         setAccessToken(data.access_token)
         onAuthSuccess(data.user)
@@ -41,7 +51,7 @@ export function CandidateAuthPage({ mode = 'login', onNavigate, onAuthSuccess })
           credentials: 'include',
           body: JSON.stringify({ email, password, full_name: fullName }),
         })
-        const data = await res.json()
+        const data = await safeParseJson(res)
         if (!res.ok) throw new Error(data.detail || 'Registration failed.')
         setAccessToken(data.access_token)
         onAuthSuccess(data.user)
@@ -53,7 +63,7 @@ export function CandidateAuthPage({ mode = 'login', onNavigate, onAuthSuccess })
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email }),
         })
-        const data = await res.json()
+        const data = await safeParseJson(res)
         if (!res.ok) throw new Error(data.detail || 'Unable to process request.')
         setNotice(data.message)
         return
@@ -64,7 +74,7 @@ export function CandidateAuthPage({ mode = 'login', onNavigate, onAuthSuccess })
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token: resetToken, new_password: newPassword }),
         })
-        const data = await res.json()
+        const data = await safeParseJson(res)
         if (!res.ok) throw new Error(data.detail || 'Password reset failed.')
         setNotice('Password updated cleanly. You may now sign in with your new credentials.')
       }
@@ -257,7 +267,7 @@ export function AdminLoginPage({ onNavigate, onAuthSuccess }) {
         credentials: 'include',
         body: JSON.stringify({ email, password }),
       })
-      const data = await res.json()
+      const data = await safeParseJson(res)
       if (!res.ok) throw new Error(data.detail || 'Administrator authentication failed.')
       setAccessToken(data.access_token)
       onAuthSuccess(data.user)
