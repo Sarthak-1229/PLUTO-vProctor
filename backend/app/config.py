@@ -55,6 +55,7 @@ class Settings(BaseSettings):
         return False
 
     # Base Paths (Self-resolving for both monorepo root and isolated AppSail container)
+    APP_DIR: Path = Path(__file__).resolve().parent
     BASE_DIR: Path = (
         Path(__file__).resolve().parent.parent.parent
         if (Path(__file__).resolve().parent.parent.parent / "backend").exists()

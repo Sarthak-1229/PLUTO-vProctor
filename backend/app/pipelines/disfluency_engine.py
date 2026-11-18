@@ -93,7 +93,7 @@ class DisfluencyEngine:
 
     def __init__(self, config_path: Optional[Path] = None):
         cfg_path = config_path or (
-            settings.BASE_DIR / "backend" / "app" / "config" / "disfluency.json"
+            settings.APP_DIR / "config" / "disfluency.json"
         )
         with open(cfg_path, "r", encoding="utf-8") as f:
             self.config = json.load(f)

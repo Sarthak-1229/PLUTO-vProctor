@@ -20,7 +20,7 @@ from backend.app.config import settings
 
 logger = logging.getLogger("pluto.resume_service")
 
-TAXONOMY_FILE = settings.BASE_DIR / "backend" / "app" / "data" / "skills_taxonomy.json"
+TAXONOMY_FILE = settings.APP_DIR / "data" / "skills_taxonomy.json"
 MODEL_PATH = settings.PROCESSED_DATA_DIR / "models" / "screening_model.joblib"
 
 DEGREE_RANKS = {

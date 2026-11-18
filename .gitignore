@@ -1,6 +1,7 @@
 # Python virtual environments & bytecode
 .venv/
 backend/.venv/
+backend/catalyst_libs/
 __pycache__/
 *.py[cod]
 *$py.class

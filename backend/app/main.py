@@ -45,6 +45,13 @@ async def lifespan(app: FastAPI):  # noqa: ARG001
     """Manage application startup and shutdown lifecycle cleanly."""
     logger.info(f"Starting {settings.APP_NAME} in {settings.ENVIRONMENT} mode...")
     settings.validate_runtime_safety()
+    if "sqlite" in settings.DATABASE_URL:
+        try:
+            from backend.app.db.database import Base, engine
+            from backend.app.db import models as _models  # noqa: F401
+            Base.metadata.create_all(bind=engine)
+        except Exception as exc:
+            logger.warning(f"SQLite schema auto-init warning: {exc}")
     job_queue.start_workers()
     try:
         yield

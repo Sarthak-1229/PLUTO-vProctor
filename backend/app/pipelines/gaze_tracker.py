@@ -102,7 +102,7 @@ class GazeTracker:
         preset_name: Optional[str] = None,
         calibration: Optional[CalibrationData] = None,
     ):
-        cfg_file = config_path or (settings.BASE_DIR / "backend" / "app" / "config" / "gaze.json")
+        cfg_file = config_path or (settings.APP_DIR / "config" / "gaze.json")
         with open(cfg_file, "r", encoding="utf-8") as f:
             self.full_config = json.load(f)
 
@@ -133,7 +133,7 @@ class GazeTracker:
             from mediapipe.tasks import python
             from mediapipe.tasks.python import vision
 
-            model_path = settings.BASE_DIR / "backend" / "app" / "data" / "face_landmarker.task"
+            model_path = settings.APP_DIR / "data" / "face_landmarker.task"
             if not model_path.exists():
                 raise FileNotFoundError(f"MediaPipe face_landmarker.task not found at {model_path}")
 

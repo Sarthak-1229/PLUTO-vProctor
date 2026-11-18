@@ -37,7 +37,7 @@ class StartInterviewRequest(BaseModel):
 @router.get("/config/gaze", response_model=Dict[str, Any])
 def get_gaze_config():
     """Return active presets and thresholds from gaze.json."""
-    cfg_file = settings.BASE_DIR / "backend" / "app" / "config" / "gaze.json"
+    cfg_file = settings.APP_DIR / "config" / "gaze.json"
     if cfg_file.exists():
         with open(cfg_file, "r", encoding="utf-8") as f:
             return json.load(f)

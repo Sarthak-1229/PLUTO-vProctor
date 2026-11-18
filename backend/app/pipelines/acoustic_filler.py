@@ -18,7 +18,7 @@ from backend.app.config import settings
 from backend.app.pipelines.asr import Word, WordSource
 
 # Load acoustic filler config
-_CONFIG_PATH = settings.BASE_DIR / "backend" / "app" / "config" / "disfluency.json"
+_CONFIG_PATH = settings.APP_DIR / "config" / "disfluency.json"
 
 
 def _load_acoustic_config() -> Dict[str, Any]:

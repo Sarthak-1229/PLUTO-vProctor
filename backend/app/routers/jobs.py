@@ -65,7 +65,7 @@ def list_jobs(db: Session = Depends(get_db)):
     if not jobs:
         import json
         from backend.app.config import settings
-        jobs_file = settings.BASE_DIR / "backend" / "app" / "data" / "jobs.json"
+        jobs_file = settings.APP_DIR / "data" / "jobs.json"
         if jobs_file.exists():
             with open(jobs_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
