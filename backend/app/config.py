@@ -148,7 +148,7 @@ class Settings(BaseSettings):
     STRATUS_ACCESS_KEY: str = ""
     STRATUS_SECRET_KEY: str = ""
     STRATUS_REGION: str = "ap-south-1"
-    CATALYST_MAIL_FROM: str = ""
+    CATALYST_MAIL_FROM: str = "sarthak.b.1204@gmail.com" if _IN_CATALYST_APPSAIL else ""
     APP_PUBLIC_URL: str = ""
     SMTP_HOST: str = ""
     SMTP_PORT: int = 587
