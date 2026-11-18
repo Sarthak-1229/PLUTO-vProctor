@@ -4,6 +4,7 @@ All thresholds, weights, model parameters, and storage paths MUST live here
 to prevent magic numbers in business logic.
 """
 
+import os
 import secrets
 from pathlib import Path
 from typing import Any, Dict, List, Literal
@@ -11,6 +12,9 @@ from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _EPHEMERAL_DEV_SECRET: str = secrets.token_urlsafe(48)
+_IN_CATALYST_APPSAIL: bool = bool(os.environ.get("X_ZOHO_CATALYST_LISTEN_PORT")) and not bool(
+    os.environ.get("PYTEST_CURRENT_TEST")
+)
 
 
 class Settings(BaseSettings):
@@ -64,7 +68,7 @@ class Settings(BaseSettings):
     DATASETS_DIR: Path = BASE_DIR / "datasets"
     DATASET_DATA_DIR: Path = DATASETS_DIR / "data"
     DATASET_DATA1_DIR: Path = DATASETS_DIR / "data1"
-    STORAGE_DIR: Path = BASE_DIR / "storage"
+    STORAGE_DIR: Path = Path("/tmp/pluto_storage") if _IN_CATALYST_APPSAIL else (BASE_DIR / "storage")
     PROCESSED_DATA_DIR: Path = Path(__file__).resolve().parent / "data" / "processed"
 
     # Observability & Infrastructure
@@ -83,12 +87,12 @@ class Settings(BaseSettings):
     ]
 
     # Feature Flags & v2 Rollout Boundaries
-    AUTH_ENABLED: bool = False
-    HOSTED_ROOMS_ENABLED: bool = False
-    LIVE_MEDIA_ENABLED: bool = False
+    AUTH_ENABLED: bool = _IN_CATALYST_APPSAIL
+    HOSTED_ROOMS_ENABLED: bool = _IN_CATALYST_APPSAIL
+    LIVE_MEDIA_ENABLED: bool = _IN_CATALYST_APPSAIL
     MEDIA_TRANSPORT_MODE: Literal["none", "p2p", "sfu"] = "p2p"
     SFU_URL: str = ""
-    SERVE_SPA: bool = False
+    SERVE_SPA: bool = _IN_CATALYST_APPSAIL
     AUTO_SEED_DB: bool = True
 
     # Optional Environment-Driven Admin Bootstrap (never hardcode secrets in repo)
@@ -100,7 +104,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = ""
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=15, ge=1, le=1440)
     REFRESH_TOKEN_EXPIRE_DAYS: int = Field(default=7, ge=1, le=90)
-    COOKIE_SECURE: bool = False
+    COOKIE_SECURE: bool = _IN_CATALYST_APPSAIL
     COOKIE_SAMESITE: Literal["lax", "strict", "none"] = "lax"
     REFRESH_COOKIE_NAME: str = "pluto_refresh_token"
     CSRF_COOKIE_NAME: str = "pluto_csrf_token"
@@ -116,7 +120,11 @@ class Settings(BaseSettings):
     TURN_CREDENTIAL: str = ""
 
     # Database Configuration
-    DATABASE_URL: str = f"sqlite:///{Path(__file__).resolve().parent / 'pluto.db'}"
+    DATABASE_URL: str = (
+        "sqlite:////tmp/pluto.db"
+        if _IN_CATALYST_APPSAIL
+        else f"sqlite:///{Path(__file__).resolve().parent / 'pluto.db'}"
+    )
 
     # LLM Settings (Ollama - Local Offline Inference)
     OLLAMA_BASE_URL: str = "http://localhost:11434"

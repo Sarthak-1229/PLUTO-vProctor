@@ -41,6 +41,7 @@ _CACHE_ACTIVE: bool = False
 _CACHE_LAST_ERROR: Optional[str] = None
 
 _DATASTORE_TABLES_CACHE: Dict[str, str] = {}  # lower_name -> exact table_name
+_DATASTORE_COLUMNS_CACHE: Dict[str, Dict[str, str]] = {}  # lower_table -> {lower_col: exact_col}
 _DATASTORE_TABLES_CHECKED_AT: float = 0.0
 _DATASTORE_SYNCED_ROWS: int = 0
 _DATASTORE_LAST_ERROR: Optional[str] = None
@@ -287,6 +288,29 @@ def refresh_datastore_tables(*, force: bool = False) -> Dict[str, str]:
         return {}
 
 
+def _get_table_columns(catalyst_app, table_name: str) -> Dict[str, str]:
+    """Return {lower_col_name: actual_col_name} for user-defined columns in a Data Store table."""
+    key = table_name.lower()
+    with _STATE_LOCK:
+        cached = _DATASTORE_COLUMNS_CACHE.get(key)
+    if cached is not None:
+        return dict(cached)
+
+    system_cols = {"rowid", "creatorid", "createdtime", "modifiedtime"}
+    try:
+        cols = catalyst_app.datastore().table(table_name).get_all_columns() or []
+        mapping: Dict[str, str] = {}
+        for col in cols:
+            cname = str(col.get("column_name") or "").strip() if isinstance(col, dict) else ""
+            if cname and cname.lower() not in system_cols:
+                mapping[cname.lower()] = cname
+        with _STATE_LOCK:
+            _DATASTORE_COLUMNS_CACHE[key] = mapping
+        return dict(mapping)
+    except Exception:
+        return {}
+
+
 def mirror_row_to_datastore(table_name: str, row_data: Dict[str, Any], unique_col: str, unique_val: str) -> bool:
     """Upsert a single sanitized record into a Zoho Catalyst Data Store table if it exists."""
     global _DATASTORE_SYNCED_ROWS, _DATASTORE_LAST_ERROR
@@ -300,17 +324,39 @@ def mirror_row_to_datastore(table_name: str, row_data: Dict[str, Any], unique_co
         return False
 
     try:
-        safe_val = str(unique_val).replace("'", "''")
-        zcql = catalyst_app.zcql()
-        existing = zcql.execute_query(
-            f"SELECT ROWID FROM {actual_name} WHERE {unique_col} = '{safe_val}' LIMIT 1"
-        )
+        col_map = _get_table_columns(catalyst_app, actual_name)
+        mapped_row: Dict[str, Any] = {}
+        for k, v in row_data.items():
+            target_col = col_map.get(k.lower())
+            if target_col:
+                mapped_row[target_col] = v
+
+        if not mapped_row:
+            with _STATE_LOCK:
+                _DATASTORE_LAST_ERROR = (
+                    f"Table '{actual_name}' has no matching columns (found: {sorted(col_map.values())}, expected any of: {sorted(row_data.keys())})"
+                )
+            return False
+
         tbl = catalyst_app.datastore().table(actual_name)
-        if existing and isinstance(existing, list) and existing[0].get(actual_name, {}).get("ROWID"):
-            row_id = existing[0][actual_name]["ROWID"]
-            tbl.update_row({"ROWID": row_id, **row_data})
+        actual_unique_col = col_map.get(unique_col.lower())
+        existing_row_id = None
+        if actual_unique_col:
+            try:
+                safe_val = str(unique_val).replace("'", "''")
+                zcql = catalyst_app.zcql()
+                existing = zcql.execute_query(
+                    f"SELECT ROWID FROM {actual_name} WHERE {actual_unique_col} = '{safe_val}' LIMIT 1"
+                )
+                if existing and isinstance(existing, list) and existing[0].get(actual_name, {}).get("ROWID"):
+                    existing_row_id = existing[0][actual_name]["ROWID"]
+            except Exception:
+                existing_row_id = None
+
+        if existing_row_id:
+            tbl.update_row({"ROWID": existing_row_id, **mapped_row})
         else:
-            tbl.insert_row(row_data)
+            tbl.insert_row(mapped_row)
 
         with _STATE_LOCK:
             _DATASTORE_SYNCED_ROWS += 1
