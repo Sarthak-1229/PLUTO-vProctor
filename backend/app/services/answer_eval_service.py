@@ -271,6 +271,13 @@ class AnswerEvaluationService:
             llm_score = algorithmic_score
             feedback = f"Algorithmic evaluation: {len(algo_res['matched_keywords'])} of {len(expected_keywords)} core concepts mentioned."
 
+        zia_insights = None
+        try:
+            from backend.app.services.catalyst_zia import analyze_answer_with_zia
+            zia_insights = analyze_answer_with_zia(candidate_transcript, expected_keywords=expected_keywords)
+        except Exception:
+            zia_insights = None
+
         return {
             "overall_answer_score": combined_score,
             "algorithmic_score": algorithmic_score,
@@ -286,6 +293,7 @@ class AnswerEvaluationService:
             "matched_keywords": algo_res["matched_keywords"],
             "missed_keywords": algo_res["missed_keywords"],
             "embedding_similarity": algo_res["embedding_similarity"],
+            "zia_insights": zia_insights,
         }
 
 

@@ -123,7 +123,20 @@ def register(payload: RegisterRequest, request: Request, response: Response, db:
     )
     _set_session_cookies(response, result["raw_refresh"], result["csrf_token"])
     from backend.app.db.bootstrap import schedule_stratus_sync
+    from backend.app.services.catalyst_cloud_db import mirror_async
     schedule_stratus_sync()
+    u = result["user"]
+    mirror_async(
+        "PlutoUsers",
+        {
+            "user_id": u["id"],
+            "email": u["email"],
+            "full_name": u["full_name"],
+            "role": u["role"],
+        },
+        "user_id",
+        u["id"],
+    )
     return {
         "user": result["user"],
         "access_token": result["access_token"],
@@ -150,7 +163,20 @@ def login_candidate(payload: LoginRequest, request: Request, response: Response,
     )
     _set_session_cookies(response, result["raw_refresh"], result["csrf_token"])
     from backend.app.db.bootstrap import schedule_stratus_sync
+    from backend.app.services.catalyst_cloud_db import mirror_async
     schedule_stratus_sync()
+    u = result["user"]
+    mirror_async(
+        "PlutoUsers",
+        {
+            "user_id": u["id"],
+            "email": u["email"],
+            "full_name": u["full_name"],
+            "role": u["role"],
+        },
+        "user_id",
+        u["id"],
+    )
     return {
         "user": result["user"],
         "access_token": result["access_token"],
@@ -177,7 +203,20 @@ def login_admin(payload: LoginRequest, request: Request, response: Response, db:
     )
     _set_session_cookies(response, result["raw_refresh"], result["csrf_token"])
     from backend.app.db.bootstrap import schedule_stratus_sync
+    from backend.app.services.catalyst_cloud_db import mirror_async
     schedule_stratus_sync()
+    u = result["user"]
+    mirror_async(
+        "PlutoUsers",
+        {
+            "user_id": u["id"],
+            "email": u["email"],
+            "full_name": u["full_name"],
+            "role": u["role"],
+        },
+        "user_id",
+        u["id"],
+    )
     return {
         "user": result["user"],
         "access_token": result["access_token"],
@@ -206,7 +245,20 @@ def refresh(request: Request, response: Response, db: Session = Depends(get_db))
 
     _set_session_cookies(response, result["raw_refresh"], result["csrf_token"])
     from backend.app.db.bootstrap import schedule_stratus_sync
+    from backend.app.services.catalyst_cloud_db import mirror_async
     schedule_stratus_sync()
+    u = result["user"]
+    mirror_async(
+        "PlutoUsers",
+        {
+            "user_id": u["id"],
+            "email": u["email"],
+            "full_name": u["full_name"],
+            "role": u["role"],
+        },
+        "user_id",
+        u["id"],
+    )
     return {
         "user": result["user"],
         "access_token": result["access_token"],

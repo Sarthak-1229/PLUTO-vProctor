@@ -142,6 +142,20 @@ async def upload_or_screen_resume(
     db.add(session_obj)
     db.commit()
 
+    from backend.app.services.catalyst_cloud_db import mirror_async
+    mirror_async(
+        "PlutoSessions",
+        {
+            "session_id": session_id,
+            "candidate_name": c_name,
+            "job_id": job.id,
+            "screening_fit": str(round(screening["fit_score"] * 100, 1)),
+            "screening_status": str(screening["status"]),
+        },
+        "session_id",
+        session_id,
+    )
+
     raw_fit = screening.get("fit_score", 0.0)
     fit_score_val = round(raw_fit * 100, 1) if raw_fit <= 1.0 else round(raw_fit, 1)
 
@@ -178,5 +192,6 @@ async def upload_or_screen_resume(
             "experience_years": parsed.get("experience_years", 0.0),
             "education": parsed.get("education", {}),
         },
+        "zia_insights": parsed.get("zia_insights"),
         "screening": screening,
     }

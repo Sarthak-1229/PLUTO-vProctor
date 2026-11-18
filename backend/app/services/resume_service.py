@@ -124,6 +124,14 @@ class ResumeService:
             with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
                 pages_text = [page.extract_text() or "" for page in pdf.pages]
                 text = "\n".join(pages_text)
+            if len(text.strip()) < 30:
+                try:
+                    from backend.app.services.catalyst_zia import ocr_file_with_zia
+                    ocr_text = ocr_file_with_zia(file_bytes, suffix=".pdf")
+                    if ocr_text:
+                        text = ocr_text
+                except Exception:
+                    pass
         elif fn_low.endswith(".docx"):
             import docx
             doc = docx.Document(io.BytesIO(file_bytes))
@@ -306,6 +314,16 @@ class ResumeService:
         lines = [ln.strip() for ln in raw_text.splitlines() if ln.strip()]
         candidate_name = lines[0] if lines and len(lines[0]) <= 50 else "Candidate"
 
+        # Enrich with Zoho Catalyst Zia Text Analytics (NER + Keywords) when running on Catalyst
+        zia_insights = None
+        try:
+            from backend.app.services.catalyst_zia import analyze_resume_with_zia
+            zia_insights = analyze_resume_with_zia(raw_text)
+            if zia_insights and candidate_name == "Candidate" and zia_insights.get("persons"):
+                candidate_name = zia_insights["persons"][0]
+        except Exception:
+            zia_insights = None
+
         return {
             "candidate_name": candidate_name,
             "raw_text": raw_text,
@@ -314,6 +332,7 @@ class ResumeService:
             "experience_years": exp_years,
             "experience_intervals": intervals,
             "education": education,
+            "zia_insights": zia_insights,
         }
 
     def calculate_fit(self, parsed_resume: Dict[str, Any], job_dict: Dict[str, Any]) -> Dict[str, Any]:

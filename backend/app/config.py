@@ -129,6 +129,7 @@ class Settings(BaseSettings):
 
     # Zoho Catalyst Cloud Adapters (QuickML, Stratus Object Storage & Catalyst Mail)
     QUICKML_ENDPOINT: str = ""
+    QUICKML_ENDPOINT_KEY: str = ""
     QUICKML_API_KEY: str = ""
     QUICKML_MODEL: str = "qwen2.5:3b"
     QUICKML_AUTH_SCHEME: Literal["auto", "bearer", "zoho"] = "auto"

@@ -237,11 +237,15 @@ def readiness_check():
     catalyst_info = {}
     try:
         from backend.app.services.catalyst_context import get_catalyst_status
+        from backend.app.services.catalyst_cloud_db import get_cloud_db_status
+        from backend.app.services.catalyst_zia import get_zia_metrics
         from backend.app.db.bootstrap import get_stratus_db_state
 
         catalyst_info = {
             **get_catalyst_status(),
+            "cloud_db": get_cloud_db_status(),
             "stratus_db": get_stratus_db_state(),
+            "zia_ai": get_zia_metrics(),
         }
     except Exception:
         catalyst_info = {}

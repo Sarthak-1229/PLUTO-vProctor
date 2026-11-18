@@ -25,7 +25,20 @@ async def get_report_json(
         current_user,
     )
     try:
-        return await report_service.generate_report(sid, db)
+        report_data = await report_service.generate_report(sid, db)
+        from backend.app.services.catalyst_cloud_db import mirror_async
+        mirror_async(
+            "PlutoReports",
+            {
+                "session_id": sid,
+                "candidate_name": str(report_data.get("candidate_name", "")),
+                "overall_score": str(report_data.get("overall_score", 0.0)),
+                "grade_band": str(report_data.get("grade_band", "")),
+            },
+            "session_id",
+            sid,
+        )
+        return report_data
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:

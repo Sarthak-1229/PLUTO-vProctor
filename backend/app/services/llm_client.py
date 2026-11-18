@@ -55,13 +55,53 @@ class LLMClient:
             return f"Zoho-oauthtoken {api_key}"
         return f"Bearer {api_key}"
 
+    def _try_quickml_sdk(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        response_model: Optional[Type[T]] = None,
+    ) -> Optional[Any]:
+        """Attempt completion via native zcatalyst_sdk QuickML predict() when QUICKML_ENDPOINT_KEY is set."""
+        endpoint_key = (getattr(settings, "QUICKML_ENDPOINT_KEY", "") or "").strip()
+        if not endpoint_key:
+            return None
+        try:
+            from backend.app.services.catalyst_context import get_catalyst_app
+
+            catalyst_app = get_catalyst_app(scope="admin")
+            if catalyst_app is None:
+                return None
+
+            prompt = f"{system_prompt}\nOUTPUT ONLY VALID RAW JSON. NO MARKDOWN.\n\n{user_prompt}"
+            data = catalyst_app.quick_ml().predict(endpoint_key, {"prompt": prompt})
+            if isinstance(data, dict):
+                raw_text = ""
+                if "output" in data:
+                    raw_text = str(data["output"])
+                elif "data" in data and isinstance(data["data"], str):
+                    raw_text = data["data"]
+                elif "choices" in data and data["choices"]:
+                    raw_text = data["choices"][0].get("message", {}).get("content", "")
+                if raw_text:
+                    return self._extract_content_json(raw_text, response_model)
+                if response_model is not None:
+                    return response_model.model_validate(data)
+                return data
+        except Exception as exc:
+            print(f"QuickML SDK invocation skipped/error (falling back): {exc}")
+        return None
+
     async def _try_quickml_async(
         self,
         system_prompt: str,
         user_prompt: str,
         response_model: Optional[Type[T]] = None,
     ) -> Optional[Any]:
-        """Attempt completion using Zoho Catalyst QuickML endpoint if configured."""
+        """Attempt completion using Zoho Catalyst QuickML (SDK or REST endpoint) if configured."""
+        sdk_res = self._try_quickml_sdk(system_prompt, user_prompt, response_model)
+        if sdk_res is not None:
+            return sdk_res
+
         endpoint = settings.QUICKML_ENDPOINT.strip()
         api_key = settings.QUICKML_API_KEY.strip()
         if not endpoint or not api_key:
@@ -111,7 +151,11 @@ class LLMClient:
         user_prompt: str,
         response_model: Optional[Type[T]] = None,
     ) -> Optional[Any]:
-        """Synchronous QuickML invocation with fallback."""
+        """Synchronous QuickML invocation (SDK or REST) with fallback."""
+        sdk_res = self._try_quickml_sdk(system_prompt, user_prompt, response_model)
+        if sdk_res is not None:
+            return sdk_res
+
         endpoint = settings.QUICKML_ENDPOINT.strip()
         api_key = settings.QUICKML_API_KEY.strip()
         if not endpoint or not api_key:
