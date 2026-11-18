@@ -119,6 +119,18 @@ def _parse_ner(raw: Any) -> Dict[str, List[str]]:
     }
 
 
+def _unwrap_zia_doc(raw: Any) -> Dict[str, Any]:
+    """Unwrap Zia response list / nested 'response' envelope into a flat document dict."""
+    node = raw
+    if isinstance(node, list) and node:
+        node = node[0]
+    if isinstance(node, dict) and isinstance(node.get("response"), dict):
+        node = node["response"]
+    if isinstance(node, list) and node:
+        node = node[0]
+    return node if isinstance(node, dict) else {}
+
+
 def analyze_answer_with_zia(
     transcript: str,
     expected_keywords: Optional[List[str]] = None,
@@ -137,8 +149,9 @@ def analyze_answer_with_zia(
     try:
         zia = catalyst_app.zia()
         raw = zia.get_text_analytics([snippet], keywords=kw_list or None)
-        sent_raw = raw.get("sentiment_prediction") if isinstance(raw, dict) else raw
-        kw_raw = raw.get("keyword_extractor") if isinstance(raw, dict) else None
+        doc = _unwrap_zia_doc(raw)
+        sent_raw = doc.get("sentiment_prediction") or doc
+        kw_raw = doc.get("keyword_extractor") or doc
         sent = _parse_sentiment(sent_raw)
         keywords = _parse_keywords(kw_raw)[:15]
         _record_zia_result("text_analytics", True)
@@ -168,8 +181,9 @@ def analyze_resume_with_zia(raw_text: str) -> Optional[Dict[str, Any]]:
     try:
         zia = catalyst_app.zia()
         raw = zia.get_text_analytics([snippet])
-        kw_raw = raw.get("keyword_extractor") if isinstance(raw, dict) else None
-        ner_raw = raw.get("ner") if isinstance(raw, dict) else None
+        doc = _unwrap_zia_doc(raw)
+        kw_raw = doc.get("keyword_extractor") or doc
+        ner_raw = doc.get("ner") or doc
         keywords = _parse_keywords(kw_raw)[:20]
         ner = _parse_ner(ner_raw)
         _record_zia_result("resume_analytics", True)

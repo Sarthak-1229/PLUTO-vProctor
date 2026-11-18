@@ -40,6 +40,7 @@ class AnswerEvaluationService:
         self._tfidf = None
         self._bm25 = None
         self.st_model = None
+        self._st_model_unavailable = False
 
     def _ensure_components_loaded(self):
         """Thread-safe lazy initialization of retrieval and classification baselines."""
@@ -100,9 +101,14 @@ class AnswerEvaluationService:
                 print(f"Warning: Could not fit answer retrieval baselines: {e}")
 
     def _get_st_model(self):
-        if self.st_model is None:
-            from sentence_transformers import SentenceTransformer
-            self.st_model = SentenceTransformer("all-MiniLM-L6-v2", device="cpu")
+        if self.st_model is None and not self._st_model_unavailable:
+            try:
+                from sentence_transformers import SentenceTransformer
+                self.st_model = SentenceTransformer("all-MiniLM-L6-v2", device="cpu")
+            except Exception as exc:
+                self._st_model_unavailable = True
+                print(f"Notice: SentenceTransformer unavailable ({exc}); using TF-IDF + lexical similarity fallback.")
+                return None
         return self.st_model
 
     def evaluate_answer_algorithmic(
@@ -123,11 +129,22 @@ class AnswerEvaluationService:
             }
 
         st = self._get_st_model()
-        q_emb = st.encode(question, normalize_embeddings=True)
-        cand_emb = st.encode(candidate_transcript, normalize_embeddings=True)
-        ref_emb = st.encode(reference_answer, normalize_embeddings=True)
-
-        emb_sim = float(np.dot(cand_emb, ref_emb))
+        if st is not None:
+            q_emb = st.encode(question, normalize_embeddings=True)
+            cand_emb = st.encode(candidate_transcript, normalize_embeddings=True)
+            ref_emb = st.encode(reference_answer, normalize_embeddings=True)
+            emb_sim = float(np.dot(cand_emb, ref_emb))
+        else:
+            # Lightweight cloud fallback: TF-IDF cosine + token overlap against reference answer
+            tfidf_ref_sim = 0.0
+            if self.tfidf and reference_answer:
+                rv = self.tfidf.transform(reference_answer)
+                cv = self.tfidf.transform(candidate_transcript)
+                tfidf_ref_sim = float(cosine_similarity(rv, cv))
+            cand_toks = set(tokenize(candidate_transcript))
+            ref_toks = set(tokenize(reference_answer or question))
+            overlap = len(cand_toks & ref_toks) / float(max(1, min(len(cand_toks), len(ref_toks))))
+            emb_sim = min(1.0, max(tfidf_ref_sim, 0.55 * tfidf_ref_sim + 0.45 * overlap))
 
         # Off-topic gate: if semantic similarity to reference is very low (< 0.25), score near zero
         if emb_sim < 0.25:
