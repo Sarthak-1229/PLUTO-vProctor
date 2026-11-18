@@ -48,6 +48,13 @@ class LLMClient:
             return response_model.model_validate(parsed_json)
         return parsed_json
 
+    @staticmethod
+    def _quickml_auth_header(api_key: str) -> str:
+        scheme = (getattr(settings, "QUICKML_AUTH_SCHEME", "auto") or "auto").strip().lower()
+        if scheme == "zoho" or (scheme == "auto" and api_key.startswith("1000.")):
+            return f"Zoho-oauthtoken {api_key}"
+        return f"Bearer {api_key}"
+
     async def _try_quickml_async(
         self,
         system_prompt: str,
@@ -61,7 +68,7 @@ class LLMClient:
             return None
 
         headers = {
-            "Authorization": f"Bearer {api_key}",
+            "Authorization": self._quickml_auth_header(api_key),
             "Content-Type": "application/json",
             "X-Catalyst-Client": "PLUTO-vProctor",
         }
@@ -111,7 +118,7 @@ class LLMClient:
             return None
 
         headers = {
-            "Authorization": f"Bearer {api_key}",
+            "Authorization": self._quickml_auth_header(api_key),
             "Content-Type": "application/json",
             "X-Catalyst-Client": "PLUTO-vProctor",
         }

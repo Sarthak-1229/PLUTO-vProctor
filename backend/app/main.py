@@ -100,6 +100,38 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(RequestIDMiddleware)
 
+
+# 1b. Zoho Catalyst Native SDK Context, First-Request Stratus DB Restore & Auto-Sync Middleware
+class CatalystContextMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        try:
+            from backend.app.services.catalyst_context import capture_catalyst_headers
+            from backend.app.db.bootstrap import ensure_stratus_db_restored_once, schedule_stratus_sync
+
+            origin = f"{request.url.scheme}://{request.url.netloc}" if request.url.netloc else ""
+            if capture_catalyst_headers(request.headers, origin_url=origin):
+                ensure_stratus_db_restored_once()
+        except Exception:
+            pass
+
+        response: Response = await call_next(request)
+
+        try:
+            if (
+                request.method in {"POST", "PUT", "PATCH", "DELETE"}
+                and request.url.path.startswith("/api/")
+                and 200 <= response.status_code < 300
+            ):
+                from backend.app.db.bootstrap import schedule_stratus_sync
+                schedule_stratus_sync()
+        except Exception:
+            pass
+
+        return response
+
+
+app.add_middleware(CatalystContextMiddleware)
+
 # 2. CORS Middleware
 app.add_middleware(
     CORSMiddleware,
@@ -202,12 +234,25 @@ def readiness_check():
 
     storage_ok = settings.STORAGE_DIR.exists()
 
+    catalyst_info = {}
+    try:
+        from backend.app.services.catalyst_context import get_catalyst_status
+        from backend.app.db.bootstrap import get_stratus_db_state
+
+        catalyst_info = {
+            **get_catalyst_status(),
+            "stratus_db": get_stratus_db_state(),
+        }
+    except Exception:
+        catalyst_info = {}
+
     return {
         "status": "ready" if (db_ok and storage_ok) else "degraded",
         "database": "connected" if db_ok else "unreachable",
         "storage": "available" if storage_ok else "missing",
         "jobs_count": jobs_count,
         "questions_count": questions_count,
+        "catalyst": catalyst_info,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 

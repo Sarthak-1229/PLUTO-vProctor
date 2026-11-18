@@ -245,7 +245,8 @@ async def upload_recording(
         # Soft warning for browser recorded blobs
         pass
 
-    file_path.write_bytes(content)
+    from backend.app.services.storage_service import storage_service
+    storage_service.save_file("recordings", filename, content)
 
     session.video_filename = filename
     session.interview_status = "RECORDED"

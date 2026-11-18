@@ -1,21 +1,25 @@
-"""Idempotent startup database bootstrap, auto-seeding, admin provisioning, and Stratus snapshot sync.
+"""Idempotent startup database bootstrap, auto-seeding, admin provisioning, and Zoho Stratus DB sync.
 
-Guarantees that fresh cloud containers (e.g., Zoho Catalyst AppSail) boot with:
+Guarantees that fresh Zoho Catalyst AppSail containers boot with:
 - All database tables created
 - Companies, job profiles, and the 1,799-question bank seeded automatically
 - Optional environment-driven administrator account (never hardcoded in source)
-- Optional Zoho Catalyst Stratus SQLite snapshot restore/backup for persistence across cold starts
+- Automatic Zoho Catalyst Stratus SQLite snapshot restore (on cold start / first request)
+  and debounced online SQLite backup sync after writes so users, profiles, resumes,
+  sessions, and reports persist across AppSail container restarts.
 """
 from __future__ import annotations
 
+import datetime
 import json
 import logging
 import os
 import sqlite3
 import tempfile
 import threading
+import time
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from backend.app.config import settings
 
@@ -23,6 +27,14 @@ logger = logging.getLogger("pluto.bootstrap")
 
 _BOOTSTRAP_LOCK = threading.Lock()
 _STRATUS_SYNC_LOCK = threading.Lock()
+_STRATUS_RESTORE_LOCK = threading.Lock()
+
+_STRATUS_RESTORE_ATTEMPTED = False
+_STRATUS_RESTORED_OK = False
+_STRATUS_LAST_SYNC_AT: Optional[str] = None
+_LAST_SYNC_MONO = 0.0
+
+STRATUS_DB_KEY = "db_snapshots/pluto.db"
 
 
 def _resolve_sqlite_file_path() -> Optional[Path]:
@@ -33,7 +45,6 @@ def _resolve_sqlite_file_path() -> Optional[Path]:
     raw = url[len("sqlite:///") :]
     if not raw or raw == ":memory:":
         return None
-    # Handle sqlite:////tmp/pluto.db -> /tmp/pluto.db on POSIX, or relative/absolute Windows paths
     return Path(raw)
 
 
@@ -48,12 +59,23 @@ def _should_auto_seed() -> bool:
     return True
 
 
-def restore_sqlite_from_stratus_if_needed() -> bool:
-    """Restore SQLite snapshot from Zoho Stratus if local DB file does not exist yet."""
+def get_stratus_db_state() -> Dict[str, Any]:
+    """Return non-secret telemetry for Stratus SQLite snapshot persistence."""
+    return {
+        "restore_attempted": _STRATUS_RESTORE_ATTEMPTED,
+        "restored_from_stratus": _STRATUS_RESTORED_OK,
+        "last_sync_at": _STRATUS_LAST_SYNC_AT,
+        "snapshot_key": STRATUS_DB_KEY,
+    }
+
+
+def _restore_sqlite_from_stratus(*, force_replace: bool = False) -> bool:
+    """Download `db_snapshots/pluto.db` from Zoho Stratus and replace local SQLite file."""
+    global _STRATUS_RESTORED_OK
     db_path = _resolve_sqlite_file_path()
     if db_path is None:
         return False
-    if db_path.exists() and db_path.stat().st_size > 0:
+    if not force_replace and db_path.exists() and db_path.stat().st_size > 0:
         return False
 
     try:
@@ -62,14 +84,18 @@ def restore_sqlite_from_stratus_if_needed() -> bool:
         if not storage_service.is_stratus_enabled():
             return False
 
-        raw_bytes = storage_service.get_file_bytes("db_snapshots", "pluto.db")
+        raw_bytes = storage_service.download_raw_bytes(STRATUS_DB_KEY)
         if not raw_bytes or not raw_bytes.startswith(b"SQLite format 3"):
             return False
 
+        from backend.app.db.database import engine
+
+        engine.dispose()
         db_path.parent.mkdir(parents=True, exist_ok=True)
         tmp_path = db_path.with_suffix(".db.restore_tmp")
         tmp_path.write_bytes(raw_bytes)
         tmp_path.replace(db_path)
+        _STRATUS_RESTORED_OK = True
         logger.info("Restored SQLite database snapshot from Zoho Stratus (%d bytes).", len(raw_bytes))
         return True
     except Exception as exc:
@@ -77,8 +103,42 @@ def restore_sqlite_from_stratus_if_needed() -> bool:
         return False
 
 
+def ensure_stratus_db_restored_once() -> bool:
+    """Called on first live Catalyst request once AppSail headers arrive.
+
+    If Stratus has an existing `pluto.db` snapshot, atomically restores it over the
+    freshly seeded `/tmp/pluto.db` and re-verifies schema + bootstrap admin.
+    Runs at most once per container lifetime.
+    """
+    global _STRATUS_RESTORE_ATTEMPTED
+    if _STRATUS_RESTORE_ATTEMPTED or not _should_auto_seed():
+        return False
+
+    if not (settings.STRATUS_BUCKET or "").strip():
+        return False
+
+    with _STRATUS_RESTORE_LOCK:
+        if _STRATUS_RESTORE_ATTEMPTED:
+            return False
+
+        from backend.app.services.storage_service import storage_service
+
+        if not storage_service.is_stratus_enabled():
+            return False
+
+        _STRATUS_RESTORE_ATTEMPTED = True
+        restored = _restore_sqlite_from_stratus(force_replace=True)
+        if restored:
+            ensure_database_ready()
+        else:
+            # First ever boot with an empty Stratus bucket: push initial seeded DB snapshot
+            schedule_stratus_sync(force=True)
+        return restored
+
+
 def sync_sqlite_to_stratus() -> bool:
     """Create a consistent SQLite online backup and upload it to Zoho Stratus if enabled."""
+    global _STRATUS_LAST_SYNC_AT
     db_path = _resolve_sqlite_file_path()
     if db_path is None or not db_path.exists():
         return False
@@ -102,8 +162,13 @@ def sync_sqlite_to_stratus() -> bool:
                     dst.close()
                     src.close()
                 payload = tmp_path.read_bytes()
-                ok = storage_service._upload_to_stratus("db_snapshots/pluto.db", payload)
+                ok = storage_service.upload_raw_bytes(
+                    STRATUS_DB_KEY,
+                    payload,
+                    content_type="application/x-sqlite3",
+                )
                 if ok:
+                    _STRATUS_LAST_SYNC_AT = datetime.datetime.now(datetime.timezone.utc).isoformat()
                     logger.info("Synced SQLite database snapshot to Zoho Stratus (%d bytes).", len(payload))
                 return ok
             finally:
@@ -113,23 +178,21 @@ def sync_sqlite_to_stratus() -> bool:
         return False
 
 
-_LAST_SYNC_TS = 0.0
-
-
-def schedule_stratus_sync() -> None:
+def schedule_stratus_sync(*, force: bool = False) -> None:
     """Trigger a debounced non-blocking SQLite snapshot sync to Zoho Stratus when enabled."""
-    global _LAST_SYNC_TS
+    global _LAST_SYNC_MONO
+    if not _should_auto_seed():
+        return
     try:
         from backend.app.services.storage_service import storage_service
 
         if not storage_service.is_stratus_enabled():
             return
-        import time
 
         now = time.monotonic()
-        if now - _LAST_SYNC_TS < 5.0:
+        if not force and (now - _LAST_SYNC_MONO < 3.0):
             return
-        _LAST_SYNC_TS = now
+        _LAST_SYNC_MONO = now
         threading.Thread(target=sync_sqlite_to_stratus, daemon=True).start()
     except Exception:
         pass
@@ -266,7 +329,7 @@ def _ensure_bootstrap_admin(db) -> bool:
         return False
 
 
-def ensure_database_ready() -> Dict[str, int | bool]:
+def ensure_database_ready() -> Dict[str, Any]:
     """Initialize storage, schema, seed data, and optional bootstrap admin idempotently."""
     with _BOOTSTRAP_LOCK:
         try:
@@ -274,14 +337,14 @@ def ensure_database_ready() -> Dict[str, int | bool]:
         except Exception as exc:
             logger.warning("Storage directory creation warning: %s", exc)
 
-        restored = restore_sqlite_from_stratus_if_needed()
+        restored = _restore_sqlite_from_stratus(force_replace=False)
 
         from backend.app.db.database import Base, SessionLocal, engine
         from backend.app.db import models as _models  # noqa: F401
 
         Base.metadata.create_all(bind=engine)
 
-        summary: Dict[str, int | bool] = {
+        summary: Dict[str, Any] = {
             "restored_from_stratus": restored,
             "companies_seeded": 0,
             "jobs_seeded": 0,

@@ -59,3 +59,43 @@ def test_ensure_bootstrap_admin_is_idempotent(monkeypatch):
         assert admin.token_version == 0
     finally:
         db.close()
+
+
+def test_native_catalyst_sdk_stratus_and_mail_hooks(monkeypatch):
+    from unittest.mock import MagicMock
+    from backend.app.services import catalyst_context, catalyst_mail
+    from backend.app.services.storage_service import StorageService
+
+    mock_bucket = MagicMock()
+    mock_bucket.put_object.return_value = True
+    mock_bucket.get_object.return_value = b"SQLite format 3\x00test"
+    mock_email = MagicMock()
+
+    mock_app = MagicMock()
+    mock_app.stratus.return_value.bucket.return_value = mock_bucket
+    mock_app.email.return_value = mock_email
+
+    monkeypatch.setattr(settings, "STRATUS_BUCKET", "pluto-vproctor-storage")
+    monkeypatch.setattr(settings, "STRATUS_ENDPOINT", "")
+    monkeypatch.setattr(settings, "STRATUS_ACCESS_KEY", "")
+    monkeypatch.setattr(settings, "CATALYST_MAIL_FROM", "noreply@pluto-vproctor.example")
+    monkeypatch.setattr("backend.app.services.storage_service.get_catalyst_app", lambda scope="admin": mock_app)
+    monkeypatch.setattr("backend.app.services.catalyst_mail.get_catalyst_app", lambda scope="admin": mock_app)
+
+    svc = StorageService()
+    assert svc.is_sdk_stratus_enabled() is True
+    assert svc.upload_raw_bytes("db_snapshots/pluto.db", b"SQLite format 3\x00data") is True
+    mock_bucket.put_object.assert_called_once()
+    assert svc.download_raw_bytes("db_snapshots/pluto.db") == b"SQLite format 3\x00test"
+
+    sent = catalyst_mail.send_catalyst_token_email(
+        {"purpose": "password_reset", "email": "cand@example.com", "raw_token": "tok_abc123456789012345"}
+    )
+    assert sent is True
+    mock_email.send_mail.assert_called_once()
+    mail_arg = mock_email.send_mail.call_args[0][0]
+    assert mail_arg["from_email"] == "noreply@pluto-vproctor.example"
+    assert mail_arg["to_email"] == ["cand@example.com"]
+
+    assert catalyst_context.capture_catalyst_headers({"x-zc-projectid": "73453000000046001", "x-zc-project-key": "k"}) is True
+

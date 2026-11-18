@@ -84,13 +84,15 @@ async def upload_or_screen_resume(
         if b"\x00" in file_bytes[:1024]:
             raise HTTPException(status_code=400, detail="Plain text resume contains binary characters.")
 
-    # Save to storage using random session key
+    # Save to local storage and replicate to Zoho Stratus if configured
     storage_dir = settings.STORAGE_DIR / "resumes"
     storage_dir.mkdir(parents=True, exist_ok=True)
     session_id = f"sess_{uuid.uuid4().hex[:12]}"
     ext = Path(filename).suffix.lower() or ".pdf"
-    saved_path = storage_dir / f"{session_id}_{uuid.uuid4().hex[:8]}{ext}"
-    saved_path.write_bytes(file_bytes)
+    stored_filename = f"{session_id}_{uuid.uuid4().hex[:8]}{ext}"
+    saved_path = storage_dir / stored_filename
+    from backend.app.services.storage_service import storage_service
+    storage_service.save_file("resumes", stored_filename, file_bytes)
 
     # Parse resume with cleanup guard
     try:

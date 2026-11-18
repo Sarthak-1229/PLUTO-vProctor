@@ -202,6 +202,12 @@ def upload_and_parse_resume(
         raise AppError(status_code=400, code="invalid_storage_target", message="Invalid storage key.")
 
     dest.write_bytes(file_bytes)
+    try:
+        from backend.app.services.storage_service import storage_service
+        if storage_service.is_stratus_enabled():
+            storage_service.upload_raw_bytes(f"resumes/{storage_key}", file_bytes, content_type=resolved_mime)
+    except Exception:
+        pass
     sha256_hex = hashlib.sha256(file_bytes).hexdigest()
 
     try:

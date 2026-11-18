@@ -206,6 +206,11 @@ def emit_one_time_token_event(event: Dict[str, Any]) -> None:
     """Dispatch out-of-band verification/reset token delivery without logging raw tokens."""
     if _TOKEN_SINK is not None:
         _TOKEN_SINK(dict(event))
+    try:
+        from backend.app.services.catalyst_mail import send_catalyst_token_email
+        send_catalyst_token_email(dict(event))
+    except Exception as exc:
+        logger.debug("Catalyst mail dispatch skipped: %s", exc)
     logger.info(
         "Issued one-time token event",
         extra={"purpose": event.get("purpose"), "user_id": event.get("user_id")},
