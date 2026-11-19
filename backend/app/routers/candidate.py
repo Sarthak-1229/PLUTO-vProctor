@@ -164,6 +164,23 @@ def update_candidate_profile(
     )
     db.commit()
     db.refresh(prof)
+
+    from backend.app.db.bootstrap import schedule_stratus_sync
+    schedule_stratus_sync(force=True)
+
+    from backend.app.services.catalyst_cloud_db import mirror_async
+    mirror_async(
+        "PlutoUsers",
+        {
+            "user_id": current_user.id,
+            "email": current_user.email,
+            "full_name": current_user.full_name,
+            "role": current_user.role,
+        },
+        "user_id",
+        current_user.id,
+    )
+
     return {"profile": _serialize_profile(current_user, prof)}
 
 

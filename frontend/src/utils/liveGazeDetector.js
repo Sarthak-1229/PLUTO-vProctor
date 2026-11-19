@@ -165,7 +165,7 @@ export class LiveGazeDetector {
         outputFaceBlendshapes: true,
         outputFacialTransformationMatrixes: true,
         runningMode: 'VIDEO',
-        numFaces: 1,
+        numFaces: 4,
       })
       this.isReady = true
       return true
@@ -184,7 +184,7 @@ export class LiveGazeDetector {
           outputFaceBlendshapes: true,
           outputFacialTransformationMatrixes: true,
           runningMode: 'VIDEO',
-          numFaces: 1,
+          numFaces: 4,
         })
         this.isReady = true
         return true
@@ -228,9 +228,12 @@ export class LiveGazeDetector {
       return null
     }
 
-    if (!result || !result.faceLandmarks || result.faceLandmarks.length === 0) {
+    const faceCount = (result && result.faceLandmarks) ? result.faceLandmarks.length : 0
+    if (faceCount === 0) {
       return {
         faceDetected: false,
+        multipleFaces: false,
+        faceCount: 0,
         isLookingDirect: false,
         lookAwayType: 'FACE_MISSING',
         attentionScore: 0,
@@ -351,6 +354,8 @@ export class LiveGazeDetector {
 
     return {
       faceDetected: true,
+      multipleFaces: faceCount > 1,
+      faceCount,
       isLookingDirect: !this.inLookaway,
       shouldAlert,
       lookAwayType: this.inLookaway ? lookAwayType : null,
@@ -387,6 +392,8 @@ export class LiveGazeDetector {
             isDirect: stats.isLookingDirect,
             lookAwayType: stats.lookAwayType,
             faceDetected: stats.faceDetected,
+            multipleFaces: Boolean(stats.multipleFaces),
+            faceCount: stats.faceCount || (stats.faceDetected ? 1 : 0),
             attentionScore: stats.attentionScore,
             fps: stats.fps,
             netYaw: stats.netYaw,

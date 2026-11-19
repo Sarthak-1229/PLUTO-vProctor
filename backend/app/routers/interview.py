@@ -29,6 +29,20 @@ class AnswerSubmitRequest(BaseModel):
     tts_windows: Optional[List[List[float]]] = None
 
 
+class ProctoringEventItem(BaseModel):
+    t_start: float
+    t_end: Optional[float] = None
+    category: str = "Eye Contact"
+    type: str = "GAZE_DIVERGENCE"
+    severity: str = "MEDIUM"
+    points_deducted: float = 1.0
+    reason: str = "Gaze diversion away from monitor"
+
+
+class BulkProctoringEventsRequest(BaseModel):
+    events: List[ProctoringEventItem]
+
+
 class StartInterviewRequest(BaseModel):
     calibration: Optional[Dict[str, Any]] = None
     preset_name: Optional[str] = "strict"
@@ -180,15 +194,22 @@ async def submit_question_answer(
     exp_kw = q_rel.expected_keywords if q_rel else []
 
     if sq.is_warmup:
+        has_intro = len(clean_transcript.split()) >= 4
         eval_result = {
-            "overall_answer_score": 90.0 if len(clean_transcript.split()) >= 4 else 50.0,
-            "algorithmic_score": 90.0 if len(clean_transcript.split()) >= 4 else 50.0,
-            "llm_score": 90.0 if len(clean_transcript.split()) >= 4 else 50.0,
-            "feedback": "Self-introduction recorded.",
+            "overall_answer_score": 90.0 if has_intro else 0.0,
+            "algorithmic_score": 90.0 if has_intro else 0.0,
+            "llm_score": 90.0 if has_intro else 0.0,
+            "feedback": "Self-introduction recorded." if has_intro else "No self-introduction provided (skipped).",
             "reference_answer": "Candidate professional background and qualifications.",
-            "matched_keywords": ["intro", "experience"],
-            "missed_keywords": [],
-            "embedding_similarity": 0.85,
+            "matched_keywords": ["intro", "experience"] if has_intro else [],
+            "missed_keywords": [] if has_intro else ["introduction", "background"],
+            "embedding_similarity": 0.85 if has_intro else 0.0,
+            "rubric_breakdown": {
+                "technical_accuracy": 90.0 if has_intro else 0.0,
+                "technical_depth": 90.0 if has_intro else 0.0,
+                "clarity": 90.0 if has_intro else 0.0,
+                "relevance": 90.0 if has_intro else 0.0,
+            },
         }
     else:
         from backend.app.services.answer_eval_service import answer_eval_service
@@ -212,6 +233,41 @@ async def submit_question_answer(
         "transcript": clean_transcript,
         "evaluation": eval_result,
     }
+
+
+@router.post("/{sid}/proctoring-events", response_model=Dict[str, Any])
+def record_bulk_proctoring_events(
+    sid: str,
+    req: BulkProctoringEventsRequest,
+    current_user: Optional[User] = Depends(get_user_when_auth_enabled),
+    db: Session = Depends(get_db),
+):
+    """Record live client-side proctoring telemetry deductions for session."""
+    session = enforce_session_access(
+        db.query(InterviewSession).filter(InterviewSession.id == sid).first(),
+        current_user,
+    )
+    from backend.app.db.models import ProctoringEvent
+
+    added = 0
+    for ev in req.events:
+        t_start = max(0.0, float(ev.t_start))
+        t_end = max(t_start, float(ev.t_end if ev.t_end is not None else t_start + 1.0))
+        pe = ProctoringEvent(
+            session_id=sid,
+            t_start=t_start,
+            t_end=t_end,
+            category=ev.category,
+            type=ev.type,
+            severity=ev.severity,
+            points_deducted=float(ev.points_deducted),
+            reason=ev.reason,
+        )
+        db.add(pe)
+        added += 1
+
+    db.commit()
+    return {"status": "success", "session_id": sid, "recorded_count": added}
 
 
 @router.post("/{sid}/recording", response_model=Dict[str, Any])

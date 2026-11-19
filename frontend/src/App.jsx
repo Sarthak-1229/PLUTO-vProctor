@@ -632,6 +632,12 @@ function MainApp() {
             <CandidateProfilePage
               onNavigate={navigate}
               onProfileSaved={(p) => p?.full_name && setCandidateName(p.full_name)}
+              onSelectJobForInterview={(jobId) => {
+                const matched = jobs.find((j) => j.id === jobId)
+                if (matched) setSelectedJob(matched)
+                setCurrentStep('select')
+                navigate('/')
+              }}
             />
           )}
 

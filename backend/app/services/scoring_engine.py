@@ -38,6 +38,7 @@ class ScoringEngine:
         screening_fit: float,
         proctoring_events: List[Dict[str, Any]],
         answer_scores: List[float],
+        transcripts: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """Combine all category deductions and compute weighted overall score and grade band.
 
@@ -50,11 +51,25 @@ class ScoringEngine:
         # Answer Quality / Technical Depth score
         tech_score = round(sum(answer_scores) / len(answer_scores), 1) if answer_scores else 0.0
 
-        # Category starting points (100 each)
+        # Assess speech presence: candidates who skipped questions or gave zero speech cannot have 100% fluency
+        total_words = 0
+        if transcripts is not None:
+            total_words = sum(len((t or "").strip().split()) for t in transcripts)
+        elif answer_scores:
+            total_words = sum(40 for s in answer_scores if s >= 20.0)
+
+        if total_words == 0 and tech_score <= 5.0:
+            initial_fluency = 0.0
+        elif total_words < 15 and tech_score <= 15.0:
+            initial_fluency = min(20.0, round(total_words * 1.5, 1))
+        else:
+            initial_fluency = 100.0
+
+        # Category starting points
         cat_scores = {
             "resume_fit": round(screening_fit * 100.0, 1),
             "technical_depth": tech_score,
-            "confidence_fluency": 100.0,
+            "confidence_fluency": initial_fluency,
             "proctoring_integrity": 100.0,
             # Sub-category references for granular reporting
             "eye_contact": 100.0,
@@ -79,12 +94,15 @@ class ScoringEngine:
                 cat_scores["proctoring_integrity"] -= pts
                 cat_scores["body_motion"] -= pts
                 bucket = "Proctoring Integrity"
-            elif "proctoring" in cat.lower():
+            elif "proctoring" in cat.lower() or "integrity" in cat.lower() or "face" in cat.lower():
                 cat_scores["proctoring_integrity"] -= pts
                 bucket = "Proctoring Integrity"
             elif "confidence" in cat.lower() or "fluency" in cat.lower():
                 cat_scores["confidence_fluency"] -= pts
                 bucket = "Fluency/Confidence"
+            elif "participation" in cat.lower() or "skipped" in cat.lower():
+                cat_scores["confidence_fluency"] -= pts
+                bucket = "Participation"
 
             formatted_deductions.append({
                 "id": ev.get("id", f"ded_{len(formatted_deductions)}"),
@@ -94,6 +112,7 @@ class ScoringEngine:
                 "category": cat,
                 "type": ev.get("type", "VIOLATION"),
                 "points": pts,
+                "penalty": pts,
                 "reason": ev.get("reason", "Proctoring violation"),
                 "question_id": ev.get("question_id"),
                 "evidence_ref": ev.get("sub_type", ev.get("type", "FLAG")),
@@ -110,10 +129,17 @@ class ScoringEngine:
             + cat_scores["proctoring_integrity"] * self.CATEGORY_WEIGHTS["proctoring_integrity"]
             + cat_scores["resume_fit"] * self.CATEGORY_WEIGHTS["resume_fit"]
         )
+
+        if total_words < 15 and tech_score <= 10.0:
+            overall = min(overall, 25.0 + cat_scores["confidence_fluency"])
+
         overall_score = round(max(0.0, min(100.0, overall)), 1)
 
         # Grade Band and Readiness
-        if overall_score >= 85.0:
+        if total_words < 15 and tech_score <= 10.0:
+            grade = "D"
+            readiness = "Assessment Incomplete — Minimal/No Verbal Answers Recorded"
+        elif overall_score >= 85.0:
             grade = "A"
             readiness = "Interview Ready (Strong Recommendation)"
         elif overall_score >= 70.0:

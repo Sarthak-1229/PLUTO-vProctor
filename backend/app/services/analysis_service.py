@@ -123,7 +123,7 @@ class AnalysisService:
             if not video_path.exists() or video_path.stat().st_size < 100:
                 print(f"Notice: Video '{video_path}' missing or small stub. Using fallback analysis.")
                 video_res = {"events": [], "metrics": {"face_detected": True, "look_away_count": 0}}
-                audio_res = {"events": [], "metrics": {"wpm": 130, "filler_count": 0}, "transcript": "Interview completed."}
+                audio_res = {"events": [], "metrics": {"wpm": 0, "filler_count": 0}, "transcript": "", "words": []}
             else:
                 # Collect keywords and TTS windows from session questions
                 session_questions_pre = (
@@ -192,21 +192,44 @@ class AnalysisService:
                 video_res, audio_res = await asyncio.gather(video_task, audio_task)
 
             # Save combined events to SQLite database
-            db.query(ProctoringEvent).filter(ProctoringEvent.session_id == session_id).delete()
-
             combined_events = video_res.get("events", []) + audio_res.get("events", [])
-            for ev in combined_events:
-                event_row = ProctoringEvent(
-                    session_id=session_id,
-                    t_start=ev["t_start"],
-                    t_end=ev["t_end"],
-                    category=ev["category"],
-                    type=ev["type"],
-                    severity=ev.get("severity", "MEDIUM"),
-                    points_deducted=ev.get("points_deducted", 1.0),
-                    reason=ev["reason"],
-                )
-                db.add(event_row)
+            if combined_events:
+                db.query(ProctoringEvent).filter(ProctoringEvent.session_id == session_id).delete()
+                for ev in combined_events:
+                    event_row = ProctoringEvent(
+                        session_id=session_id,
+                        t_start=ev["t_start"],
+                        t_end=ev["t_end"],
+                        category=ev["category"],
+                        type=ev["type"],
+                        severity=ev.get("severity", "MEDIUM"),
+                        points_deducted=ev.get("points_deducted", 1.0),
+                        reason=ev["reason"],
+                    )
+                    db.add(event_row)
+            else:
+                existing_count = db.query(ProctoringEvent).filter(ProctoringEvent.session_id == session_id).count()
+                if existing_count == 0:
+                    session_questions_check = (
+                        db.query(SessionQuestion)
+                        .filter(SessionQuestion.session_id == session_id)
+                        .order_by(SessionQuestion.order_index)
+                        .all()
+                    )
+                    for sq in session_questions_check:
+                        if not sq.transcript or len(sq.transcript.strip().split()) < 3:
+                            t = float(sq.start_time_sec if sq.start_time_sec is not None else (sq.order_index * 45.0 + 10.0))
+                            db.add(ProctoringEvent(
+                                session_id=session_id,
+                                t_start=t,
+                                t_end=t + 4.0,
+                                category="Participation",
+                                type="QUESTION_SKIPPED",
+                                severity="HIGH",
+                                points_deducted=5.0,
+                                reason=f"Question {sq.order_index + 1} skipped — zero verbal response recorded",
+                            ))
+            db.commit()
 
             # Evaluate questions using authoritative ASR pipeline transcript and timestamps
             from backend.app.services.answer_eval_service import answer_eval_service
@@ -235,7 +258,7 @@ class AnalysisService:
                         if whisper_words and len(whisper_words) >= num_q:
                             chunk_words = whisper_words[idx * words_per_q : (idx + 1) * words_per_q]
                             sq.transcript = " ".join(w.get("raw_word", w["word"]) for w in chunk_words).strip()
-                        elif whisper_transcript:
+                        elif whisper_transcript and len(whisper_transcript.split()) >= 3:
                             sq.transcript = whisper_transcript
 
                     # Always grade with the authoritative transcript
@@ -244,15 +267,23 @@ class AnalysisService:
                     ref_ans = q_rel.answer if q_rel else ""
                     exp_kw = q_rel.expected_keywords if q_rel else []
 
+                    warmup_words = len((sq.transcript or "").strip().split())
                     if sq.is_warmup:
+                        has_warmup = warmup_words >= 4
                         sq.answer_score = {
-                            "overall_answer_score": 90.0 if sq.transcript else 50.0,
-                            "algorithmic_score": 90.0 if sq.transcript else 50.0,
-                            "llm_score": 90.0 if sq.transcript else 50.0,
-                            "feedback": "Warmup self-introduction provided.",
-                            "reference_answer": "Candidate introduction and background.",
-                            "matched_keywords": [],
-                            "missed_keywords": [],
+                            "overall_answer_score": 90.0 if has_warmup else 0.0,
+                            "algorithmic_score": 90.0 if has_warmup else 0.0,
+                            "llm_score": 90.0 if has_warmup else 0.0,
+                            "feedback": "Warmup self-introduction provided." if has_warmup else "No verbal introduction recorded (skipped).",
+                            "reference_answer": "Candidate professional introduction and background.",
+                            "matched_keywords": ["intro", "experience"] if has_warmup else [],
+                            "missed_keywords": [] if has_warmup else ["introduction", "background"],
+                            "rubric_breakdown": {
+                                "technical_accuracy": 90.0 if has_warmup else 0.0,
+                                "technical_depth": 90.0 if has_warmup else 0.0,
+                                "clarity": 90.0 if has_warmup else 0.0,
+                                "relevance": 90.0 if has_warmup else 0.0,
+                            },
                         }
                     else:
                         sq.answer_score = await answer_eval_service.evaluate_answer(

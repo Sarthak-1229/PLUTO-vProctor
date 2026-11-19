@@ -127,40 +127,78 @@ class ReportService:
                 "missed_keywords": score_data.get("missed_keywords", exp_kw),
             })
 
+        transcripts = [(sq.transcript or "") for sq in session_questions]
+        total_spoken_words = sum(len(t.strip().split()) for t in transcripts)
+
         # Calculate scores via scoring engine
         score_res = scoring_engine.compute_overall_score(
             screening_fit=session.screening_fit,
             proctoring_events=proctoring_events,
             answer_scores=answer_scores,
+            transcripts=transcripts,
         )
 
         # Generate LLM feedback summary from structured statistics only
         cat_scores = score_res["category_scores"]
         system_prompt = (
-            "You are a senior technical hiring manager. Based solely on the structured interview scores and deductions below, "
-            "generate an executive summary, 3 strengths, 3 weaknesses, and 5 concrete actionable tips for the candidate."
+            "You are a senior technical hiring manager. Based solely on the structured interview scores, spoken transcripts, and deductions below, "
+            "generate an executive summary, 3 strengths, 3 weaknesses, and 5 concrete actionable tips for the candidate. "
+            "Never invent false praise if answers were skipped or minimal."
         )
 
         user_prompt = (
             f"Candidate: {session.candidate_name}\n"
             f"Target Job: {session.job.title if session.job else 'Software Engineer'}\n"
             f"Overall Score: {score_res['overall_score']}/100 (Grade: {score_res['grade']})\n"
+            f"Readiness Status: {score_res['readiness_label']}\n"
             f"Resume Fit: {cat_scores['resume_fit']}%\n"
             f"Eye Contact: {cat_scores['eye_contact']}%\n"
             f"Body Language & Motion: {cat_scores['body_motion']}%\n"
             f"Confidence & Fluency: {cat_scores['confidence_fluency']}%\n"
             f"Answer Quality: {cat_scores['answer_quality']}%\n"
+            f"Total Spoken Words Across Answers: {total_spoken_words}\n"
             f"Total Proctoring Deductions: {score_res['total_deductions_count']}\n\n"
+            + "Question-by-Question Spoken Excerpts:\n"
+            + "\n".join(
+                f"- Q{i+1}: '{q['question'][:70]}' | Score: {q['score']} | Spoken: '{q['transcript'][:120]}'"
+                for i, q in enumerate(q_breakdown[:6])
+            )
+            + "\n\n"
             'Respond strictly in JSON matching the schema: {"executive_summary": "...", "strengths": [...], "weaknesses": [...], "concrete_tips": [...]}'
         )
 
         def fallback_summary():
+            if total_spoken_words < 15 or cat_scores["technical_depth"] <= 15.0:
+                return ReportSummarySchema(
+                    executive_summary=(
+                        f"Candidate completed the session with an overall score of {score_res['overall_score']}% (Grade {score_res['grade']}). "
+                        f"Status: {score_res['readiness_label']}. Minimal to no verbal answers were recorded across interview questions, "
+                        "requiring a comprehensive retake with spoken answers to establish technical readiness."
+                    ),
+                    strengths=[
+                        "Session onboarding and environmental framing initialized",
+                        f"Continuous camera framing observed (Eye Contact: {cat_scores['eye_contact']}%)",
+                        f"Initial resume qualification established (Fit: {cat_scores['resume_fit']}%)",
+                    ],
+                    weaknesses=[
+                        "Technical questions were skipped or passed without audible candidate answers",
+                        "Spoken articulation, technical fluency, and domain terminology could not be verified",
+                        "Absence of structured engineering explanations or trade-off reasoning",
+                    ],
+                    concrete_tips=[
+                        "Speak answers aloud into the microphone for at least 45 to 90 seconds per question",
+                        "Attempt every technical question even when unsure, explaining your diagnostic approach",
+                        "Structure your answers using STAR: Situation, Task, Action taken, and measurable Result",
+                        "Anchor answers with concrete tools, architecture patterns, and production commands",
+                        "Review core fundamentals of the target role prior to re-attempting the mock interview",
+                    ],
+                )
             return ReportSummarySchema(
                 executive_summary=f"Candidate achieved an overall readiness score of {score_res['overall_score']}% (Grade {score_res['grade']}). Demonstrates solid foundational proficiency with room for delivery refinement.",
                 strengths=[
-                    f"Strong technical alignment in {session.job.title if session.job else 'target role'}",
+                    f"Technical alignment in {session.job.title if session.job else 'target role'}",
                     f"Resilient eye contact score ({cat_scores['eye_contact']}%)",
-                    f"Coherent answer explanations on core technical topics",
+                    "Coherent answer explanations on core technical topics",
                 ],
                 weaknesses=[
                     "Occasional hesitation and conversational filler words",

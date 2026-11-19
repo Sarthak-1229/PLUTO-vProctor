@@ -94,7 +94,7 @@ class LLMClient:
     @classmethod
     def _resolve_cloud_llm_config(cls) -> tuple[str, str, str]:
         endpoint = (settings.LLM_ENDPOINT or settings.QUICKML_ENDPOINT or "").strip()
-        api_key = (settings.LLM_API_KEY or settings.QUICKML_API_KEY or "").strip()
+        api_key = (settings.LLM_API_KEY or os.environ.get("LLM_API_KEY", "") or settings.QUICKML_API_KEY or "").strip()
         model = (settings.QUICKML_MODEL or settings.LLM_MODEL or "qwen2.5:3b").strip()
         if endpoint and not endpoint.endswith("/chat/completions") and "/v1" in endpoint:
             endpoint = endpoint.rstrip("/") + "/chat/completions"

@@ -326,10 +326,37 @@ def mirror_row_to_datastore(table_name: str, row_data: Dict[str, Any], unique_co
     try:
         col_map = _get_table_columns(catalyst_app, actual_name)
         mapped_row: Dict[str, Any] = {}
+
+        # 1. Direct or alias match
+        aliases = {
+            "user_id": ["user_id", "userid", "id", "candidate_id"],
+            "email": ["email", "email_id", "email_address", "username"],
+            "full_name": ["full_name", "fullname", "name", "candidate_name"],
+            "role": ["role", "user_role", "type"],
+            "password_hash": ["password_hash", "password", "hash"],
+            "is_active": ["is_active", "active", "status"],
+            "created_at": ["created_at", "joined_at", "reg_date"],
+        }
+
         for k, v in row_data.items():
-            target_col = col_map.get(k.lower())
+            low_k = k.lower()
+            target_col = col_map.get(low_k)
+            if not target_col and low_k in aliases:
+                for candidate in aliases[low_k]:
+                    if candidate in col_map:
+                        target_col = col_map[candidate]
+                        break
             if target_col:
                 mapped_row[target_col] = v
+
+        # 2. JSON catch-all fallback if table has a single generic column (e.g. data / details)
+        if not mapped_row:
+            import json
+            for catch_col in ("data", "json", "payload", "details", "user_data", "user_details"):
+                target = col_map.get(catch_col)
+                if target:
+                    mapped_row[target] = json.dumps(row_data)
+                    break
 
         if not mapped_row:
             with _STATE_LOCK:
@@ -376,3 +403,39 @@ def mirror_async(table_name: str, row_data: Dict[str, Any], unique_col: str, uni
         args=(table_name, row_data, unique_col, unique_val),
         daemon=True,
     ).start()
+
+
+def sync_all_users_to_datastore() -> int:
+    """Scan local SQLite users and mirror any records into Zoho Data Store PlutoUsers table if columns exist."""
+    catalyst_app = get_catalyst_app(scope="admin")
+    if catalyst_app is None:
+        return 0
+    tables = refresh_datastore_tables(force=True)
+    actual_name = tables.get("plutousers")
+    if not actual_name:
+        return 0
+    col_map = _get_table_columns(catalyst_app, actual_name)
+    if not col_map:
+        return 0
+
+    count = 0
+    try:
+        from backend.app.db.database import SessionLocal
+        from backend.app.db.models import User
+
+        with SessionLocal() as db:
+            users = db.query(User).all()
+            for u in users:
+                row_data = {
+                    "user_id": u.id,
+                    "email": u.email,
+                    "full_name": u.full_name,
+                    "role": u.role,
+                    "is_active": u.is_active,
+                    "created_at": u.created_at.isoformat() if u.created_at else "",
+                }
+                if mirror_row_to_datastore("PlutoUsers", row_data, "user_id", u.id):
+                    count += 1
+    except Exception as exc:
+        logger.debug("Backfill PlutoUsers skipped: %s", exc)
+    return count

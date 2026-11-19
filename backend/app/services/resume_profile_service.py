@@ -253,6 +253,37 @@ def upload_and_parse_resume(
         updated_at=now,
     )
     db.add(rp)
+
+    # Automatically synchronize parsed signals to CandidateProfile
+    from backend.app.db.models import CandidateProfile
+    cprof = db.query(CandidateProfile).filter(CandidateProfile.user_id == user.id).first()
+    if cprof is None:
+        edu_deg = parsed.get("education", {}).get("degree") if isinstance(parsed.get("education"), dict) else None
+        cprof = CandidateProfile(
+            id=f"cprof_{uuid.uuid4().hex[:16]}",
+            user_id=user.id,
+            experience_years=float(parsed.get("experience_years", 0.0)),
+            technical_skills_json=list(parsed.get("skills", [])),
+            preferred_roles_json=[],
+            education_level=edu_deg if edu_deg and edu_deg != "None" else None,
+            profile_completed=bool(parsed.get("skills")),
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(cprof)
+    else:
+        existing_skills = list(cprof.technical_skills_json or [])
+        merged_skills = list(dict.fromkeys(existing_skills + list(parsed.get("skills", []))))
+        cprof.technical_skills_json = merged_skills
+        if not cprof.experience_years or float(cprof.experience_years) == 0.0:
+            cprof.experience_years = float(parsed.get("experience_years", 0.0))
+        if not cprof.education_level and isinstance(parsed.get("education"), dict):
+            deg = parsed.get("education", {}).get("degree")
+            if deg and deg != "None":
+                cprof.education_level = deg
+        cprof.profile_completed = bool(cprof.technical_skills_json)
+        cprof.updated_at = now
+
     record_audit_event(
         db,
         action="resume.uploaded",
@@ -264,6 +295,10 @@ def upload_and_parse_resume(
         ip_address=ip_address,
     )
     db.commit()
+
+    from backend.app.db.bootstrap import schedule_stratus_sync
+    schedule_stratus_sync(force=True)
+
     return serialize_resume_bundle(res, rp)
 
 

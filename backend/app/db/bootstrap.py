@@ -143,8 +143,16 @@ def ensure_stratus_db_restored_once() -> bool:
             # First ever boot with empty cloud storage: push initial seeded DB snapshot
             schedule_stratus_sync(force=True)
 
-        # Discover any existing Zoho Catalyst Data Store tables in background
-        threading.Thread(target=refresh_datastore_tables, kwargs={"force": True}, daemon=True).start()
+        # Discover any existing Zoho Catalyst Data Store tables and backfill users in background
+        def _bg_datastore_check():
+            try:
+                refresh_datastore_tables(force=True)
+                from backend.app.services.catalyst_cloud_db import sync_all_users_to_datastore
+                sync_all_users_to_datastore()
+            except Exception:
+                pass
+
+        threading.Thread(target=_bg_datastore_check, daemon=True).start()
         return restored
 
 

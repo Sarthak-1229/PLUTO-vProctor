@@ -14,6 +14,7 @@ import {
   RefreshCw,
   HelpCircle,
   MessageSquare,
+  Users,
 } from 'lucide-react'
 import { authFetch } from '../utils/authClient'
 
@@ -44,6 +45,8 @@ export function InterviewRoom({
   const [rating, setRating] = useState(5)
   const [silenceCounter, setSilenceCounter] = useState(0)
   const [proctoringEvents, setProctoringEvents] = useState([])
+  const [isExamPaused, setIsExamPaused] = useState(false)
+  const [detectedFacesCount, setDetectedFacesCount] = useState(1)
 
   const videoRef = useRef(null)
   const speechSynthRef = useRef(window.speechSynthesis)
@@ -59,8 +62,9 @@ export function InterviewRoom({
     }
   }, [stream])
 
-  // Overall session timer
+  // Overall session timer (halts completely when exam is paused)
   useEffect(() => {
+    if (isExamPaused) return
     const timer = setInterval(() => {
       setOverallSeconds((s) => s + 1)
       if (subState === 'LISTENING') {
@@ -68,7 +72,7 @@ export function InterviewRoom({
       }
     }, 1000)
     return () => clearInterval(timer)
-  }, [subState])
+  }, [subState, isExamPaused])
 
   // Live detector listener
   useEffect(() => {
@@ -77,6 +81,54 @@ export function InterviewRoom({
     let lastLogTime = 0
 
     const handleGazeUpdate = (stats) => {
+      // 1. Critical Proctoring Violation: Multiple Faces Detected -> Immediately Pause Exam
+      if (stats.multipleFaces || (stats.faceCount && stats.faceCount > 1)) {
+        const count = stats.faceCount || 2
+        setIsExamPaused(true)
+        setDetectedFacesCount(count)
+        setLiveAlert({
+          message: `EXAM PAUSED: Multiple Faces Detected (${count} persons in view)`,
+          type: 'MULTIPLE_FACES_DETECTED',
+        })
+
+        // Pause speech synthesis if actively speaking
+        if (speechSynthRef.current && isAiSpeaking) {
+          try { speechSynthRef.current.pause() } catch (e) {}
+        }
+        // Stop speech recognition while paused
+        stopSpeechRecognition()
+
+        const now = Date.now()
+        if (now - lastLogTime >= 3000) {
+          lastLogTime = now
+          const event = {
+            id: now,
+            rawTime: overallSeconds,
+            message: `CRITICAL: Multiple faces detected (${count} persons in camera frame)`,
+            type: 'MULTIPLE_FACES_DETECTED',
+            penalty: 5,
+            time: formatSeconds(overallSeconds),
+          }
+          setProctoringEvents((prev) => [event, ...prev.slice(0, 15)])
+        }
+        return
+      }
+
+      // Automatically unpause when exactly 1 face remains in view
+      if (isExamPaused && stats.faceCount === 1) {
+        setIsExamPaused(false)
+        setDetectedFacesCount(1)
+        setLiveAlert(null)
+        if (speechSynthRef.current && speechSynthRef.current.paused) {
+          try { speechSynthRef.current.resume() } catch (e) {}
+        }
+        if (subState === 'LISTENING') {
+          startSpeechRecognition()
+        }
+      }
+
+      if (isExamPaused) return
+
       const lookingAway = !stats.isDirect || !stats.faceDetected
       setIsLookingAway(lookingAway)
 
@@ -100,7 +152,9 @@ export function InterviewRoom({
           const penalty = !stats.faceDetected ? 2 : 1
           const event = {
             id: now,
+            rawTime: overallSeconds,
             message: label,
+            type: violationType,
             penalty,
             time: formatSeconds(overallSeconds),
           }
@@ -117,7 +171,9 @@ export function InterviewRoom({
     const handleBlur = () => {
       const event = {
         id: Date.now(),
+        rawTime: overallSeconds,
         message: 'Window blur / Tab switch detected',
+        type: 'TAB_BLUR',
         penalty: 5,
         time: formatSeconds(overallSeconds),
       }
@@ -132,7 +188,7 @@ export function InterviewRoom({
         liveDetector.onGazeUpdate = null
       }
     }
-  }, [liveDetector, overallSeconds])
+  }, [liveDetector, overallSeconds, isExamPaused, isAiSpeaking, subState])
 
   // Format seconds as mm:ss
   const formatSeconds = (sec) => {
@@ -315,10 +371,70 @@ export function InterviewRoom({
     }
   }
 
+  // Finalize interview and sync proctoring telemetry
+  const handleFinishWrapUp = async () => {
+    if (proctoringEvents.length > 0 && sessionId) {
+      try {
+        const eventsPayload = proctoringEvents.map((e) => ({
+          t_start: Math.max(0, e.rawTime !== undefined ? e.rawTime : 10),
+          category: (e.message?.includes('Tab') || e.type === 'MULTIPLE_FACES_DETECTED' || e.message?.includes('Multiple')) ? 'Integrity' : 'Eye Contact',
+          type: e.type || (e.message?.includes('Tab') ? 'TAB_BLUR' : e.message?.includes('Multiple') ? 'MULTIPLE_FACES_DETECTED' : 'GAZE_DIVERGENCE'),
+          severity: (e.penalty >= 4 || e.type === 'MULTIPLE_FACES_DETECTED') ? 'CRITICAL' : (e.penalty >= 2 ? 'HIGH' : 'MEDIUM'),
+          points_deducted: e.penalty || 1,
+          reason: e.message,
+        }))
+        await fetch(`/api/interview/${sessionId}/proctoring-events`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ events: eventsPayload }),
+        })
+      } catch (err) {
+        console.warn('Proctoring event dispatch skipped:', err)
+      }
+    }
+    onFinishInterview()
+  }
+
   const currentQ = questions[currentQuestionIndex]
 
   return (
     <div className="space-y-6">
+      {/* Critical Modal Overlay: Multiple Faces Exam Pause */}
+      {isExamPaused && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#FEF2F2] border-[4px] border-red-600 rounded-3xl p-6 sm:p-8 max-w-lg w-full text-center shadow-[10px_10px_0px_0px_#991B1B] space-y-4">
+            <div className="w-16 h-16 bg-red-100 border-[3px] border-red-600 rounded-2xl flex items-center justify-center mx-auto text-red-600 shadow-[3px_3px_0px_0px_#991B1B]">
+              <Users className="w-8 h-8 stroke-[2.5]" />
+            </div>
+            <div className="space-y-1">
+              <span className="inline-block px-3 py-1 bg-red-600 text-white font-mono text-[10px] font-black uppercase rounded-md tracking-wider">
+                Proctoring Integrity Breach
+              </span>
+              <h2 className="text-2xl font-black uppercase text-red-700 tracking-tight">
+                Exam Paused — Multiple Faces Detected
+              </h2>
+            </div>
+            <p className="text-sm font-bold text-red-950">
+              Our proctoring AI detected <span className="underline decoration-2 font-black text-red-600">{detectedFacesCount} persons</span> in the camera frame. The interview timer, questions, and recording are immediately suspended.
+            </p>
+            <div className="p-4 bg-white border-2 border-red-400 rounded-2xl text-xs font-bold text-slate-800 text-left space-y-2 shadow-[2px_2px_0px_0px_#fca5a5]">
+              <p className="font-black uppercase text-red-700 flex items-center space-x-1">
+                <span>Required Action to Resume:</span>
+              </p>
+              <ul className="list-disc pl-4 space-y-1 text-slate-700">
+                <li>Ensure all other individuals immediately leave the camera view.</li>
+                <li>Remain centered and clearly visible in front of your camera.</li>
+                <li>The assessment will <span className="font-black text-red-600">automatically resume</span> as soon as only one person is detected.</li>
+              </ul>
+            </div>
+            <div className="inline-flex items-center space-x-2 text-xs font-mono font-black text-red-700 px-4 py-2 bg-red-100 rounded-xl border border-red-400">
+              <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping" />
+              <span>Scanning camera for single candidate...</span>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Top Banner: Status, Timer, Question Indicator */}
       <div className="bg-white border-[3px] border-black rounded-2xl p-4 sm:p-5 shadow-[5px_5px_0px_0px_#000] flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center space-x-3">
@@ -516,7 +632,7 @@ export function InterviewRoom({
 
             {subState === 'WRAP_UP' ? (
               <button
-                onClick={onFinishInterview}
+                onClick={handleFinishWrapUp}
                 className="px-8 py-3.5 rounded-xl bg-[#FFE600] hover:bg-[#ffdf00] border-[3px] border-black font-black text-black text-xs uppercase shadow-[4px_4px_0px_0px_#000] hover:-translate-y-0.5 active:translate-y-0.5 transition-all flex items-center space-x-2"
               >
                 <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />

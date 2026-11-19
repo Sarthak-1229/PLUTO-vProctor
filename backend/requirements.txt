@@ -24,3 +24,4 @@ requests>=2.31.0
 argon2-cffi>=23.1.0
 pyjwt>=2.9.0
 email-validator>=2.2.0
+zcatalyst-sdk>=1.5.0

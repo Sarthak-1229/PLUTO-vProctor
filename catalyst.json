@@ -21,6 +21,10 @@
         "COOKIE_SAMESITE": "lax",
         "CATALYST_MAIL_FROM": "sarthak.b.1204@gmail.com",
         "APP_PUBLIC_URL": "https://plutovproctor.development.catalystappsail.in",
+        "LLM_ENDPOINT": "https://api.groq.com/openai/v1",
+        "LLM_API_KEY": "",
+        "LLM_MODEL": "qwen/qwen3.8-27b",
+        "QUICKML_MODEL": "",
         "DATABASE_URL": "sqlite:////tmp/pluto.db",
         "STORAGE_DIR": "/tmp/pluto_storage",
         "CORS_ORIGINS": "[\"https://plutovproctor.development.catalystappsail.in\", \"https://plutovproctor.catalystappsail.in\", \"https://pluto-vproctor-60088200944.development.catalystserverless.in\", \"http://localhost:5173\", \"http://127.0.0.1:5173\"]"
