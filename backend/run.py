@@ -48,6 +48,18 @@ _boot_error_type: str | None = None
 def _load_application() -> None:
     global _real_app, _job_queue, _boot_error, _boot_error_type
     try:
+        # Step 0: Pre-populate ephemeral /tmp/pluto.db from bundled SQLite database if missing
+        bundled_db = _here / "app" / "pluto.db"
+        target_db = Path("/tmp/pluto.db")
+        if bundled_db.exists() and (not target_db.exists() or target_db.stat().st_size == 0):
+            import shutil
+            try:
+                target_db.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(bundled_db, target_db)
+                print(f"[PLUTO AppSail] Copied bundled database to /tmp/pluto.db ({bundled_db.stat().st_size} bytes)", flush=True)
+            except Exception as copy_err:
+                print(f"[PLUTO AppSail] DB copy skipped: {copy_err}", flush=True)
+
         from backend.app.config import settings
         from backend.app.db.bootstrap import ensure_database_ready
         from backend.app.main import app as fastapi_app

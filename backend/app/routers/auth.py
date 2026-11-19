@@ -18,6 +18,7 @@ from backend.app.services.auth_service import (
     rotate_refresh_session,
     serialize_user,
     verify_email_with_token,
+    verify_otp_code,
 )
 from backend.app.services.authorization import get_current_user, get_optional_user
 from backend.app.services.security_service import constant_time_equals, enforce_rate_limit, normalize_email
@@ -56,7 +57,14 @@ class ResetPasswordRequest(BaseModel):
 class VerifyEmailRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    token: str = Field(..., min_length=16, max_length=256)
+    token: str = Field(..., min_length=4, max_length=256)
+
+
+class VerifyOtpRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    email: EmailStr
+    otp: str = Field(..., min_length=4, max_length=10)
 
 
 def _client_ip(request: Request) -> str:
@@ -152,6 +160,7 @@ def register(payload: RegisterRequest, request: Request, response: Response, db:
         "access_token": result["access_token"],
         "token_type": result["token_type"],
         "expires_in": result["expires_in"],
+        "otp_sent": True,
     }
 
 
@@ -202,6 +211,7 @@ def login_candidate(payload: LoginRequest, request: Request, response: Response,
         "access_token": result["access_token"],
         "token_type": result["token_type"],
         "expires_in": result["expires_in"],
+        "otp_sent": True,
     }
 
 
@@ -252,6 +262,7 @@ def login_admin(payload: LoginRequest, request: Request, response: Response, db:
         "access_token": result["access_token"],
         "token_type": result["token_type"],
         "expires_in": result["expires_in"],
+        "otp_sent": True,
     }
 
 
@@ -304,6 +315,7 @@ def refresh(request: Request, response: Response, db: Session = Depends(get_db))
         "access_token": result["access_token"],
         "token_type": result["token_type"],
         "expires_in": result["expires_in"],
+        "otp_sent": True,
     }
 
 
@@ -372,5 +384,14 @@ def verify_email(payload: VerifyEmailRequest, request: Request, db: Session = De
     ip = _client_ip(request)
     enforce_rate_limit(f"auth:verify:ip:{ip}", limit=30, window_seconds=300)
     user = verify_email_with_token(db, raw_token=payload.token, ip_address=ip)
+    return {"email_verified": bool(user.email_verified), "user": serialize_user(user)}
+
+
+@router.post("/verify-otp")
+def verify_otp(payload: VerifyOtpRequest, request: Request, db: Session = Depends(get_db)):
+    """Verify candidate email address using 6-digit one-time passcode (OTP)."""
+    ip = _client_ip(request)
+    enforce_rate_limit(f"auth:verify_otp:ip:{ip}", limit=15, window_seconds=300)
+    user = verify_otp_code(db, email=str(payload.email), otp=payload.otp, ip_address=ip)
     return {"email_verified": bool(user.email_verified), "user": serialize_user(user)}
 

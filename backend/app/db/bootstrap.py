@@ -402,6 +402,102 @@ def _seed_questions(db) -> int:
     return len(q_objs)
 
 
+def _seed_default_users(db) -> int:
+    """Idempotently seed guaranteed administrator and candidate accounts for production and demo use."""
+    from backend.app.db.models import User, CandidateProfile
+    from backend.app.services.security_service import hash_password, normalize_email
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    created_count = 0
+
+    # 1. Administrator Account
+    admin_email = normalize_email("admin@pluto.proctor")
+    admin_user = db.query(User).filter(User.email == admin_email).first()
+    if not admin_user:
+        admin_user = User(
+            id="usr_admin_default_01",
+            email=admin_email,
+            password_hash=hash_password("Admin@123456"),
+            full_name="PLUTO Administrator",
+            role="super_admin",
+            is_active=True,
+            email_verified=True,
+            failed_login_attempts=0,
+            token_version=0,
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(admin_user)
+        created_count += 1
+        logger.info("Seeded default administrator account: %s", admin_email)
+
+    # 2. Standard Candidate Accounts
+    default_candidates = [
+        {
+            "id": "usr_cand_default_01",
+            "email": "candidate1@pluto.proctor",
+            "password": "Candidate@123",
+            "full_name": "Sarthak Bhosale",
+            "skills": ["Python", "FastAPI", "React", "SQL", "Cloud Computing", "Docker"],
+            "roles": ["Full Stack Developer", "Python Backend Developer"],
+            "experience_years": 1.0,
+        },
+        {
+            "id": "usr_cand_default_02",
+            "email": "candidate2@pluto.proctor",
+            "password": "Candidate@123",
+            "full_name": "Alex Vance",
+            "skills": ["JavaScript", "React", "Node.js", "Docker", "Machine Learning", "Git"],
+            "roles": ["Frontend Developer", "AI Engineer"],
+            "experience_years": 1.5,
+        },
+    ]
+
+    for cand in default_candidates:
+        cand_email = normalize_email(cand["email"])
+        cand_user = db.query(User).filter(User.email == cand_email).first()
+        if not cand_user:
+            cand_user = User(
+                id=cand["id"],
+                email=cand_email,
+                password_hash=hash_password(cand["password"]),
+                full_name=cand["full_name"],
+                role="candidate",
+                is_active=True,
+                email_verified=True,
+                failed_login_attempts=0,
+                token_version=0,
+                created_at=now,
+                updated_at=now,
+            )
+            db.add(cand_user)
+
+            prof_id = f"cprof_{cand['id'].replace('usr_', '')}"
+            cand_prof = db.query(CandidateProfile).filter(CandidateProfile.user_id == cand["id"]).first()
+            if not cand_prof:
+                cand_prof = CandidateProfile(
+                    id=prof_id,
+                    user_id=cand["id"],
+                    experience_years=cand["experience_years"],
+                    technical_skills_json=cand["skills"],
+                    preferred_roles_json=cand["roles"],
+                    education_details_json=[{"degree": "Bachelor of Technology", "field": "Computer Science & Engineering"}],
+                    experience_summary_json=[],
+                    portfolio_links_json={"github": f"https://github.com/{cand['full_name'].lower().replace(' ', '')}"},
+                    profile_completed=True,
+                    created_at=now,
+                    updated_at=now,
+                )
+                db.add(cand_prof)
+            created_count += 1
+            logger.info("Seeded default candidate account: %s", cand_email)
+
+    if created_count > 0:
+        db.commit()
+
+    return created_count
+
+
 def _ensure_bootstrap_admin(db) -> bool:
     """Provision initial admin account from environment variables without hardcoding secrets."""
     email = (settings.BOOTSTRAP_ADMIN_EMAIL or "").strip()
@@ -439,7 +535,7 @@ def _ensure_bootstrap_admin(db) -> bool:
 
 
 def ensure_database_ready() -> Dict[str, Any]:
-    """Initialize storage, schema, seed data, and optional bootstrap admin idempotently."""
+    """Initialize storage, schema, seed data, default users, and optional bootstrap admin idempotently."""
     with _BOOTSTRAP_LOCK:
         try:
             settings.STORAGE_DIR.mkdir(parents=True, exist_ok=True)
@@ -458,6 +554,7 @@ def ensure_database_ready() -> Dict[str, Any]:
             "companies_seeded": 0,
             "jobs_seeded": 0,
             "questions_seeded": 0,
+            "default_users_seeded": 0,
             "admin_bootstrapped": False,
         }
 
@@ -470,12 +567,14 @@ def ensure_database_ready() -> Dict[str, Any]:
             summary["companies_seeded"] = counts["companies"]
             summary["jobs_seeded"] = counts["jobs"]
             summary["questions_seeded"] = _seed_questions(db)
+            summary["default_users_seeded"] = _seed_default_users(db)
             summary["admin_bootstrapped"] = _ensure_bootstrap_admin(db)
             if any(
                 [
                     summary["companies_seeded"],
                     summary["jobs_seeded"],
                     summary["questions_seeded"],
+                    summary["default_users_seeded"],
                     summary["admin_bootstrapped"],
                 ]
             ):

@@ -90,7 +90,7 @@ def _build_token_email(purpose: str, raw_token: str) -> Optional[tuple[str, str]
 
     if purpose == "email_verify":
         login_url = f"{base_url}/login" if base_url else ""
-        subject = "Welcome to PLUTO vProctor — Account Created"
+        subject = f"PLUTO vProctor — Verification Code: {raw_token}"
         cta_html = (
             f'<p style="margin:20px 0;"><a href="{login_url}" '
             'style="display:inline-block;padding:12px 22px;background:#FFE600;color:#000;'
@@ -103,9 +103,11 @@ def _build_token_email(purpose: str, raw_token: str) -> Optional[tuple[str, str]
             '<div style="font-family:system-ui,sans-serif;max-width:520px;margin:0 auto;padding:24px;'
             'background:#FFFFFF;border:3px solid #000;border-radius:16px;color:#111;">'
             '<h2 style="margin:0 0 12px;text-transform:uppercase;">Welcome to PLUTO vProctor</h2>'
-            "<p>Your candidate account has been created successfully.</p>"
+            "<p>Your candidate account has been registered successfully. Use this 6-digit one-time passcode (OTP) to verify your email address:</p>"
+            f'<div style="background:#FFE600;border:3px solid #000;border-radius:12px;padding:14px 20px;margin:18px 0;'
+            f'font-size:32px;font-weight:900;letter-spacing:8px;text-align:center;font-family:monospace;color:#000;">{raw_token}</div>'
             f"{cta_html}"
-            f'<p style="font-size:12px;color:#555;">Verification Token: <code>{raw_token}</code></p>'
+            f'<p style="font-size:12px;color:#555;">This verification code is valid for {int(settings.EMAIL_VERIFY_EXPIRE_HOURS)} hours.</p>'
             "</div>"
         )
         return subject, html

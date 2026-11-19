@@ -125,7 +125,7 @@ export function resolveRouteAccess({ pathname, authEnabled, user }) {
     return { allowed: true, redirectTo: null, view: 'admin' }
   }
 
-  if (cleanPath === '/login' || cleanPath === '/register' || cleanPath === '/forgot-password' || cleanPath === '/reset-password') {
+  if (cleanPath === '/login' || cleanPath === '/register' || cleanPath === '/verify-otp' || cleanPath === '/forgot-password' || cleanPath === '/reset-password') {
     if (isAdmin) return { allowed: false, redirectTo: '/admin', view: 'admin' }
     if (user) return { allowed: false, redirectTo: '/', view: 'practice' }
     return { allowed: true, redirectTo: null, view: cleanPath.slice(1) }

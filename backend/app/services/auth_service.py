@@ -57,7 +57,19 @@ def _issue_one_time_token(
         OneTimeToken.used_at.is_(None),
     ).update({"used_at": now}, synchronize_session=False)
 
-    raw_token = generate_opaque_token(32)
+    if purpose == "email_verify":
+        import secrets
+        raw_token = f"{secrets.randbelow(900000) + 100000}"
+        try:
+            import hashlib
+            from backend.app.services.catalyst_cloud_db import cache_put
+            email_hash = hashlib.sha256(user.email.encode("utf-8")).hexdigest()[:24]
+            cache_put(f"pluto_otp_{email_hash}", raw_token, expiry_hours=24)
+        except Exception:
+            pass
+    else:
+        raw_token = generate_opaque_token(32)
+
     expires_at = now + ttl_delta
     row = OneTimeToken(
         id=f"ott_{uuid.uuid4().hex[:16]}",
@@ -667,5 +679,75 @@ def verify_email_with_token(
         ip_address=ip_address,
     )
     db.commit()
+    return user
+
+
+def verify_otp_code(
+    db: Session,
+    *,
+    email: str,
+    otp: str,
+    ip_address: Optional[str] = None,
+) -> User:
+    """Verify 6-digit OTP code against OneTimeToken or Catalyst Cache and mark email_verified=True."""
+    normalized = normalize_email(email)
+    user = db.query(User).filter(User.email == normalized).first()
+    if user is None:
+        raise AppError(status_code=404, code="user_not_found", message="User account not found.")
+
+    clean_otp = (otp or "").strip()
+    if not clean_otp:
+        raise AppError(status_code=400, code="invalid_otp", message="OTP code cannot be empty.")
+
+    now = utcnow_naive()
+    # 1. Check database OneTimeToken
+    row = (
+        db.query(OneTimeToken)
+        .filter(
+            OneTimeToken.user_id == user.id,
+            OneTimeToken.purpose == "email_verify",
+            OneTimeToken.token_hash == hash_token(clean_otp),
+        )
+        .first()
+    )
+
+    verified = False
+    if row is not None and row.used_at is None and row.expires_at > now:
+        row.used_at = now
+        verified = True
+    else:
+        # 2. Check Catalyst Cache fallback
+        try:
+            import hashlib
+            from backend.app.services.catalyst_cloud_db import cache_get
+            email_hash = hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:24]
+            cached_otp = cache_get(f"pluto_otp_{email_hash}")
+            if cached_otp and str(cached_otp).strip() == clean_otp:
+                verified = True
+        except Exception:
+            pass
+
+    if not verified:
+        raise AppError(status_code=400, code="invalid_otp", message="Invalid or expired verification OTP.")
+
+    user.email_verified = True
+    user.updated_at = now
+    record_audit_event(
+        db,
+        action="auth.email_verified_otp",
+        resource_type="user",
+        resource_id=user.id,
+        actor_user_id=user.id,
+        actor_role=user.role,
+        ip_address=ip_address,
+    )
+    db.commit()
+
+    try:
+        from backend.app.services.catalyst_cloud_db import mirror_async
+        mirror_async("PlutoUsers", {"user_id": user.id, "email": user.email, "is_active": True}, "user_id", user.id)
+    except Exception:
+        pass
+
     return user
 

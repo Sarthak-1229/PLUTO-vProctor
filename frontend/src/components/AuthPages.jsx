@@ -16,6 +16,7 @@ export function CandidateAuthPage({ mode = 'login', onNavigate, onAuthSuccess })
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
+  const [otpCode, setOtpCode] = useState('')
   const [resetToken, setResetToken] = useState(() => {
     if (typeof window === 'undefined') return ''
     return new URLSearchParams(window.location.search).get('token') || ''
@@ -39,7 +40,7 @@ export function CandidateAuthPage({ mode = 'login', onNavigate, onAuthSuccess })
           body: JSON.stringify({ email, password }),
         })
         const data = await safeParseJson(res)
-        if (!res.ok) throw new Error(data.detail || 'Sign in failed.')
+        if (!res.ok) throw new Error(data.detail || 'Sign in failed. Check your credentials.')
         setAccessToken(data.access_token)
         onAuthSuccess(data.user, 'login')
         return
@@ -55,6 +56,17 @@ export function CandidateAuthPage({ mode = 'login', onNavigate, onAuthSuccess })
         if (!res.ok) throw new Error(data.detail || 'Registration failed.')
         setAccessToken(data.access_token)
         onAuthSuccess(data.user, 'register')
+        return
+      }
+      if (mode === 'verify-otp') {
+        const res = await fetch('/api/auth/verify-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, otp: otpCode }),
+        })
+        const data = await safeParseJson(res)
+        if (!res.ok) throw new Error(data.detail || 'OTP verification failed.')
+        setNotice('Email verified successfully! You may now sign in.')
         return
       }
       if (mode === 'forgot-password') {
@@ -95,6 +107,7 @@ export function CandidateAuthPage({ mode = 'login', onNavigate, onAuthSuccess })
           <h1 className="text-2xl font-black uppercase text-black tracking-tight">
             {mode === 'login' && 'Candidate Sign In'}
             {mode === 'register' && 'Create Candidate Account'}
+            {mode === 'verify-otp' && 'Verify Email OTP'}
             {mode === 'forgot-password' && 'Recover Account Access'}
             {mode === 'reset-password' && 'Set New Password'}
           </h1>
@@ -124,6 +137,15 @@ export function CandidateAuthPage({ mode = 'login', onNavigate, onAuthSuccess })
           </button>
           <button
             type="button"
+            onClick={() => onNavigate('/verify-otp')}
+            className={`px-3 py-1 rounded-lg border-2 border-black text-xs font-black uppercase ${
+              mode === 'verify-otp' ? 'bg-[#FFE600]' : 'bg-[#F4F0EA]'
+            }`}
+          >
+            Verify OTP
+          </button>
+          <button
+            type="button"
             onClick={() => onNavigate('/forgot-password')}
             className={`px-3 py-1 rounded-lg border-2 border-black text-xs font-black uppercase ${
               mode === 'forgot-password' ? 'bg-[#FFE600]' : 'bg-[#F4F0EA]'
@@ -132,6 +154,39 @@ export function CandidateAuthPage({ mode = 'login', onNavigate, onAuthSuccess })
             Forgot Password
           </button>
         </div>
+
+        {mode === 'login' && (
+          <div className="p-3 bg-[#F4F0EA] border-2 border-black rounded-xl text-xs space-y-2">
+            <span className="font-black uppercase text-[10px] tracking-wider text-slate-600">
+              Demo Candidate Accounts (Pre-Seeded):
+            </span>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('candidate1@pluto.proctor')
+                  setPassword('Candidate@123')
+                }}
+                className="px-2.5 py-1 bg-white border border-black rounded-lg text-[11px] font-bold hover:bg-[#FFE600] transition-colors"
+              >
+                candidate1@pluto.proctor
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('candidate2@pluto.proctor')
+                  setPassword('Candidate@123')
+                }}
+                className="px-2.5 py-1 bg-white border border-black rounded-lg text-[11px] font-bold hover:bg-[#FFE600] transition-colors"
+              >
+                candidate2@pluto.proctor
+              </button>
+            </div>
+            <p className="text-[10px] text-slate-500 font-semibold">
+              Password for both: <code className="bg-white px-1 py-0.5 rounded border border-slate-300">Candidate@123</code>
+            </p>
+          </div>
+        )}
 
         {error && (
           <div className="p-3 bg-[#FEE2E2] border-2 border-black rounded-xl text-xs font-bold text-black">
@@ -178,6 +233,40 @@ export function CandidateAuthPage({ mode = 'login', onNavigate, onAuthSuccess })
                 className="w-full px-3 py-2.5 rounded-xl border-2 border-black bg-[#F4F0EA] font-bold text-sm"
               />
             </label>
+          )}
+
+          {mode === 'verify-otp' && (
+            <>
+              <label className="block space-y-1">
+                <span className="text-xs font-black uppercase flex items-center space-x-1">
+                  <Mail className="w-3.5 h-3.5" />
+                  <span>Account Email</span>
+                </span>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className="w-full px-3 py-2.5 rounded-xl border-2 border-black bg-[#F4F0EA] font-bold text-sm"
+                />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-xs font-black uppercase flex items-center space-x-1">
+                  <KeyRound className="w-3.5 h-3.5" />
+                  <span>6-Digit Verification Code (OTP)</span>
+                </span>
+                <input
+                  type="text"
+                  required
+                  maxLength={6}
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value)}
+                  placeholder="123456"
+                  className="w-full px-3 py-2.5 rounded-xl border-2 border-black bg-[#F4F0EA] font-bold text-lg text-center tracking-widest font-mono"
+                />
+              </label>
+            </>
           )}
 
           {(mode === 'login' || mode === 'register') && (
@@ -297,6 +386,24 @@ export function AdminLoginPage({ onNavigate, onAuthSuccess }) {
             {error}
           </div>
         )}
+
+        <div className="p-3 bg-[#F4F0EA] border-2 border-black rounded-xl text-xs space-y-2">
+          <span className="font-black uppercase text-[10px] tracking-wider text-slate-600">
+            Default Administrator (Pre-Seeded):
+          </span>
+          <div>
+            <button
+              type="button"
+              onClick={() => {
+                setEmail('admin@pluto.proctor')
+                setPassword('Admin@123456')
+              }}
+              className="px-2.5 py-1 bg-white border border-black rounded-lg text-[11px] font-bold hover:bg-[#FFE600] transition-colors"
+            >
+              Fill: admin@pluto.proctor (Admin@123456)
+            </button>
+          </div>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <label className="block space-y-1">

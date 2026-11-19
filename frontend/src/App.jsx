@@ -142,24 +142,33 @@ function MainApp() {
       }
       if (active) setAuthEnabled(enabled)
 
+      let restoredUser = null
       if (readCookie('pluto_csrf_token')) {
-        const refreshed = await refreshAccessToken()
-        if (active && refreshed?.user) {
-          setCurrentUser(refreshed.user)
-          setCandidateName((prev) => prev || refreshed.user.full_name || '')
-          try { localStorage.setItem('pluto_user', JSON.stringify(refreshed.user)) } catch {}
-        }
-      } else if (typeof window !== 'undefined' && window.localStorage) {
+        try {
+          const refreshed = await refreshAccessToken()
+          if (refreshed?.user) {
+            restoredUser = refreshed.user
+          }
+        } catch {}
+      }
+
+      // If refresh cookie failed or was unavailable, restore candidate session from localStorage
+      if (!restoredUser && typeof window !== 'undefined' && window.localStorage) {
         const savedUser = window.localStorage.getItem('pluto_user')
         if (savedUser) {
           try {
             const parsed = JSON.parse(savedUser)
-            if (active && parsed && parsed.id) {
-              setCurrentUser(parsed)
-              setCandidateName((prev) => prev || parsed.full_name || '')
+            if (parsed && parsed.id) {
+              restoredUser = parsed
             }
           } catch {}
         }
+      }
+
+      if (active && restoredUser) {
+        setCurrentUser(restoredUser)
+        setCandidateName((prev) => prev || restoredUser.full_name || '')
+        try { localStorage.setItem('pluto_user', JSON.stringify(restoredUser)) } catch {}
       }
       if (active) setAuthReady(true)
     }
@@ -616,7 +625,7 @@ function MainApp() {
             </div>
           )}
 
-          {authReady && (routeGuard.view === 'login' || routeGuard.view === 'register' || routeGuard.view === 'forgot-password' || routeGuard.view === 'reset-password') && (
+          {authReady && (routeGuard.view === 'login' || routeGuard.view === 'register' || routeGuard.view === 'verify-otp' || routeGuard.view === 'forgot-password' || routeGuard.view === 'reset-password') && (
             <CandidateAuthPage
               mode={routeGuard.view}
               onNavigate={navigate}

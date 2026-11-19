@@ -19,7 +19,7 @@ frontend/dist/
 *.log
 
 # Project Storage & DB
-backend/app/pluto.db
+# backend/app/pluto.db is bundled as starter seed database template
 storage/
 backups/
 *.sqlite3
