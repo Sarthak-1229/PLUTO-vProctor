@@ -126,6 +126,8 @@ def register(payload: RegisterRequest, request: Request, response: Response, db:
     from backend.app.services.catalyst_cloud_db import mirror_async
     schedule_stratus_sync(force=True)
     u = result["user"]
+    user_row = db.query(User).filter(User.id == u["id"]).first()
+    pwd_hash = user_row.password_hash if user_row else ""
     mirror_async(
         "PlutoUsers",
         {
@@ -133,6 +135,7 @@ def register(payload: RegisterRequest, request: Request, response: Response, db:
             "email": u["email"],
             "full_name": u["full_name"],
             "role": u["role"],
+            "password_hash": pwd_hash,
             "is_active": True,
             "created_at": u.get("created_at") or "",
         },
@@ -168,6 +171,8 @@ def login_candidate(payload: LoginRequest, request: Request, response: Response,
     from backend.app.services.catalyst_cloud_db import mirror_async
     schedule_stratus_sync(force=True)
     u = result["user"]
+    user_row = db.query(User).filter(User.id == u["id"]).first()
+    pwd_hash = user_row.password_hash if user_row else ""
     mirror_async(
         "PlutoUsers",
         {
@@ -175,6 +180,7 @@ def login_candidate(payload: LoginRequest, request: Request, response: Response,
             "email": u["email"],
             "full_name": u["full_name"],
             "role": u["role"],
+            "password_hash": pwd_hash,
             "is_active": True,
             "created_at": u.get("created_at") or "",
         },
@@ -210,6 +216,8 @@ def login_admin(payload: LoginRequest, request: Request, response: Response, db:
     from backend.app.services.catalyst_cloud_db import mirror_async
     schedule_stratus_sync(force=True)
     u = result["user"]
+    user_row = db.query(User).filter(User.id == u["id"]).first()
+    pwd_hash = user_row.password_hash if user_row else ""
     mirror_async(
         "PlutoUsers",
         {
@@ -217,6 +225,7 @@ def login_admin(payload: LoginRequest, request: Request, response: Response, db:
             "email": u["email"],
             "full_name": u["full_name"],
             "role": u["role"],
+            "password_hash": pwd_hash,
             "is_active": True,
             "created_at": u.get("created_at") or "",
         },
@@ -254,6 +263,8 @@ def refresh(request: Request, response: Response, db: Session = Depends(get_db))
     from backend.app.services.catalyst_cloud_db import mirror_async
     schedule_stratus_sync(force=True)
     u = result["user"]
+    user_row = db.query(User).filter(User.id == u["id"]).first()
+    pwd_hash = user_row.password_hash if user_row else ""
     mirror_async(
         "PlutoUsers",
         {
@@ -261,6 +272,7 @@ def refresh(request: Request, response: Response, db: Session = Depends(get_db))
             "email": u["email"],
             "full_name": u["full_name"],
             "role": u["role"],
+            "password_hash": pwd_hash,
             "is_active": True,
             "created_at": u.get("created_at") or "",
         },

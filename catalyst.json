@@ -21,6 +21,7 @@
         "COOKIE_SAMESITE": "lax",
         "CATALYST_MAIL_FROM": "sarthak.b.1204@gmail.com",
         "APP_PUBLIC_URL": "https://plutovproctor.development.catalystappsail.in",
+        "SECRET_KEY": "pluto_vproctor_secure_jwt_session_signing_secret_key_2026_zoho_catalyst",
         "LLM_ENDPOINT": "https://api.groq.com/openai/v1",
         "LLM_API_KEY": "",
         "LLM_MODEL": "qwen/qwen3.8-27b",

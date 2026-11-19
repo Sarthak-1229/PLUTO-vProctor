@@ -80,3 +80,62 @@ def test_catalyst_cloud_db_column_alias_matching():
     # Outside Zoho Catalyst environment, returns False safely without error
     res = mirror_row_to_datastore("PlutoUsers", {"email": "test@example.com"}, "email", "test@example.com")
     assert res is False  # Outside Catalyst context
+
+
+def test_fresher_job_roles_loaded():
+    """Verify fresher job roles (min_experience_years == 0) are correctly defined in catalog and seeded."""
+    import json
+    from backend.app.config import settings
+
+    jobs_file = settings.APP_DIR / "data" / "jobs.json"
+    with open(jobs_file, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    all_jobs = data["jobs"]
+    assert len(all_jobs) == 18
+    fresher_jobs = [j for j in all_jobs if j.get("min_experience_years") == 0]
+    assert len(fresher_jobs) == 6
+    fresher_ids = {j["id"] for j in fresher_jobs}
+    assert "job_fresher_frontend" in fresher_ids
+    assert "job_fresher_backend" in fresher_ids
+    assert "job_fresher_qa" in fresher_ids
+    assert "job_fresher_data" in fresher_ids
+    assert "job_fresher_security" in fresher_ids
+    assert "job_fresher_cloud" in fresher_ids
+
+
+def test_datastore_user_recovery_logic():
+    """Verify auth service recovers user from Data Store if missing in local SQLite."""
+    from backend.app.services.auth_service import authenticate_user
+    from backend.app.services.security_service import hash_password
+    from unittest.mock import patch
+
+    mock_ds_user = {
+        "id": "usr_recovered_test_99",
+        "email": "recovered_student@example.com",
+        "full_name": "Recovered Student",
+        "role": "candidate",
+        "password_hash": hash_password("ValidPass123!"),
+    }
+
+    with SessionLocal() as db:
+        # Ensure user does not exist locally
+        existing = db.query(User).filter(User.email == "recovered_student@example.com").first()
+        if existing:
+            db.delete(existing)
+            db.commit()
+
+        with patch("backend.app.services.catalyst_cloud_db.lookup_user_in_datastore", return_value=mock_ds_user):
+            auth_res = authenticate_user(
+                db,
+                email="recovered_student@example.com",
+                password="ValidPass123!",
+                portal="candidate",
+            )
+            assert auth_res["user"]["email"] == "recovered_student@example.com"
+            assert auth_res["user"]["id"] == "usr_recovered_test_99"
+
+        # Verify user is now created in SQLite
+        db_user = db.query(User).filter(User.email == "recovered_student@example.com").first()
+        assert db_user is not None
+        assert db_user.full_name == "Recovered Student"

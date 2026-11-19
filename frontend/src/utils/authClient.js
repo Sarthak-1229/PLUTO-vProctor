@@ -7,9 +7,19 @@ let _refreshPromise = null
 
 export function setAccessToken(token) {
   _accessToken = token || null
+  if (typeof window !== 'undefined' && window.localStorage) {
+    if (token) {
+      window.localStorage.setItem('pluto_access_token', token)
+    } else {
+      window.localStorage.removeItem('pluto_access_token')
+    }
+  }
 }
 
 export function getAccessToken() {
+  if (!_accessToken && typeof window !== 'undefined' && window.localStorage) {
+    _accessToken = window.localStorage.getItem('pluto_access_token') || null
+  }
   return _accessToken
 }
 

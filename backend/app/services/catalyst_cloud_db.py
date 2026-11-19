@@ -219,20 +219,48 @@ def upload_db_snapshot_to_filestore(payload: bytes) -> bool:
 
 
 def download_db_snapshot_from_filestore() -> Optional[bytes]:
-    """Download latest SQLite DB snapshot from Zoho File Store using Catalyst Cache pointer."""
+    """Download latest SQLite DB snapshot from Zoho File Store using Catalyst Cache or folder file discovery."""
     global _FILESTORE_LAST_FILE_ID, _FILESTORE_LAST_ERROR
     catalyst_app = get_catalyst_app(scope="admin")
     if catalyst_app is None:
         return None
 
-    file_id = cache_get(CACHE_DB_FILE_ID_KEY)
-    if not file_id:
-        # Ensure folder still initializes cleanly so it appears in Console
-        _ensure_filestore_folder(catalyst_app)
-        return None
-
     folder = _ensure_filestore_folder(catalyst_app)
     if folder is None:
+        return None
+
+    file_id = cache_get(CACHE_DB_FILE_ID_KEY)
+
+    # If Cache key is missing/cold, inspect File Store folder files directly to find latest snapshot
+    if not file_id:
+        try:
+            from zcatalyst_sdk.types import CredentialUser
+            resp = folder._requester.request(
+                method="GET",
+                path=f"/folder/{folder._id}/file",
+                user=CredentialUser.USER,
+            )
+            file_list = resp.response_json.get("data") or []
+            db_files = [
+                f for f in file_list
+                if isinstance(f, dict) and str(f.get("file_name", "")).startswith("pluto_db_")
+            ]
+            if db_files:
+                db_files.sort(
+                    key=lambda x: str(x.get("created_time") or x.get("id") or ""),
+                    reverse=True,
+                )
+                file_id = str(db_files[0].get("id"))
+                logger.info(
+                    "Discovered latest DB snapshot directly from File Store folder: %s (file_id=%s)",
+                    db_files[0].get("file_name"),
+                    file_id,
+                )
+                cache_put(CACHE_DB_FILE_ID_KEY, file_id, expiry_hours=720)
+        except Exception as exc:
+            logger.debug("Listing File Store folder files skipped: %s", exc)
+
+    if not file_id:
         return None
 
     try:
@@ -311,6 +339,113 @@ def _get_table_columns(catalyst_app, table_name: str) -> Dict[str, str]:
         return {}
 
 
+def _auto_provision_columns_if_missing(catalyst_app, table_name: str) -> Dict[str, str]:
+    """Attempt to auto-provision standard Pluto columns on empty Catalyst Data Store tables."""
+    key = table_name.lower()
+    tbl = catalyst_app.datastore().table(table_name)
+    identifier = getattr(tbl, "_identifier", table_name)
+    columns_to_create = [
+        {"column_name": "user_id", "data_type": "varchar", "max_length": 100},
+        {"column_name": "email", "data_type": "varchar", "max_length": 150},
+        {"column_name": "full_name", "data_type": "varchar", "max_length": 150},
+        {"column_name": "role", "data_type": "varchar", "max_length": 50},
+        {"column_name": "password_hash", "data_type": "varchar", "max_length": 255},
+        {"column_name": "created_at", "data_type": "varchar", "max_length": 100},
+        {"column_name": "data", "data_type": "text"},
+    ]
+    try:
+        from zcatalyst_sdk.types import CredentialUser
+        for col in columns_to_create:
+            try:
+                tbl._requester.request(
+                    method="POST",
+                    path=f"/table/{identifier}/column",
+                    json=col,
+                    user=CredentialUser.USER,
+                )
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    with _STATE_LOCK:
+        _DATASTORE_COLUMNS_CACHE.pop(key, None)
+    return _get_table_columns(catalyst_app, table_name)
+
+
+def lookup_user_in_datastore(email: str) -> Optional[Dict[str, Any]]:
+    """Query Zoho Catalyst Data Store PlutoUsers table for user credentials & profile."""
+    clean_email = (email or "").strip().lower()
+    if not clean_email:
+        return None
+
+    catalyst_app = get_catalyst_app(scope="admin")
+    if catalyst_app is None:
+        return None
+
+    tables = refresh_datastore_tables()
+    actual_name = tables.get("plutousers")
+    if not actual_name:
+        return None
+
+    try:
+        zcql = catalyst_app.zcql()
+        col_map = _get_table_columns(catalyst_app, actual_name)
+        email_col = col_map.get("email") or col_map.get("username")
+
+        safe_email = clean_email.replace("'", "''")
+        if email_col:
+            q = f"SELECT * FROM {actual_name} WHERE {email_col} = '{safe_email}' LIMIT 1"
+            rows = zcql.execute_query(q)
+            if rows and isinstance(rows, list):
+                row_obj = rows[0].get(actual_name) or rows[0]
+                # Check if full JSON stored in 'data' column
+                data_col = col_map.get("data")
+                if data_col and row_obj.get(data_col):
+                    try:
+                        import json
+                        parsed = json.loads(row_obj[data_col])
+                        if isinstance(parsed, dict) and parsed.get("password_hash"):
+                            return parsed
+                    except Exception:
+                        pass
+                user_id_col = col_map.get("user_id") or "user_id"
+                full_name_col = col_map.get("full_name") or "full_name"
+                role_col = col_map.get("role") or "role"
+                pwd_col = col_map.get("password_hash") or "password_hash"
+                created_col = col_map.get("created_at") or "created_at"
+                return {
+                    "id": row_obj.get(user_id_col) or f"usr_recovered_{int(time.time())}",
+                    "email": clean_email,
+                    "full_name": row_obj.get(full_name_col) or "Candidate",
+                    "role": row_obj.get(role_col) or "candidate",
+                    "password_hash": row_obj.get(pwd_col),
+                    "created_at": row_obj.get(created_col),
+                }
+
+        # If table has a 'data' catch-all column without an explicit email column:
+        data_col = col_map.get("data")
+        if data_col:
+            q = f"SELECT {data_col} FROM {actual_name} LIMIT 100"
+            rows = zcql.execute_query(q)
+            if rows and isinstance(rows, list):
+                import json
+                for r in rows:
+                    obj = r.get(actual_name) or r
+                    raw = obj.get(data_col)
+                    if raw:
+                        try:
+                            parsed = json.loads(raw)
+                            if isinstance(parsed, dict) and str(parsed.get("email", "")).lower() == clean_email:
+                                return parsed
+                        except Exception:
+                            pass
+        return None
+    except Exception as exc:
+        logger.debug("Catalyst Data Store user lookup failed: %s", exc)
+        return None
+
+
 def mirror_row_to_datastore(table_name: str, row_data: Dict[str, Any], unique_col: str, unique_val: str) -> bool:
     """Upsert a single sanitized record into a Zoho Catalyst Data Store table if it exists."""
     global _DATASTORE_SYNCED_ROWS, _DATASTORE_LAST_ERROR
@@ -325,6 +460,8 @@ def mirror_row_to_datastore(table_name: str, row_data: Dict[str, Any], unique_co
 
     try:
         col_map = _get_table_columns(catalyst_app, actual_name)
+        if not col_map and actual_name.lower() == "plutousers":
+            col_map = _auto_provision_columns_if_missing(catalyst_app, actual_name)
         mapped_row: Dict[str, Any] = {}
 
         # 1. Direct or alias match
@@ -416,6 +553,8 @@ def sync_all_users_to_datastore() -> int:
         return 0
     col_map = _get_table_columns(catalyst_app, actual_name)
     if not col_map:
+        col_map = _auto_provision_columns_if_missing(catalyst_app, actual_name)
+    if not col_map:
         return 0
 
     count = 0
@@ -431,6 +570,7 @@ def sync_all_users_to_datastore() -> int:
                     "email": u.email,
                     "full_name": u.full_name,
                     "role": u.role,
+                    "password_hash": u.password_hash,
                     "is_active": u.is_active,
                     "created_at": u.created_at.isoformat() if u.created_at else "",
                 }

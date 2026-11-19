@@ -75,7 +75,20 @@ def _restore_sqlite_from_stratus(*, force_replace: bool = False) -> bool:
     db_path = _resolve_sqlite_file_path()
     if db_path is None:
         return False
-    if not force_replace and db_path.exists() and db_path.stat().st_size > 0:
+
+    local_user_count = 0
+    if db_path.exists() and db_path.stat().st_size > 0:
+        try:
+            conn = sqlite3.connect(str(db_path))
+            cur = conn.cursor()
+            cur.execute("SELECT count(*) FROM users")
+            row = cur.fetchone()
+            local_user_count = row[0] if row else 0
+            conn.close()
+        except Exception:
+            local_user_count = 0
+
+    if not force_replace and local_user_count > 0:
         return False
 
     try:
@@ -99,10 +112,28 @@ def _restore_sqlite_from_stratus(*, force_replace: bool = False) -> bool:
 
         from backend.app.db.database import engine
 
-        engine.dispose()
         db_path.parent.mkdir(parents=True, exist_ok=True)
         tmp_path = db_path.with_suffix(".db.restore_tmp")
         tmp_path.write_bytes(raw_bytes)
+
+        # Protect against restoring an empty/older snapshot over local users
+        if local_user_count > 0:
+            try:
+                tmp_conn = sqlite3.connect(str(tmp_path))
+                cur = tmp_conn.cursor()
+                cur.execute("SELECT count(*) FROM users")
+                row = cur.fetchone()
+                cloud_user_count = row[0] if row else 0
+                tmp_conn.close()
+                if cloud_user_count < local_user_count:
+                    logger.info("Preserving local SQLite DB (%d users) over cloud snapshot (%d users).", local_user_count, cloud_user_count)
+                    tmp_path.unlink(missing_ok=True)
+                    _STRATUS_RESTORED_OK = True
+                    return True
+            except Exception:
+                pass
+
+        engine.dispose()
         tmp_path.replace(db_path)
         _STRATUS_RESTORED_OK = True
         logger.info("Restored SQLite database snapshot from %s (%d bytes).", source, len(raw_bytes))
@@ -140,8 +171,15 @@ def ensure_stratus_db_restored_once() -> bool:
         if restored:
             ensure_database_ready()
         else:
-            # First ever boot with empty cloud storage: push initial seeded DB snapshot
-            schedule_stratus_sync(force=True)
+            # First ever boot with empty cloud storage: push initial seeded DB snapshot only if local has data
+            try:
+                from backend.app.db.database import SessionLocal
+                from backend.app.db.models import User
+                with SessionLocal() as db:
+                    if db.query(User).count() > 0:
+                        schedule_stratus_sync(force=True)
+            except Exception:
+                pass
 
         # Discover any existing Zoho Catalyst Data Store tables and backfill users in background
         def _bg_datastore_check():

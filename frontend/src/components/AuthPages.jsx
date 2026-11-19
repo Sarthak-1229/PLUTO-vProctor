@@ -41,7 +41,7 @@ export function CandidateAuthPage({ mode = 'login', onNavigate, onAuthSuccess })
         const data = await safeParseJson(res)
         if (!res.ok) throw new Error(data.detail || 'Sign in failed.')
         setAccessToken(data.access_token)
-        onAuthSuccess(data.user)
+        onAuthSuccess(data.user, 'login')
         return
       }
       if (mode === 'register') {
@@ -54,7 +54,7 @@ export function CandidateAuthPage({ mode = 'login', onNavigate, onAuthSuccess })
         const data = await safeParseJson(res)
         if (!res.ok) throw new Error(data.detail || 'Registration failed.')
         setAccessToken(data.access_token)
-        onAuthSuccess(data.user)
+        onAuthSuccess(data.user, 'register')
         return
       }
       if (mode === 'forgot-password') {

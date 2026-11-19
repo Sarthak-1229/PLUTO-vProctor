@@ -247,6 +247,108 @@
       },
       "question_domains": ["General", "Web Development", "DevOps/SRE"],
       "pass_threshold": 0.65
+    },
+    {
+      "id": "job_fresher_frontend",
+      "title": "Junior Frontend Developer (React / Web - Fresher)",
+      "company": "OmniStack Platforms",
+      "company_id": "comp_omnistack",
+      "required_skills": ["React", "JavaScript", "HTML", "CSS"],
+      "preferred_skills": ["TypeScript", "REST API & Microservices"],
+      "min_experience_years": 0,
+      "education_levels": ["Bachelor", "Associate", "Diploma"],
+      "skill_weights": {
+        "React": 0.35,
+        "JavaScript": 0.35,
+        "HTML": 0.15,
+        "CSS": 0.15
+      },
+      "question_domains": ["Web Development"],
+      "pass_threshold": 0.55
+    },
+    {
+      "id": "job_fresher_backend",
+      "title": "Graduate Backend Engineer (Python / FastAPI - Fresher)",
+      "company": "CyberNova Sentinel",
+      "company_id": "comp_cybernova",
+      "required_skills": ["Python", "SQL", "REST API & Microservices"],
+      "preferred_skills": ["OOP & Design Patterns", "Docker", "Data Structures & Algorithms"],
+      "min_experience_years": 0,
+      "education_levels": ["Bachelor", "Master"],
+      "skill_weights": {
+        "Python": 0.40,
+        "SQL": 0.30,
+        "REST API & Microservices": 0.30
+      },
+      "question_domains": ["OOP/Software Design", "Databases", "Web Development"],
+      "pass_threshold": 0.55
+    },
+    {
+      "id": "job_fresher_qa",
+      "title": "Junior QA & Automation Tester (Entry-Level / Fresher)",
+      "company": "QuantumByte Financial",
+      "company_id": "comp_quantumbyte",
+      "required_skills": ["QA & Test Automation", "Python"],
+      "preferred_skills": ["CI/CD", "SQL", "JavaScript"],
+      "min_experience_years": 0,
+      "education_levels": ["Bachelor", "Diploma"],
+      "skill_weights": {
+        "QA & Test Automation": 0.50,
+        "Python": 0.30,
+        "SQL": 0.20
+      },
+      "question_domains": ["General", "Web Development"],
+      "pass_threshold": 0.55
+    },
+    {
+      "id": "job_fresher_data",
+      "title": "Junior Data Analyst & BI Associate (Fresher)",
+      "company": "Synapse Genomics AI",
+      "company_id": "comp_synapse",
+      "required_skills": ["Python", "SQL"],
+      "preferred_skills": ["Machine Learning", "Data Structures & Algorithms"],
+      "min_experience_years": 0,
+      "education_levels": ["Bachelor", "Master"],
+      "skill_weights": {
+        "SQL": 0.45,
+        "Python": 0.40,
+        "Machine Learning": 0.15
+      },
+      "question_domains": ["Databases", "Data Science/ML"],
+      "pass_threshold": 0.55
+    },
+    {
+      "id": "job_fresher_security",
+      "title": "Associate Cyber Security Analyst (Trainee / Fresher)",
+      "company": "CyberNova Sentinel",
+      "company_id": "comp_cybernova",
+      "required_skills": ["Operating Systems & Networking", "Network Security & Cryptography"],
+      "preferred_skills": ["Application Security", "Cloud Architecture"],
+      "min_experience_years": 0,
+      "education_levels": ["Bachelor"],
+      "skill_weights": {
+        "Operating Systems & Networking": 0.50,
+        "Network Security & Cryptography": 0.50
+      },
+      "question_domains": ["Operating Systems/Networks", "Security"],
+      "pass_threshold": 0.55
+    },
+    {
+      "id": "job_fresher_cloud",
+      "title": "Cloud & DevOps Associate (Intern / Fresher)",
+      "company": "Aetheria Cloud Systems",
+      "company_id": "comp_aetheria",
+      "required_skills": ["Cloud Architecture", "Docker", "Operating Systems & Networking"],
+      "preferred_skills": ["AWS", "CI/CD", "Kubernetes"],
+      "min_experience_years": 0,
+      "education_levels": ["Bachelor"],
+      "skill_weights": {
+        "Cloud Architecture": 0.40,
+        "Docker": 0.30,
+        "Operating Systems & Networking": 0.30
+      },
+      "question_domains": ["Cloud", "DevOps/SRE", "Operating Systems/Networks"],
+      "pass_threshold": 0.55
     }
   ]
 }

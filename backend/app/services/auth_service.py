@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import datetime
+import logging
 import uuid
 from typing import Any, Dict, Optional, Tuple
 
@@ -10,6 +11,8 @@ from sqlalchemy.orm import Session
 from backend.app.config import settings
 from backend.app.core.errors import AppError
 from backend.app.db.models import CandidateProfile, OneTimeToken, RefreshToken, User
+
+logger = logging.getLogger("pluto.auth")
 from backend.app.services.security_service import (
     create_access_token,
     emit_one_time_token_event,
@@ -209,6 +212,47 @@ def authenticate_user(
     normalized = normalize_email(email)
     now = utcnow_naive()
     user = db.query(User).filter(User.email == normalized).first()
+
+    # Fallback cloud recovery: if user not found in local SQLite, query Zoho Catalyst Data Store
+    if user is None:
+        try:
+            from backend.app.services.catalyst_cloud_db import lookup_user_in_datastore
+            ds_user = lookup_user_in_datastore(normalized)
+            if ds_user and ds_user.get("password_hash"):
+                user_id = ds_user.get("id") or f"usr_{uuid.uuid4().hex[:16]}"
+                recovered_user = User(
+                    id=user_id,
+                    email=normalized,
+                    password_hash=ds_user["password_hash"],
+                    full_name=ds_user.get("full_name") or "Candidate",
+                    role=ds_user.get("role") or "candidate",
+                    is_active=True,
+                    email_verified=True,
+                    failed_login_attempts=0,
+                    token_version=0,
+                    created_at=now,
+                    updated_at=now,
+                )
+                db.add(recovered_user)
+                prof = CandidateProfile(
+                    id=f"cprof_{uuid.uuid4().hex[:16]}",
+                    user_id=user_id,
+                    experience_years=0.0,
+                    technical_skills_json=[],
+                    preferred_roles_json=[],
+                    education_details_json=[],
+                    experience_summary_json=[],
+                    portfolio_links_json={},
+                    profile_completed=False,
+                    created_at=now,
+                    updated_at=now,
+                )
+                db.add(prof)
+                db.commit()
+                user = recovered_user
+                logger.info("Successfully recovered user '%s' from Zoho Catalyst Data Store.", normalized)
+        except Exception as exc:
+            logger.debug("Zoho Data Store user recovery lookup failed for %s: %s", normalized, exc)
 
     if user is None:
         equalize_unknown_user_timing(password)

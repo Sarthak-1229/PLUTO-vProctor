@@ -147,6 +147,18 @@ function MainApp() {
         if (active && refreshed?.user) {
           setCurrentUser(refreshed.user)
           setCandidateName((prev) => prev || refreshed.user.full_name || '')
+          try { localStorage.setItem('pluto_user', JSON.stringify(refreshed.user)) } catch {}
+        }
+      } else if (typeof window !== 'undefined' && window.localStorage) {
+        const savedUser = window.localStorage.getItem('pluto_user')
+        if (savedUser) {
+          try {
+            const parsed = JSON.parse(savedUser)
+            if (active && parsed && parsed.id) {
+              setCurrentUser(parsed)
+              setCandidateName((prev) => prev || parsed.full_name || '')
+            }
+          } catch {}
         }
       }
       if (active) setAuthReady(true)
@@ -179,6 +191,12 @@ function MainApp() {
     }
     setAccessToken(null)
     setCurrentUser(null)
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        window.localStorage.removeItem('pluto_user')
+        window.localStorage.removeItem('pluto_access_token')
+      } catch {}
+    }
     handleResetSession()
     navigate(authEnabled ? '/login' : '/')
   }
@@ -602,10 +620,17 @@ function MainApp() {
             <CandidateAuthPage
               mode={routeGuard.view}
               onNavigate={navigate}
-              onAuthSuccess={(user) => {
+              onAuthSuccess={(user, authMode) => {
                 setCurrentUser(user)
                 setCandidateName(user.full_name || '')
-                navigate(user.role === 'admin' || user.role === 'super_admin' ? '/admin' : '/')
+                if (typeof window !== 'undefined' && window.localStorage) {
+                  try { window.localStorage.setItem('pluto_user', JSON.stringify(user)) } catch {}
+                }
+                if (authMode === 'register') {
+                  navigate('/profile')
+                } else {
+                  navigate(user.role === 'admin' || user.role === 'super_admin' ? '/admin' : '/')
+                }
               }}
             />
           )}
@@ -615,6 +640,9 @@ function MainApp() {
               onNavigate={navigate}
               onAuthSuccess={(user) => {
                 setCurrentUser(user)
+                if (typeof window !== 'undefined' && window.localStorage) {
+                  try { window.localStorage.setItem('pluto_user', JSON.stringify(user)) } catch {}
+                }
                 navigate('/admin')
               }}
             />
