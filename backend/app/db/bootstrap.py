@@ -105,7 +105,13 @@ def _restore_sqlite_from_stratus(*, force_replace: bool = False) -> bool:
         if not raw_bytes:
             raw_bytes = download_db_snapshot_from_filestore()
             if raw_bytes:
-                source = "Zoho Catalyst File Store"
+                source = "Zoho Catalyst File Store (Migrating to Stratus)"
+                if storage_service.is_stratus_enabled():
+                    try:
+                        storage_service.upload_raw_bytes(STRATUS_DB_KEY, raw_bytes, content_type="application/x-sqlite3")
+                        logger.info("Auto-migrated initial File Store snapshot into Zoho Stratus (%s)", STRATUS_DB_KEY)
+                    except Exception:
+                        pass
 
         if not raw_bytes or not raw_bytes.startswith(b"SQLite format 3"):
             return False
@@ -183,6 +189,10 @@ def ensure_stratus_db_restored_once() -> bool:
 
         # Discover any existing Zoho Catalyst Data Store tables and backfill users in background
         def _bg_datastore_check():
+            try:
+                storage_service.migrate_filestore_to_stratus()
+            except Exception:
+                pass
             try:
                 refresh_datastore_tables(force=True)
                 from backend.app.services.catalyst_cloud_db import sync_all_users_to_datastore

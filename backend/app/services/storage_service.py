@@ -50,15 +50,48 @@ class StorageService:
     def _get_sdk_bucket(self):
         """Return native Zoho Catalyst SDK Stratus Bucket instance if available."""
         bucket_name = self._bucket_name()
-        if not bucket_name:
-            return None
         catalyst_app = get_catalyst_app(scope="admin")
         if catalyst_app is None:
             return None
+
+        # Auto-discover or auto-create Stratus bucket inside Catalyst AppSail
+        if not bucket_name:
+            try:
+                buckets = catalyst_app.stratus().list_buckets() or []
+                if buckets:
+                    b = buckets[0]
+                    discovered = getattr(b, "_bucket_name", None) or (b.get_name() if hasattr(b, "get_name") else None)
+                    if discovered:
+                        self.stratus_bucket = discovered
+                        bucket_name = discovered
+                        logger.info("Auto-discovered existing Zoho Catalyst Stratus bucket: %s", discovered)
+            except Exception as exc:
+                logger.debug("Stratus bucket auto-discovery skipped: %s", exc)
+
+        if not bucket_name:
+            # Attempt to auto-create 'pluto-storage' bucket via Catalyst Stratus API
+            try:
+                from zcatalyst_sdk.types import CredentialUser, RequestMethod
+                default_name = "pluto-storage"
+                catalyst_app.stratus()._requester.request(
+                    method=RequestMethod.POST,
+                    path="/bucket",
+                    json={"bucket_name": default_name},
+                    user=CredentialUser.ADMIN,
+                )
+                self.stratus_bucket = default_name
+                bucket_name = default_name
+                logger.info("Auto-created Zoho Catalyst Stratus bucket: %s", default_name)
+            except Exception as exc:
+                logger.debug("Auto-creating Stratus bucket skipped: %s", exc)
+
+        if not bucket_name:
+            return None
+
         try:
             return catalyst_app.stratus().bucket(bucket_name)
         except Exception as exc:
-            logger.debug("Catalyst SDK Stratus bucket init failed: %s", exc)
+            logger.debug("Catalyst SDK Stratus bucket init failed for '%s': %s", bucket_name, exc)
             return None
 
     def is_rest_stratus_enabled(self) -> bool:
@@ -261,6 +294,28 @@ class StorageService:
                     all_deleted = False
 
         return all_deleted
+
+    def migrate_filestore_to_stratus(self) -> bool:
+        """Migrate legacy Zoho Catalyst File Store database snapshot to Zoho Stratus (pre-Oct 2026 EOL)."""
+        if not self.is_stratus_enabled():
+            return False
+        try:
+            from backend.app.services.catalyst_cloud_db import download_db_snapshot_from_filestore
+
+            existing_stratus = self.download_raw_bytes("db_snapshots/pluto.db")
+            if existing_stratus and isinstance(existing_stratus, (bytes, bytearray)) and bytes(existing_stratus).startswith(b"SQLite format 3"):
+                return True
+
+            raw = download_db_snapshot_from_filestore()
+            if raw and isinstance(raw, (bytes, bytearray)) and bytes(raw).startswith(b"SQLite format 3"):
+                ok = self.upload_raw_bytes("db_snapshots/pluto.db", bytes(raw), content_type="application/x-sqlite3")
+                if ok:
+                    logger.info("Successfully migrated SQLite DB snapshot from deprecated File Store to Zoho Stratus (%d bytes).", len(raw))
+                    return True
+            return False
+        except Exception as exc:
+            logger.debug("File Store to Stratus migration skipped: %s", exc)
+            return False
 
 
 storage_service = StorageService()

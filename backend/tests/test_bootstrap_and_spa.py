@@ -99,3 +99,10 @@ def test_native_catalyst_sdk_stratus_and_mail_hooks(monkeypatch):
 
     assert catalyst_context.capture_catalyst_headers({"x-zc-projectid": "73453000000046001", "x-zc-project-key": "k"}) is True
 
+    # Test File Store to Stratus Migration
+    monkeypatch.setattr("backend.app.services.catalyst_cloud_db.download_db_snapshot_from_filestore", lambda: b"SQLite format 3\x00migrated")
+    mock_bucket.get_object.return_value = None  # Pretend not yet in Stratus
+    migrated = svc.migrate_filestore_to_stratus()
+    assert migrated is True
+    assert mock_bucket.put_object.call_count >= 2
+

@@ -97,15 +97,16 @@ def get_catalyst_app(scope: str = "admin") -> Optional[Any]:
 def get_catalyst_status() -> Dict[str, Any]:
     """Return safe, non-secret status metadata for Zoho Catalyst services."""
     from backend.app.config import settings
+    from backend.app.services.storage_service import storage_service
 
     sdk_ok = is_sdk_installed()
     headers_ok = has_catalyst_headers()
-    bucket = (settings.STRATUS_BUCKET or "").strip()
-    rest_stratus = bool((settings.STRATUS_ENDPOINT or "").strip() and bucket and (settings.STRATUS_ACCESS_KEY or "").strip())
+    bucket = storage_service._bucket_name()
+    is_stratus = storage_service.is_stratus_enabled()
 
-    if bucket and sdk_ok and headers_ok:
+    if is_stratus and sdk_ok and headers_ok:
         stratus_mode = "catalyst_sdk"
-    elif rest_stratus:
+    elif is_stratus:
         stratus_mode = "rest_api"
     elif bucket:
         stratus_mode = "bucket_configured_awaiting_catalyst_headers"
@@ -118,6 +119,7 @@ def get_catalyst_status() -> Dict[str, Any]:
         "catalyst_headers_detected": headers_ok,
         "stratus_mode": stratus_mode,
         "stratus_bucket": bucket or None,
+        "filestore_status": "deprecated_eol_oct_2026 (auto-migrating to Zoho Stratus)",
         "mail_configured": bool((settings.CATALYST_MAIL_FROM or "").strip()),
         "quickml_configured": bool((settings.QUICKML_ENDPOINT or "").strip() and (settings.QUICKML_API_KEY or "").strip()),
     }

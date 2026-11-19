@@ -145,7 +145,7 @@ class Settings(BaseSettings):
     LLM_ENDPOINT: str = "https://api.groq.com/openai/v1" if _IN_CATALYST_APPSAIL else ""
     LLM_MODEL: str = "qwen/qwen3.8-27b" if _IN_CATALYST_APPSAIL else "qwen2.5:3b"
     STRATUS_ENDPOINT: str = ""
-    STRATUS_BUCKET: str = ""
+    STRATUS_BUCKET: str = "pluto-storage" if _IN_CATALYST_APPSAIL else ""
     STRATUS_ACCESS_KEY: str = ""
     STRATUS_SECRET_KEY: str = ""
     STRATUS_REGION: str = "ap-south-1"
