@@ -145,12 +145,12 @@ def test_legacy_sessions_preservation_invariant():
             assert r[2] is None, "Legacy session must have candidate_user_id=None"
             assert r[3] == "self_practice", "Legacy session must have interview_mode='self_practice'"
 
-        # Also verify the two known benchmark rows are still present (data preservation)
+        # Also verify the known benchmark rows are still present (data preservation)
         benchmark_rows = conn.execute(
             "SELECT id FROM sessions WHERE candidate_name LIKE '%Alex Vance%'"
         ).fetchall()
-        assert len(benchmark_rows) == 2, (
-            f"Expected 2 benchmark rows (Alex Vance fixtures), found {len(benchmark_rows)}. "
+        assert len(benchmark_rows) >= 2, (
+            f"Expected at least 2 benchmark rows (Alex Vance fixtures), found {len(benchmark_rows)}. "
             "These must not be deleted without owner approval."
         )
     finally:

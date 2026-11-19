@@ -32,6 +32,8 @@ _STRATUS_RESTORE_LOCK = threading.Lock()
 _STRATUS_RESTORE_ATTEMPTED = False
 _STRATUS_RESTORED_OK = False
 _STRATUS_LAST_SYNC_AT: Optional[str] = None
+_STRATUS_LAST_SYNC_BYTES: int = 0
+_STRATUS_LAST_SYNC_ERROR: Optional[str] = None
 _LAST_SYNC_MONO = 0.0
 
 STRATUS_DB_KEY = "db_snapshots/pluto.db"
@@ -61,11 +63,19 @@ def _should_auto_seed() -> bool:
 
 def get_stratus_db_state() -> Dict[str, Any]:
     """Return non-secret telemetry for Stratus SQLite snapshot persistence."""
+    try:
+        from backend.app.services.storage_service import storage_service
+        telemetry = storage_service.get_stratus_telemetry()
+    except Exception:
+        telemetry = {}
     return {
         "restore_attempted": _STRATUS_RESTORE_ATTEMPTED,
         "restored_from_stratus": _STRATUS_RESTORED_OK,
         "last_sync_at": _STRATUS_LAST_SYNC_AT,
+        "last_sync_bytes": _STRATUS_LAST_SYNC_BYTES,
+        "last_sync_error": _STRATUS_LAST_SYNC_ERROR,
         "snapshot_key": STRATUS_DB_KEY,
+        "telemetry": telemetry,
     }
 
 
@@ -206,9 +216,10 @@ def ensure_stratus_db_restored_once() -> bool:
 
 def sync_sqlite_to_stratus() -> bool:
     """Create a consistent SQLite online backup and persist to Zoho Stratus and/or File Store."""
-    global _STRATUS_LAST_SYNC_AT
+    global _STRATUS_LAST_SYNC_AT, _STRATUS_LAST_SYNC_BYTES, _STRATUS_LAST_SYNC_ERROR
     db_path = _resolve_sqlite_file_path()
     if db_path is None or not db_path.exists():
+        _STRATUS_LAST_SYNC_ERROR = "SQLite db_path does not exist or invalid"
         return False
 
     try:
@@ -219,6 +230,7 @@ def sync_sqlite_to_stratus() -> bool:
         stratus_on = storage_service.is_stratus_enabled()
         catalyst_on = has_catalyst_headers()
         if not (stratus_on or catalyst_on):
+            _STRATUS_LAST_SYNC_ERROR = "Neither Stratus nor Catalyst headers are available for cloud sync"
             return False
 
         with _STRATUS_SYNC_LOCK:
@@ -236,6 +248,9 @@ def sync_sqlite_to_stratus() -> bool:
                 payload = tmp_path.read_bytes()
 
                 synced = False
+                stratus_ok = False
+                filestore_ok = False
+
                 if stratus_on:
                     if storage_service.upload_raw_bytes(
                         STRATUS_DB_KEY,
@@ -243,18 +258,30 @@ def sync_sqlite_to_stratus() -> bool:
                         content_type="application/x-sqlite3",
                     ):
                         synced = True
+                        stratus_ok = True
 
                 if catalyst_on:
                     if upload_db_snapshot_to_filestore(payload):
                         synced = True
+                        filestore_ok = True
 
                 if synced:
                     _STRATUS_LAST_SYNC_AT = datetime.datetime.now(datetime.timezone.utc).isoformat()
-                    logger.info("Synced SQLite database snapshot to Zoho Cloud (%d bytes).", len(payload))
+                    _STRATUS_LAST_SYNC_BYTES = len(payload)
+                    _STRATUS_LAST_SYNC_ERROR = None
+                    dest_str = []
+                    if stratus_ok:
+                        dest_str.append("Zoho Stratus")
+                    if filestore_ok:
+                        dest_str.append("Zoho File Store")
+                    logger.info("Synced SQLite database snapshot to %s (%d bytes).", " + ".join(dest_str), len(payload))
+                else:
+                    _STRATUS_LAST_SYNC_ERROR = "Failed to upload DB snapshot to both Stratus and File Store"
                 return synced
             finally:
                 tmp_path.unlink(missing_ok=True)
     except Exception as exc:
+        _STRATUS_LAST_SYNC_ERROR = str(exc)
         logger.warning("Zoho Cloud SQLite snapshot sync skipped: %s", exc)
         return False
 

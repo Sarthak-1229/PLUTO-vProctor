@@ -221,7 +221,7 @@ class ReportService:
             fallback_factory=fallback_summary,
         )
 
-        if not summary_obj:
+        if not summary_obj or total_spoken_words < 15 or cat_scores["technical_depth"] <= 15.0:
             summary_obj = fallback_summary()
 
         summary_dict = summary_obj.model_dump()

@@ -58,10 +58,12 @@ class ScoringEngine:
         elif answer_scores:
             total_words = sum(40 for s in answer_scores if s >= 20.0)
 
-        if total_words == 0 and tech_score <= 5.0:
+        if total_words < 10 or tech_score <= 5.0:
             initial_fluency = 0.0
-        elif total_words < 15 and tech_score <= 15.0:
-            initial_fluency = min(20.0, round(total_words * 1.5, 1))
+        elif total_words < 25 and tech_score <= 20.0:
+            initial_fluency = min(15.0, round(total_words * 0.6, 1))
+        elif total_words < 40 and tech_score <= 25.0:
+            initial_fluency = min(35.0, round(total_words * 0.9, 1))
         else:
             initial_fluency = 100.0
 
@@ -130,13 +132,13 @@ class ScoringEngine:
             + cat_scores["resume_fit"] * self.CATEGORY_WEIGHTS["resume_fit"]
         )
 
-        if total_words < 15 and tech_score <= 10.0:
-            overall = min(overall, 25.0 + cat_scores["confidence_fluency"])
+        if total_words < 15 or tech_score <= 10.0:
+            overall = min(overall, max(tech_score, 12.0) + cat_scores["confidence_fluency"] * 0.1)
 
         overall_score = round(max(0.0, min(100.0, overall)), 1)
 
         # Grade Band and Readiness
-        if total_words < 15 and tech_score <= 10.0:
+        if total_words < 15 or tech_score <= 10.0:
             grade = "D"
             readiness = "Assessment Incomplete — Minimal/No Verbal Answers Recorded"
         elif overall_score >= 85.0:

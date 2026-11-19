@@ -9,7 +9,7 @@
       "memory": 2048,
       "env_variables": {
         "PYTHONPATH": ".",
-        "ENVIRONMENT": "staging",
+        "ENVIRONMENT": "development",
         "DEBUG": "false",
         "AUTH_ENABLED": "true",
         "HOSTED_ROOMS_ENABLED": "true",
@@ -23,6 +23,7 @@
         "APP_PUBLIC_URL": "https://plutovproctor.development.catalystappsail.in",
         "SECRET_KEY": "pluto_vproctor_secure_jwt_session_signing_secret_key_2026_zoho_catalyst",
         "STRATUS_BUCKET": "pluto-storage",
+        "X_ZOHO_STRATUS_RESOURCE_SUFFIX": ".zohostratus.in",
         "LLM_ENDPOINT": "https://api.groq.com/openai/v1",
         "LLM_API_KEY": "",
         "LLM_MODEL": "qwen/qwen3.8-27b",

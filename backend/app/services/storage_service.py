@@ -12,9 +12,11 @@ Supports three clean modes:
 """
 from __future__ import annotations
 
+import datetime
 import logging
+import os
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 import httpx
 
@@ -22,6 +24,20 @@ from backend.app.config import settings
 from backend.app.services.catalyst_context import get_catalyst_app
 
 logger = logging.getLogger("pluto.storage")
+
+
+def _patch_stratus_sdk_constants():
+    """Ensure zcatalyst_sdk uses the correct Zoho Stratus domain suffix for India / region."""
+    try:
+        import zcatalyst_sdk._constants
+        import zcatalyst_sdk.stratus.bucket
+        suffix = os.environ.get("X_ZOHO_STRATUS_RESOURCE_SUFFIX", ".zohostratus.in").strip()
+        if not suffix.startswith("."):
+            suffix = f".{suffix}"
+        zcatalyst_sdk._constants.STRATUS_SUFFIX = suffix
+        zcatalyst_sdk.stratus.bucket.STRATUS_SUFFIX = suffix
+    except Exception:
+        pass
 
 
 class StorageService:
@@ -35,8 +51,18 @@ class StorageService:
         self.stratus_secret_key = settings.STRATUS_SECRET_KEY.strip()
         self.stratus_region = settings.STRATUS_REGION.strip()
 
+        self._cached_bucket_domain: Optional[str] = None
+        self._cached_discovered_buckets: List[str] = []
+        self._last_error: Optional[str] = None
+        self._last_upload_key: Optional[str] = None
+        self._last_upload_bytes: int = 0
+        self._last_upload_at: Optional[str] = None
+        self._last_download_key: Optional[str] = None
+        self._last_download_bytes: int = 0
+        self._last_download_at: Optional[str] = None
+
     def _bucket_name(self) -> str:
-        return (self.stratus_bucket or settings.STRATUS_BUCKET or "").strip()
+        return (self.stratus_bucket or settings.STRATUS_BUCKET or "pluto-storage").strip()
 
     def _endpoint(self) -> str:
         return (self.stratus_endpoint or settings.STRATUS_ENDPOINT or "").rstrip("/")
@@ -49,48 +75,71 @@ class StorageService:
 
     def _get_sdk_bucket(self):
         """Return native Zoho Catalyst SDK Stratus Bucket instance if available."""
-        bucket_name = self._bucket_name()
         catalyst_app = get_catalyst_app(scope="admin")
         if catalyst_app is None:
             return None
 
-        # Auto-discover or auto-create Stratus bucket inside Catalyst AppSail
-        if not bucket_name:
-            try:
-                buckets = catalyst_app.stratus().list_buckets() or []
-                if buckets:
-                    b = buckets[0]
-                    discovered = getattr(b, "_bucket_name", None) or (b.get_name() if hasattr(b, "get_name") else None)
-                    if discovered:
-                        self.stratus_bucket = discovered
-                        bucket_name = discovered
-                        logger.info("Auto-discovered existing Zoho Catalyst Stratus bucket: %s", discovered)
-            except Exception as exc:
-                logger.debug("Stratus bucket auto-discovery skipped: %s", exc)
+        _patch_stratus_sdk_constants()
 
-        if not bucket_name:
-            # Attempt to auto-create 'pluto-storage' bucket via Catalyst Stratus API
+        # Discover all existing buckets in project
+        discovered_names: List[str] = []
+        try:
+            buckets = catalyst_app.stratus().list_buckets() or []
+            for b in buckets:
+                name = getattr(b, "_bucket_name", None) or (b.get_name() if hasattr(b, "get_name") else None)
+                if name:
+                    discovered_names.append(str(name).strip())
+            self._cached_discovered_buckets = list(discovered_names)
+        except Exception as exc:
+            self._last_error = f"Stratus list_buckets failed: {exc}"
+            logger.debug("Stratus list_buckets skipped/failed: %s", exc)
+
+        bucket_name = self._bucket_name()
+        # Prefer configured bucket if present, or first existing bucket
+        if bucket_name and bucket_name in discovered_names:
+            pass
+        elif discovered_names:
+            bucket_name = discovered_names[0]
+            self.stratus_bucket = bucket_name
+            logger.info("Using discovered Zoho Stratus bucket: %s", bucket_name)
+        elif not bucket_name:
+            bucket_name = "pluto-storage"
+            self.stratus_bucket = bucket_name
+
+        # Attempt to auto-create bucket if none exists
+        if bucket_name not in discovered_names:
             try:
                 from zcatalyst_sdk.types import CredentialUser, RequestMethod
-                default_name = "pluto-storage"
                 catalyst_app.stratus()._requester.request(
                     method=RequestMethod.POST,
                     path="/bucket",
-                    json={"bucket_name": default_name},
+                    json={"bucket_name": bucket_name},
                     user=CredentialUser.ADMIN,
                 )
-                self.stratus_bucket = default_name
-                bucket_name = default_name
-                logger.info("Auto-created Zoho Catalyst Stratus bucket: %s", default_name)
+                logger.info("Auto-created Zoho Catalyst Stratus bucket: %s", bucket_name)
+                if bucket_name not in self._cached_discovered_buckets:
+                    self._cached_discovered_buckets.append(bucket_name)
             except Exception as exc:
-                logger.debug("Auto-creating Stratus bucket skipped: %s", exc)
-
-        if not bucket_name:
-            return None
+                logger.debug("Auto-creating Stratus bucket skipped/existing: %s", exc)
 
         try:
-            return catalyst_app.stratus().bucket(bucket_name)
+            bucket_obj = catalyst_app.stratus().bucket(bucket_name)
+            if bucket_obj is not None:
+                suffix = os.environ.get("X_ZOHO_STRATUS_RESOURCE_SUFFIX", ".zohostratus.in").strip()
+                if not suffix.startswith("."):
+                    suffix = f".{suffix}"
+                domain = getattr(bucket_obj, "bucket_domain", "")
+                if ".zohostratus.com" in domain:
+                    domain = domain.replace(".zohostratus.com", suffix)
+                # In Catalyst Development environment, buckets resolve to {bucket}-development{suffix}
+                env_val = str(catalyst_app.config.get("environment") or os.environ.get("ENVIRONMENT", "development")).lower()
+                if ("dev" in env_val) and f"{bucket_name}-development" not in domain:
+                    domain = domain.replace(f"https://{bucket_name}", f"https://{bucket_name}-development", 1)
+                bucket_obj.bucket_domain = domain
+                self._cached_bucket_domain = domain
+            return bucket_obj
         except Exception as exc:
+            self._last_error = f"Catalyst SDK Stratus bucket init failed for '{bucket_name}': {exc}"
             logger.debug("Catalyst SDK Stratus bucket init failed for '%s': %s", bucket_name, exc)
             return None
 
@@ -105,6 +154,22 @@ class StorageService:
     def is_stratus_enabled(self) -> bool:
         """Return True if either native Catalyst SDK Stratus or REST Stratus is enabled."""
         return self.is_sdk_stratus_enabled() or self.is_rest_stratus_enabled()
+
+    def get_stratus_telemetry(self) -> Dict[str, Any]:
+        """Return telemetry on Stratus connection, domain, discovered buckets, and last sync."""
+        return {
+            "bucket": self._bucket_name(),
+            "bucket_domain": self._cached_bucket_domain,
+            "discovered_buckets": self._cached_discovered_buckets,
+            "last_error": self._last_error,
+            "last_upload_key": self._last_upload_key,
+            "last_upload_bytes": self._last_upload_bytes,
+            "last_upload_at": self._last_upload_at,
+            "last_download_key": self._last_download_key,
+            "last_download_bytes": self._last_download_bytes,
+            "last_download_at": self._last_download_at,
+            "is_sdk_enabled": self.is_sdk_stratus_enabled(),
+        }
 
     def _get_local_path(self, subfolder: str, filename: str) -> Path:
         """Resolve and ensure local directory exists."""
@@ -123,8 +188,14 @@ class StorageService:
                     content,
                     options={"overwrite": "true", "content_type": content_type},
                 )
-                return bool(res)
+                self._last_error = None
+                self._last_upload_key = key
+                self._last_upload_bytes = len(content)
+                self._last_upload_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+                logger.info("Successfully uploaded %d bytes to Stratus key '%s'", len(content), key)
+                return True
             except Exception as exc:
+                self._last_error = f"put_object failed for {key}: {exc}"
                 logger.warning("Catalyst SDK Stratus put_object failed for %s: %s", key, exc)
 
         if self.is_rest_stratus_enabled():
@@ -139,7 +210,11 @@ class StorageService:
             try:
                 data = sdk_bucket.get_object(key)
                 if isinstance(data, (bytes, bytearray)) and len(data) > 0:
-                    return bytes(data)
+                    raw = bytes(data)
+                    self._last_download_key = key
+                    self._last_download_bytes = len(raw)
+                    self._last_download_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+                    return raw
             except Exception as exc:
                 logger.debug("Catalyst SDK Stratus get_object miss/error for %s: %s", key, exc)
 

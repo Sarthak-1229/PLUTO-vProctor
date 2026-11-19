@@ -189,6 +189,23 @@ def register_candidate(
         ip_address=ip_address,
     )
     db.commit()
+
+    try:
+        from backend.app.services.catalyst_cloud_db import cache_put
+        import json, hashlib
+        email_hash = hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:24]
+        user_cache_payload = {
+            "id": user.id,
+            "email": normalized,
+            "password_hash": user.password_hash,
+            "full_name": user.full_name,
+            "role": user.role,
+            "created_at": user.created_at.isoformat() if user.created_at else "",
+        }
+        cache_put(f"pluto_usr_{email_hash}", json.dumps(user_cache_payload), expiry_hours=720)
+    except Exception:
+        pass
+
     return {
         "user": serialize_user(user),
         "access_token": access_token,
@@ -213,46 +230,70 @@ def authenticate_user(
     now = utcnow_naive()
     user = db.query(User).filter(User.email == normalized).first()
 
-    # Fallback cloud recovery: if user not found in local SQLite, query Zoho Catalyst Data Store
+    # Fallback cloud recovery: if user not found in local SQLite, try Stratus restore, then Data Store, then Cache
     if user is None:
+        try:
+            from backend.app.db.bootstrap import _restore_sqlite_from_stratus
+            if _restore_sqlite_from_stratus(force_replace=True):
+                user = db.query(User).filter(User.email == normalized).first()
+                if user is not None:
+                    logger.info("Successfully recovered user '%s' from Stratus cloud snapshot restore.", normalized)
+        except Exception as exc:
+            logger.debug("Stratus restore during login skipped: %s", exc)
+
+    if user is None:
+        ds_user = None
         try:
             from backend.app.services.catalyst_cloud_db import lookup_user_in_datastore
             ds_user = lookup_user_in_datastore(normalized)
-            if ds_user and ds_user.get("password_hash"):
-                user_id = ds_user.get("id") or f"usr_{uuid.uuid4().hex[:16]}"
-                recovered_user = User(
-                    id=user_id,
-                    email=normalized,
-                    password_hash=ds_user["password_hash"],
-                    full_name=ds_user.get("full_name") or "Candidate",
-                    role=ds_user.get("role") or "candidate",
-                    is_active=True,
-                    email_verified=True,
-                    failed_login_attempts=0,
-                    token_version=0,
-                    created_at=now,
-                    updated_at=now,
-                )
-                db.add(recovered_user)
-                prof = CandidateProfile(
-                    id=f"cprof_{uuid.uuid4().hex[:16]}",
-                    user_id=user_id,
-                    experience_years=0.0,
-                    technical_skills_json=[],
-                    preferred_roles_json=[],
-                    education_details_json=[],
-                    experience_summary_json=[],
-                    portfolio_links_json={},
-                    profile_completed=False,
-                    created_at=now,
-                    updated_at=now,
-                )
-                db.add(prof)
-                db.commit()
-                user = recovered_user
-                logger.info("Successfully recovered user '%s' from Zoho Catalyst Data Store.", normalized)
-        except Exception as exc:
-            logger.debug("Zoho Data Store user recovery lookup failed for %s: %s", normalized, exc)
+        except Exception:
+            pass
+
+        if not (ds_user and ds_user.get("password_hash")):
+            try:
+                import hashlib
+                import json
+                from backend.app.services.catalyst_cloud_db import cache_get
+                email_hash = hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:24]
+                cached_str = cache_get(f"pluto_usr_{email_hash}")
+                if cached_str:
+                    ds_user = json.loads(cached_str)
+            except Exception:
+                pass
+
+        if ds_user and ds_user.get("password_hash"):
+            user_id = ds_user.get("id") or f"usr_{uuid.uuid4().hex[:16]}"
+            recovered_user = User(
+                id=user_id,
+                email=normalized,
+                password_hash=ds_user["password_hash"],
+                full_name=ds_user.get("full_name") or "Candidate",
+                role=ds_user.get("role") or "candidate",
+                is_active=True,
+                email_verified=True,
+                failed_login_attempts=0,
+                token_version=0,
+                created_at=now,
+                updated_at=now,
+            )
+            db.add(recovered_user)
+            prof = CandidateProfile(
+                id=f"cprof_{uuid.uuid4().hex[:16]}",
+                user_id=user_id,
+                experience_years=0.0,
+                technical_skills_json=[],
+                preferred_roles_json=[],
+                education_details_json=[],
+                experience_summary_json=[],
+                portfolio_links_json={},
+                profile_completed=False,
+                created_at=now,
+                updated_at=now,
+            )
+            db.add(prof)
+            db.commit()
+            user = recovered_user
+            logger.info("Successfully recovered user '%s' from Zoho Catalyst Cloud (Data Store / Cache).", normalized)
 
     if user is None:
         equalize_unknown_user_timing(password)
@@ -368,6 +409,23 @@ def authenticate_user(
         ip_address=ip_address,
     )
     db.commit()
+
+    try:
+        from backend.app.services.catalyst_cloud_db import cache_put
+        import json, hashlib
+        email_hash = hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:24]
+        user_cache_payload = {
+            "id": user.id,
+            "email": normalized,
+            "password_hash": user.password_hash,
+            "full_name": user.full_name,
+            "role": user.role,
+            "created_at": user.created_at.isoformat() if user.created_at else "",
+        }
+        cache_put(f"pluto_usr_{email_hash}", json.dumps(user_cache_payload), expiry_hours=720)
+    except Exception:
+        pass
+
     return {
         "user": serialize_user(user),
         "access_token": access_token,
@@ -442,6 +500,23 @@ def rotate_refresh_session(
     rt.revoked_at = now
     rt.replaced_by_id = new_row.id if new_row else None
     db.commit()
+
+    try:
+        from backend.app.services.catalyst_cloud_db import cache_put
+        import json, hashlib
+        email_hash = hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:24]
+        user_cache_payload = {
+            "id": user.id,
+            "email": normalized,
+            "password_hash": user.password_hash,
+            "full_name": user.full_name,
+            "role": user.role,
+            "created_at": user.created_at.isoformat() if user.created_at else "",
+        }
+        cache_put(f"pluto_usr_{email_hash}", json.dumps(user_cache_payload), expiry_hours=720)
+    except Exception:
+        pass
+
     return {
         "user": serialize_user(user),
         "access_token": access_token,

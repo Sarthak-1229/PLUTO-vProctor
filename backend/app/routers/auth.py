@@ -122,9 +122,14 @@ def register(payload: RegisterRequest, request: Request, response: Response, db:
         user_agent=request.headers.get("user-agent"),
     )
     _set_session_cookies(response, result["raw_refresh"], result["csrf_token"])
-    from backend.app.db.bootstrap import schedule_stratus_sync
+    try:
+        from backend.app.db.bootstrap import sync_sqlite_to_stratus
+        sync_sqlite_to_stratus()
+    except Exception:
+        from backend.app.db.bootstrap import schedule_stratus_sync
+        schedule_stratus_sync(force=True)
+
     from backend.app.services.catalyst_cloud_db import mirror_async
-    schedule_stratus_sync(force=True)
     u = result["user"]
     user_row = db.query(User).filter(User.id == u["id"]).first()
     pwd_hash = user_row.password_hash if user_row else ""
@@ -167,9 +172,14 @@ def login_candidate(payload: LoginRequest, request: Request, response: Response,
         user_agent=request.headers.get("user-agent"),
     )
     _set_session_cookies(response, result["raw_refresh"], result["csrf_token"])
-    from backend.app.db.bootstrap import schedule_stratus_sync
+    try:
+        from backend.app.db.bootstrap import sync_sqlite_to_stratus
+        sync_sqlite_to_stratus()
+    except Exception:
+        from backend.app.db.bootstrap import schedule_stratus_sync
+        schedule_stratus_sync(force=True)
+
     from backend.app.services.catalyst_cloud_db import mirror_async
-    schedule_stratus_sync(force=True)
     u = result["user"]
     user_row = db.query(User).filter(User.id == u["id"]).first()
     pwd_hash = user_row.password_hash if user_row else ""
@@ -212,9 +222,14 @@ def login_admin(payload: LoginRequest, request: Request, response: Response, db:
         user_agent=request.headers.get("user-agent"),
     )
     _set_session_cookies(response, result["raw_refresh"], result["csrf_token"])
-    from backend.app.db.bootstrap import schedule_stratus_sync
+    try:
+        from backend.app.db.bootstrap import sync_sqlite_to_stratus
+        sync_sqlite_to_stratus()
+    except Exception:
+        from backend.app.db.bootstrap import schedule_stratus_sync
+        schedule_stratus_sync(force=True)
+
     from backend.app.services.catalyst_cloud_db import mirror_async
-    schedule_stratus_sync(force=True)
     u = result["user"]
     user_row = db.query(User).filter(User.id == u["id"]).first()
     pwd_hash = user_row.password_hash if user_row else ""
@@ -259,9 +274,14 @@ def refresh(request: Request, response: Response, db: Session = Depends(get_db))
         raise
 
     _set_session_cookies(response, result["raw_refresh"], result["csrf_token"])
-    from backend.app.db.bootstrap import schedule_stratus_sync
+    try:
+        from backend.app.db.bootstrap import sync_sqlite_to_stratus
+        sync_sqlite_to_stratus()
+    except Exception:
+        from backend.app.db.bootstrap import schedule_stratus_sync
+        schedule_stratus_sync(force=True)
+
     from backend.app.services.catalyst_cloud_db import mirror_async
-    schedule_stratus_sync(force=True)
     u = result["user"]
     user_row = db.query(User).filter(User.id == u["id"]).first()
     pwd_hash = user_row.password_hash if user_row else ""

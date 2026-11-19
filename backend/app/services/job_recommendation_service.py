@@ -204,13 +204,15 @@ def compute_recommendations_for_user(db: Session, user: User, limit: int = 12) -
         resume_skills = list(effective.get("skills") or [])
         resume_exp = float(effective.get("experience_years") or 0.0)
 
-    has_profile_signals = bool(profile_skills or (profile and (profile.headline or profile.preferred_roles_json)))
+    distinct_profile_skills = [s for s in profile_skills if s not in resume_skills]
+    has_manual_profile_signals = bool(distinct_profile_skills or (profile and (profile.headline or profile.preferred_roles_json or profile.bio)))
     has_resume_signals = latest_resume_pair is not None
-    if has_profile_signals and has_resume_signals:
+
+    if has_manual_profile_signals and has_resume_signals:
         source_type = "combined"
     elif has_resume_signals:
         source_type = "resume"
-    elif has_profile_signals:
+    elif has_manual_profile_signals or profile_skills:
         source_type = "profile"
     else:
         source_type = "catalog_fallback"

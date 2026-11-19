@@ -383,10 +383,9 @@ export function InterviewRoom({
           points_deducted: e.penalty || 1,
           reason: e.message,
         }))
-        await fetch(`/api/interview/${sessionId}/proctoring-events`, {
+        await authFetch(`/api/interview/${sessionId}/proctoring-events`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
           body: JSON.stringify({ events: eventsPayload }),
         })
       } catch (err) {

@@ -267,6 +267,45 @@ def readiness_check():
     }
 
 
+@app.get("/api/stratus/test-sync")
+@app.post("/api/stratus/test-sync")
+def test_stratus_sync():
+    """Diagnostic endpoint to verify Zoho Stratus bucket connectivity and force a DB backup."""
+    from backend.app.services.storage_service import storage_service
+    from backend.app.db.bootstrap import sync_sqlite_to_stratus, get_stratus_db_state
+    from backend.app.services.catalyst_context import has_catalyst_headers, get_catalyst_app
+
+    app_inst = get_catalyst_app(scope="admin")
+    probe_content = f"stratus_health_probe_{int(time.time())}".encode("utf-8")
+    upload_ok = storage_service.upload_raw_bytes("health_probe.txt", probe_content, content_type="text/plain")
+    read_back = storage_service.download_raw_bytes("health_probe.txt")
+    read_ok = bool(read_back and read_back == probe_content)
+
+    sync_result = sync_sqlite_to_stratus()
+    db_state = get_stratus_db_state()
+
+    user_count = 0
+    try:
+        from backend.app.db.database import SessionLocal
+        from backend.app.db.models import User
+        with SessionLocal() as db:
+            user_count = db.query(User).count()
+    except Exception:
+        pass
+
+    return {
+        "status": "success" if (upload_ok and sync_result) else "warning",
+        "has_catalyst_headers": has_catalyst_headers(),
+        "has_catalyst_app": app_inst is not None,
+        "stratus_upload_test": upload_ok,
+        "stratus_read_test": read_ok,
+        "sqlite_sync_result": sync_result,
+        "sqlite_user_count": user_count,
+        "stratus_db_state": db_state,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+
 def _resolve_spa_dir():
     """Return compiled SPA static directory when single-origin SPA serving is enabled."""
     import os
